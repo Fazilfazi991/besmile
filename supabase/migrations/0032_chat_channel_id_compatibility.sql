@@ -9,7 +9,11 @@ begin
     update public.chat_conversations set channel_id=id where channel_id is null;
 
     if exists(select 1 from information_schema.tables where table_schema='public' and table_name='chat_channels') then
-      execute 'insert into public.chat_channels(id) select channel_id from public.chat_conversations on conflict (id) do nothing';
+      execute $channels$insert into public.chat_channels(id,name,type)
+        select channel_id,
+          coalesce(nullif(title,''),case when conversation_type='personal' then 'Direct conversation' else 'Untitled group' end),
+          case when conversation_type='personal' then 'direct' else 'group' end
+        from public.chat_conversations on conflict (id) do nothing$channels$;
     end if;
   end if;
 end $$;
@@ -42,7 +46,7 @@ begin
   if conversation is not null then return conversation; end if;
   insert into public.chat_conversations(conversation_type,created_by,updated_at) values('personal',auth.uid(),now()) returning id into conversation;
   update public.chat_conversations set channel_id=conversation where id=conversation and channel_id is null;
-  if exists(select 1 from information_schema.tables where table_schema='public' and table_name='chat_channels') then execute format('insert into public.chat_channels(id) values (%L::uuid) on conflict (id) do nothing',conversation); end if;
+  if exists(select 1 from information_schema.tables where table_schema='public' and table_name='chat_channels') then insert into public.chat_channels(id,name,type) values(conversation,'Direct conversation','direct') on conflict (id) do nothing; end if;
   insert into public.chat_members(conversation_id,profile_id) values(conversation,auth.uid()),(conversation,other_profile);
   return conversation;
 end $$;
@@ -58,7 +62,7 @@ begin
   if exists(select 1 from unnest(coalesce(member_ids,'{}'::uuid[])) x left join public.profiles p on p.id=x where p.id is null or p.status<>'active') then raise exception 'Groups can contain active employees only'; end if;
   insert into public.chat_conversations(conversation_type,title,description,group_type,created_by,group_admin_id,updated_at) values('group',trim(chat_title),nullif(trim(chat_description),''),chat_type,auth.uid(),auth.uid(),now()) returning id into conversation;
   update public.chat_conversations set channel_id=conversation where id=conversation and channel_id is null;
-  if exists(select 1 from information_schema.tables where table_schema='public' and table_name='chat_channels') then execute format('insert into public.chat_channels(id) values (%L::uuid) on conflict (id) do nothing',conversation); end if;
+  if exists(select 1 from information_schema.tables where table_schema='public' and table_name='chat_channels') then insert into public.chat_channels(id,name,type) values(conversation,trim(chat_title),'group') on conflict (id) do nothing; end if;
   insert into public.chat_members(conversation_id,profile_id) select conversation,x from unnest(array_append(coalesce(member_ids,'{}'::uuid[]),auth.uid())) x on conflict do nothing;
   return conversation;
 end $$;
