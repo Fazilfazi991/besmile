@@ -1,0 +1,13 @@
+import { createClient } from '@supabase/supabase-js';
+import { existsSync, readFileSync } from 'node:fs';
+if(existsSync('.env.local')) for(const line of readFileSync('.env.local','utf8').split(/\r?\n/)){const match=line.match(/^([^#=]+)=(.*)$/);if(match&&!process.env[match[1]])process.env[match[1]]=match[2]}
+const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,password=process.env.SEED_USER_TEMP_PASSWORD;
+if(!url||!key||!password)throw new Error('Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and SEED_USER_TEMP_PASSWORD.');
+const admin=createClient(url,key,{auth:{autoRefreshToken:false,persistSession:false}});
+const users=[['Chairman','chairman@bsmile.local','chairman',null],['Director','director@bsmile.local','director','chairman@bsmile.local'],['Fayiz','fayiz@bsmile.local','general_manager','director@bsmile.local'],['Aseel Fuad A R','aseel.fuad@bsmile.local','staff','fayiz@bsmile.local'],['Diya Anthikat','diya.anthikat@bsmile.local','staff','fayiz@bsmile.local'],['Anushma VK','anushma.vk@bsmile.local','staff','fayiz@bsmile.local'],['Aiswarya P','aiswarya.p@bsmile.local','staff','fayiz@bsmile.local']];
+const ids=new Map();for(const [name,email] of users){const list=await admin.auth.admin.listUsers({perPage:1000});let user=list.data.users.find(u=>u.email===email);if(!user){const result=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{full_name:name}});if(result.error)throw result.error;user=result.data.user}ids.set(email,user.id)}
+const d=await admin.from('departments').select('id,name').in('name',['Executive','Operations']);if(d.error)throw d.error;const dept=new Map(d.data.map(x=>[x.name,x.id]));
+// Remove only legacy placeholder rows whose id does not match their Auth user. Valid reruns preserve existing records.
+const existing=await admin.from('profiles').select('id,email').in('email',users.map(([,email])=>email));if(existing.error)throw existing.error;
+const legacyEmails=existing.data.filter(profile=>profile.id!==ids.get(profile.email)).map(profile=>profile.email);if(legacyEmails.length){const old=await admin.from('profiles').delete().in('email',legacyEmails);if(old.error)throw old.error}
+for(const [name,email,role,managerEmail] of users){const result=await admin.from('profiles').upsert({id:ids.get(email),full_name:name,email,role,designation:role.replace('_',' '),department_id:dept.get(role==='staff'?'Operations':'Executive'),manager_id:managerEmail?ids.get(managerEmail):null,status:'active'},{onConflict:'id'});if(result.error)throw result.error}console.log('Seeded BSmile hierarchy safely.');

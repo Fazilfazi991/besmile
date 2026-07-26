@@ -1,0 +1,28 @@
+import { serverSupabase } from '@/lib/supabase-server';
+import { superAdminNavigation } from '@/lib/permission-catalogue';
+import { redirect } from 'next/navigation';
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const db = await serverSupabase();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect('/sign-in');
+  const { data: profile } = await db.from('profiles').select('full_name,email,role,designation,status').eq('id', user.id).maybeSingle();
+  if (!profile || profile.status !== 'active') redirect('/sign-in?inactive=1');
+  const permissionCodes = [...new Set(superAdminNavigation.flatMap(group => group.links.map(link => link.permission)))];
+  const permissionResults = await Promise.all(permissionCodes.map(permission => db.rpc('has_permission', { permission_code: permission })));
+  const allowed = new Set(permissionCodes.filter((_, index) => !!permissionResults[index].data));
+  const visibleGroups = superAdminNavigation.map(group => ({ ...group, links: group.links.filter(link => allowed.has(link.permission)) })).filter(group => group.links.length);
+  const name = profile.full_name || profile.email || 'BSmile User';
+
+  return <div className="app-shell employee-shell">
+    <aside className="app-sidebar">
+      <div className="brand"><img src="/images/bsmile-logo.png" alt="BSmile" /></div>
+      <nav>{visibleGroups.map(group => <div className="nav-group" key={group.title}><p>{group.title}</p>{group.links.map(link => <a className="nav-link" href={link.href} key={link.href}>{link.label}</a>)}</div>)}</nav>
+      <a className="sidebar-user" href="/admin/access"><b>{name}</b><small>{profile.role === 'super_admin' ? 'Super Admin' : profile.designation || profile.role}</small></a>
+    </aside>
+    <main className="app-main">
+      <header className="app-topbar"><div><p className="eyebrow">BSMILE CONTROL CENTER</p><h1>Super Admin Workspace</h1></div><a className="topbar-user" href="/admin/access"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile.role === 'super_admin' ? 'Super Admin' : profile.designation || 'Management'}</small></div></a></header>
+      <div className="app-content">{children}</div>
+    </main>
+  </div>;
+}

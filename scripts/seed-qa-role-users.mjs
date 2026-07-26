@@ -1,0 +1,16 @@
+import { createClient } from '@supabase/supabase-js';
+import { existsSync, readFileSync } from 'node:fs';
+if (existsSync('.env.local')) for (const line of readFileSync('.env.local', 'utf8').split(/\r?\n/)) { const match = line.match(/^([^#=]+)=(.*)$/); if (match && !process.env[match[1]]) process.env[match[1]] = match[2]; }
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production' || process.env.ALLOW_QA_SEED === 'false') throw new Error('QA seeding is disabled in production. Run it only against an isolated development or QA project.');
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL, serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY, password = process.env.QA_SEED_PASSWORD || process.env.SEED_USER_TEMP_PASSWORD;
+if (!url || !serviceKey || !password) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and QA_SEED_PASSWORD (or SEED_USER_TEMP_PASSWORD).');
+const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+const domain = '@qa.bsmile.local';
+const users = [['QA Super Admin',`super-admin${domain}`,'super_admin','active'],['QA Chairman',`chairman${domain}`,'chairman','active'],['QA Director',`director${domain}`,'director','active'],['QA General Manager',`general-manager${domain}`,'general_manager','active'],['QA Staff',`staff${domain}`,'staff','active'],['QA Temporary Finance Viewer',`finance-viewer${domain}`,'staff','active'],['QA Inactive Staff',`inactive${domain}`,'staff','inactive']];
+const list = await admin.auth.admin.listUsers({ perPage: 1000 }); if (list.error) throw list.error;
+const ids = new Map();
+for (const [fullName,email] of users) { let user = list.data.users.find(item => item.email === email); if (!user) { const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: fullName, qa_account: true } }); if (created.error) throw created.error; user = created.data.user; } ids.set(email,user.id); }
+for (const [fullName,email,role,status] of users) { const result = await admin.from('profiles').upsert({ id:ids.get(email),email,full_name:fullName,role,designation:'QA Test Account',status,manager_id:role==='staff'?ids.get(`general-manager${domain}`):null },{onConflict:'id'}); if(result.error)throw result.error; }
+const [{data:permission,error:permissionError},{data:grants,error:grantsError}] = await Promise.all([admin.from('permissions').select('id').eq('code','finance.view').single(),admin.from('user_permission_grants').select('id,permission_id').eq('profile_id',ids.get(`finance-viewer${domain}`)).is('revoked_at',null)]); if(permissionError)throw permissionError;if(grantsError)throw grantsError;
+if(!grants.some(grant=>grant.permission_id===permission.id)){const grant=await admin.from('user_permission_grants').insert({profile_id:ids.get(`finance-viewer${domain}`),permission_id:permission.id,granted_by:ids.get(`super-admin${domain}`),starts_at:new Date().toISOString(),expires_at:new Date(Date.now()+7*24*60*60*1000).toISOString(),reason:'Automated QA temporary finance-view test'});if(grant.error)throw grant.error;}
+console.log(`Prepared ${users.length} QA users under ${domain}. No non-QA account was modified.`);
