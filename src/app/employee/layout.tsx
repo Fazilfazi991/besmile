@@ -1,5 +1,6 @@
 import { serverSupabase } from '@/lib/supabase-server';
 import { SignOutButton } from '@/components/sign-out-button';
+import { GlobalCommandCenter } from '@/components/global-command-center';
 import { redirect } from 'next/navigation';
 
 const communicationLinks = [
@@ -11,7 +12,8 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
   const db = await serverSupabase();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/sign-in');
-  const { data: profile } = await db.from('profiles').select('full_name, role, designation').eq('id', user.id).maybeSingle();
+  const { data: profile } = await db.from('profiles').select('full_name, role, designation, status').eq('id', user.id).maybeSingle();
+  if (!profile || profile.status !== 'active') redirect('/sign-in?inactive=1');
   const name = profile?.full_name || user.email?.split('@')[0] || 'BSmile User';
   const [assignPermission, accessPermission] = await Promise.all([
     db.rpc('has_permission', { permission_code: 'tasks.assign' }),
@@ -34,7 +36,7 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
       <div className="sidebar-footer"><a className="sidebar-user" href="/employee/profile"><b>{name}</b><small>{profile?.designation || profile?.role || 'Employee'}</small></a><SignOutButton /></div>
     </aside>
     <main className="app-main">
-      <header className="app-topbar"><div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div><a className="topbar-user" href="/employee/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile?.designation || 'Employee'}</small></div></a></header>
+      <header className="app-topbar"><div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div><div className="flex items-center gap-3"><GlobalCommandCenter mode="employee" userId={user.id} /><a className="topbar-user" href="/employee/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile?.designation || 'Employee'}</small></div></a></div></header>
       <div className="app-content">{children}</div>
     </main>
   </div>;
