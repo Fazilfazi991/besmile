@@ -1,4 +1,5 @@
 import { serverSupabase } from '@/lib/supabase-server';
+import { SignOutButton } from '@/components/sign-out-button';
 import { redirect } from 'next/navigation';
 
 const communicationLinks = [
@@ -30,7 +31,7 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
         <EmployeeNavGroup title="COMMUNICATION" links={communicationLinks} />
         <EmployeeNavGroup title="CRM" links={crmLinks} />
       </nav>
-      <a className="sidebar-user" href="/employee/profile"><b>{name}</b><small>{profile?.designation || profile?.role || 'Employee'}</small></a>
+      <div className="sidebar-footer"><a className="sidebar-user" href="/employee/profile"><b>{name}</b><small>{profile?.designation || profile?.role || 'Employee'}</small></a><SignOutButton /></div>
     </aside>
     <main className="app-main">
       <header className="app-topbar"><div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div><a className="topbar-user" href="/employee/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile?.designation || 'Employee'}</small></div></a></header>

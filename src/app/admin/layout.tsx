@@ -1,5 +1,6 @@
 import { serverSupabase } from '@/lib/supabase-server';
 import { superAdminNavigation } from '@/lib/permission-catalogue';
+import { SignOutButton } from '@/components/sign-out-button';
 import { redirect } from 'next/navigation';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <aside className="app-sidebar">
       <div className="brand"><img src="/images/bsmile-logo.png" alt="BSmile" /></div>
       <nav>{visibleGroups.map(group => <div className="nav-group" key={group.title}><p>{group.title}</p>{group.links.map(link => <a className="nav-link" href={link.href} key={link.href}>{link.label}</a>)}</div>)}</nav>
-      <a className="sidebar-user" href="/admin/access"><b>{name}</b><small>{profile.role === 'super_admin' ? 'Super Admin' : profile.designation || profile.role}</small></a>
+      <div className="sidebar-footer"><a className="sidebar-user" href="/admin/access"><b>{name}</b><small>{profile.role === 'super_admin' ? 'Super Admin' : profile.designation || profile.role}</small></a><SignOutButton /></div>
     </aside>
     <main className="app-main">
       <header className="app-topbar"><div><p className="eyebrow">BSMILE CONTROL CENTER</p><h1>Super Admin Workspace</h1></div><a className="topbar-user" href="/admin/access"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile.role === 'super_admin' ? 'Super Admin' : profile.designation || 'Management'}</small></div></a></header>
