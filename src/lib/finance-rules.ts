@@ -1,0 +1,7 @@
+export const financeTotals=(rows:{transaction_type:string;amount:number;archived_at?:string|null}[])=>rows.filter(x=>!x.archived_at).reduce((total,x)=>({income:total.income+(['income','invoice_payment'].includes(x.transaction_type)?x.amount:0),expenses:total.expenses+(['expense','payroll_payment'].includes(x.transaction_type)?x.amount:0)}),{income:0,expenses:0});
+export const invoiceTotal=(items:{quantity:number;rate:number}[],discount=0,tax=0)=>Math.max(0,items.reduce((n,item)=>n+item.quantity*item.rate,0)-discount+tax);
+export const outstandingInvoice=(total:number,paid:number)=>Math.max(0,total-paid);
+export const canRecordInvoicePayment=(total:number,paid:number,amount:number)=>amount>0&&amount<=outstandingInvoice(total,paid);
+export const payrollNet=(basic:number,allowances:number,deductions:number)=>Math.max(0,basic+allowances-deductions);
+export const canPayPayrollEntry=(status:string,ledgerId?:string|null)=>status==='approved'&&!ledgerId;
+export const receiptValidationMessage=(mime:string,size:number)=>!['application/pdf','image/jpeg','image/png','image/webp'].includes(mime)?'unsupported':size>10*1024*1024?'too_large':null;

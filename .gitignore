@@ -13,7 +13,7 @@ tsconfig.tsbuildinfo
 analysis_options.yaml
 pubspec.yaml
 pubspec.lock
-lib/
+/lib/
 stitch_bsmile_internal_crm/
 test/
 *.class
