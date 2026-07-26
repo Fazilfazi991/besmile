@@ -38,7 +38,7 @@ export const adminRepository={
   r.from('document_requests').select('*',{count:'exact',head:true}).in('status',['requested','submitted']),
   r.from('notifications').select('*',{count:'exact',head:true}).is('read_at',null),
   r.from('crm_leads').select('*',{count:'exact',head:true}).is('archived_at',null),
-  r.from('crm_lead_followups').select('*',{count:'exact',head:true}).eq('next_followup_date',today),
+  r.from('crm_lead_followups').select('*',{count:'exact',head:true}).eq('next_follow_up_at',today),
   r.from('crm_leads').select('*',{count:'exact',head:true}).eq('temperature','hot').is('archived_at',null),
   r.from('crm_sales').select('*',{count:'exact',head:true}),
  ]);const results=[employees,present,onLeave,pendingLeave,openTasks,overdueTasks,pendingDocuments,unreadNotifications,leads,followups,hotLeads,sales];const failed=results.find((item:any)=>item.error);if(failed)throw failed.error;return {employees:employees.count||0,presentToday:present.count||0,onLeave:onLeave.count||0,pendingLeave:pendingLeave.count||0,openTasks:openTasks.count||0,overdueTasks:overdueTasks.count||0,pendingDocuments:pendingDocuments.count||0,unreadNotifications:unreadNotifications.count||0,leads:leads.count||0,followupsDue:followups.count||0,hotLeads:hotLeads.count||0,sales:sales.count||0}},
