@@ -169,16 +169,15 @@ export default function TasksPage() {
           </div>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 xl:flex-nowrap">
+      <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-2 sm:grid-cols-[minmax(0,1fr)_128px_128px_144px]">
         <input
-          className="input h-9 min-w-0 flex-1 py-1 text-sm"
+          className="input col-span-2 h-9 min-w-0 py-1 text-sm sm:col-span-1"
           placeholder="Search tasks"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         <select
-          style={{ width: 128 }}
-          className="input h-9 shrink-0 py-1 text-sm"
+          className="input h-9 w-full py-1 text-sm"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
@@ -190,8 +189,7 @@ export default function TasksPage() {
           ))}
         </select>
         <select
-          style={{ width: 128 }}
-          className="input h-9 shrink-0 py-1 text-sm"
+          className="input h-9 w-full py-1 text-sm"
           value={priority}
           onChange={(e) => setPriority(e.target.value)}
         >
@@ -202,15 +200,14 @@ export default function TasksPage() {
         </select>
         <input
           aria-label="Due date"
-          style={{ width: 144 }}
-          className="input h-9 shrink-0 py-1 text-sm"
+          className="input col-span-2 h-9 w-full py-1 text-sm sm:col-span-1"
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
         />
         {(query || status || priority || dueDate) && (
           <button
-            className="px-2 text-xs font-medium text-slate-600"
+            className="col-span-2 px-2 text-xs font-medium text-slate-600 sm:col-span-1"
             onClick={clear}
           >
             Clear
