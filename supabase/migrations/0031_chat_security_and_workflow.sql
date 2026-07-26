@@ -44,7 +44,7 @@ begin
   if not exists(select 1 from public.profiles where id=auth.uid() and status='active') then raise exception 'Inactive employees cannot use chat'; end if;
   if coalesce(trim(chat_title),'')='' then raise exception 'A group name is required'; end if;
   if chat_type not in ('general','department','team','management','project') then raise exception 'Choose a valid group type'; end if;
-  if (select count(distinct x) from unnest(array_append(coalesce(member_ids,'{}'::uuid[]),auth.uid())) x)<2 then raise exception 'A group needs at least two members'; end if;
+  if (select count(distinct x) from unnest(array_append(coalesce(member_ids,'{}'::uuid[]),auth.uid())) x)<3 then raise exception 'A group needs at least two additional members'; end if;
   if exists(select 1 from unnest(coalesce(member_ids,'{}'::uuid[])) x left join public.profiles p on p.id=x where p.id is null or p.status<>'active') then raise exception 'Groups can contain active employees only'; end if;
   insert into public.chat_conversations(conversation_type,title,description,group_type,created_by,group_admin_id,updated_at)
   values('group',trim(chat_title),nullif(trim(chat_description),''),chat_type,auth.uid(),auth.uid(),now()) returning id into conversation;
