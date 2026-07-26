@@ -4,6 +4,7 @@ import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from '
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
 import { supabase } from '@/lib/supabase';
+import { mergeChatMessages, upsertChatMessage } from '@/lib/chat-message-state';
 
 type Tab = 'all' | 'personal' | 'group' | 'unread';
 
@@ -55,7 +56,7 @@ export function ChatHub() {
       try {
         const rows = await employeeRepository.chatMessages(active.conversation_id);
         if (!alive) return;
-        setMessages(rows);
+        setMessages(current => mergeChatMessages(current, rows));
         await employeeRepository.markConversationRead(active.conversation_id, profile.id);
         setConversations(list => list.map(item => item.conversation_id === active.conversation_id ? { ...item, unread_count: 0 } : item));
         setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }), 20);
@@ -63,7 +64,7 @@ export function ChatHub() {
     };
     void loadMessages();
     const channel = supabase?.channel(`chat-${active.conversation_id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${active.conversation_id}` }, event => {
-      setMessages(rows => rows.some(row => row.id === event.new.id) ? rows : [...rows, event.new]);
+      setMessages(rows => upsertChatMessage(rows, event.new as any));
       if (event.new.sender_id !== profile.id) void employeeRepository.markConversationRead(active.conversation_id, profile.id);
     }).subscribe();
     return () => { alive = false; if (channel) supabase?.removeChannel(channel); };
@@ -86,10 +87,11 @@ export function ChatHub() {
     if (!active || !profile || sending || (!text.trim() && !file)) return;
     const channelId = active.chat_conversations?.channel_id;
     if (!channelId) { setError('Message could not be sent because the conversation was not ready. Please reopen the chat and try again.'); return; }
-    const pending = { id: `pending-${Date.now()}`, sender_id: profile.id, body: text.trim(), created_at: new Date().toISOString(), attachment_name: file?.name, attachment_size: file?.size };
+    const clientMessageId = crypto.randomUUID();
+    const pending = { id: `pending-${clientMessageId}`, client_message_id: clientMessageId, sender_id: profile.id, body: text.trim(), created_at: new Date().toISOString(), attachment_name: file?.name, attachment_size: file?.size, status: 'sending' };
     setSending(true); setError(''); setMessages(rows => [...rows, pending]); setText(''); setFile(null);
-    try { await employeeRepository.sendMessage({ conversation_id: active.conversation_id, channel_id: channelId, sender_id: profile.id, body: pending.body, file }); await load(active.conversation_id); }
-    catch (cause: any) { setMessages(rows => rows.filter(row => row.id !== pending.id)); setError(cause.message || 'Message could not be sent.'); }
+    try { const saved = await employeeRepository.sendMessage({ conversation_id: active.conversation_id, channel_id: channelId, sender_id: profile.id, body: pending.body, client_message_id: clientMessageId, file }); setMessages(rows => upsertChatMessage(rows, saved)); }
+    catch (cause: any) { setMessages(rows => rows.map(row => row.id === pending.id ? { ...row, status: 'failed' } : row)); setError('Message could not be sent. Please try again.'); console.error(cause); }
     finally { setSending(false); }
   };
   const submitKey = (event: KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } };
