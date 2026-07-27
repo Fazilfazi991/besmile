@@ -1,0 +1,15 @@
+import { NextResponse } from 'next/server';
+import { serverSupabase } from '@/lib/supabase-server';
+
+async function activeUser() {
+  const db = await serverSupabase(); const { data: { user } } = await db.auth.getUser();
+  if (!user) return { db, user: null };
+  const { data: profile } = await db.from('profiles').select('id,status').eq('id', user.id).maybeSingle();
+  return { db, user: profile?.status === 'active' ? user : null };
+}
+
+export async function GET() { const { db, user } = await activeUser(); if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 }); const { data, error } = await db.from('push_subscriptions').select('id,device_name,browser_name,platform,created_at,is_active').eq('user_id', user.id).order('created_at', { ascending: false }); return error ? NextResponse.json({ error: 'Unable to load devices.' }, { status: 500 }) : NextResponse.json({ devices: data || [] }); }
+
+export async function POST(request: Request) { const { db, user } = await activeUser(); if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 }); try { const body = await request.json(); const subscription = body?.subscription; const endpoint = subscription?.endpoint; const p256dh = subscription?.keys?.p256dh; const auth = subscription?.keys?.auth; if (![endpoint, p256dh, auth].every(value => typeof value === 'string' && value.length > 0) || endpoint.length > 2048) return NextResponse.json({ error: 'Invalid subscription.' }, { status: 400 }); const agent = String(request.headers.get('user-agent') || '').slice(0, 300); const { error } = await db.from('push_subscriptions').upsert({ user_id: user.id, endpoint, p256dh, auth, user_agent: agent, device_name: String(body?.deviceName || '').slice(0, 300) || null, browser_name: agent.includes('Edg/') ? 'Edge' : agent.includes('Firefox/') ? 'Firefox' : agent.includes('Chrome/') ? 'Chrome' : null, platform: agent.includes('Windows') ? 'Windows' : agent.includes('Android') ? 'Android' : agent.includes('iPhone') || agent.includes('iPad') ? 'iOS' : null, is_active: true, last_error: null, failure_count: 0 }, { onConflict: 'user_id,endpoint' }); return error ? NextResponse.json({ error: 'Unable to save this device.' }, { status: 500 }) : NextResponse.json({ ok: true }); } catch { return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); } }
+
+export async function DELETE(request: Request) { const { db, user } = await activeUser(); if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 }); try { const { endpoint } = await request.json(); if (typeof endpoint !== 'string') return NextResponse.json({ error: 'Invalid subscription.' }, { status: 400 }); const { error } = await db.from('push_subscriptions').update({ is_active: false }).eq('user_id', user.id).eq('endpoint', endpoint); return error ? NextResponse.json({ error: 'Unable to update this device.' }, { status: 500 }) : NextResponse.json({ ok: true }); } catch { return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); } }
