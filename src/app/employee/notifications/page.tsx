@@ -11,7 +11,7 @@ const safeLink = (link?: string | null) => link?.startsWith('/employee/') ? link
 export default function NotificationsPage() {
   const [profile, setProfile] = useState<any>(); const [items, setItems] = useState<any[]>([]); const [query, setQuery] = useState(''); const [type, setType] = useState(''); const [detail, setDetail] = useState<any>(); const [error, setError] = useState(''); const [loading, setLoading] = useState(true); const [preferencesOpen, setPreferencesOpen] = useState(false);
   const load = async () => { setLoading(true); try { const current = await currentProfile() as any; if (!current) throw new Error('Your session has expired.'); setProfile(current); setItems(await employeeRepository.notifications(current.id)); setError(''); } catch (caught: any) { setError(caught.message || 'Unable to load notifications.'); } finally { setLoading(false); } };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []);
   const read = async (item: any) => { if (!item.read_at && profile) { await employeeRepository.markNotificationRead(item.id, profile.id); setItems(current => current.map(row => row.id === item.id ? { ...row, read_at: new Date().toISOString() } : row)); } setDetail(item); };
   if (loading) return <section><h1 className="text-2xl font-bold">Notifications</h1><p className="mt-3 text-slate-600">Loading notifications...</p></section>;
   if (error && !profile) return <section><h1 className="text-2xl font-bold">Notifications</h1><p className="mt-3 text-rose-700">{error}</p></section>;
