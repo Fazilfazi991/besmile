@@ -3,6 +3,7 @@ import { superAdminNavigation } from '@/lib/permission-catalogue';
 import { SignOutButton } from '@/components/sign-out-button';
 import { GlobalCommandCenter } from '@/components/global-command-center';
 import { redirect } from 'next/navigation';
+import './print.css';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();

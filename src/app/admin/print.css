@@ -1,0 +1,13 @@
+@page { size: A4; margin: 12mm; }
+
+@media print {
+  html, body { width: 100% !important; margin: 0 !important; background: #fff !important; }
+  .app-sidebar, .app-topbar, .global-search-backdrop, .global-notifications, .no-print, [data-print-hidden="true"] { display: none !important; }
+  .app-shell, .app-main, .app-content, .employee-shell .app-content { display: block !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  .app-content > section { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  .app-content button, .app-content [role="dialog"], .app-content [class*="fixed"] { display: none !important; }
+  .app-content .card { box-shadow: none !important; }
+  .app-content table { min-width: 0 !important; }
+  .app-content thead { display: table-header-group; }
+  .app-content tr, .app-content dl, .app-content .card { break-inside: avoid; page-break-inside: avoid; }
+}
