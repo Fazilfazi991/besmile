@@ -41,8 +41,12 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase.from('profiles').select('role,status').eq('id', user.id).maybeSingle();
     if (!profile || profile.status !== 'active') return NextResponse.redirect(new URL('/sign-in?inactive=1', request.url));
-    const isManagement = ['super_admin', 'chairman', 'director', 'general_manager'].includes(profile.role);
-    if (path === '/') return NextResponse.redirect(new URL(isManagement ? '/admin' : '/employee/dashboard', request.url));
+    const isSuperAdmin = profile.role === 'super_admin';
+    // The application has two deliberate shells: Super Admin operates from the
+    // control center, while Chairman remains in the employee workspace.
+    if (path === '/') return NextResponse.redirect(new URL(isSuperAdmin ? '/admin' : '/employee/dashboard', request.url));
+    if (isSuperAdmin && path.startsWith('/employee')) return NextResponse.redirect(new URL('/admin', request.url));
+    if (profile.role === 'chairman' && path.startsWith('/admin')) return NextResponse.redirect(new URL('/employee/dashboard', request.url));
     if (path === '/employee') return NextResponse.redirect(new URL('/employee/dashboard', request.url));
     if (path.startsWith('/admin')) {
       const permission = requiredAdminPermission(path);

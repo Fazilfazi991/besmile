@@ -14,6 +14,7 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
   if (!user) redirect('/sign-in');
   const { data: profile } = await db.from('profiles').select('full_name, role, designation, status').eq('id', user.id).maybeSingle();
   if (!profile || profile.status !== 'active') redirect('/sign-in?inactive=1');
+  if (profile.role === 'super_admin') redirect('/admin');
   const name = profile?.full_name || user.email?.split('@')[0] || 'BSmile User';
   const [assignPermission, accessPermission] = await Promise.all([
     db.rpc('has_permission', { permission_code: 'tasks.assign' }),

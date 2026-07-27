@@ -10,6 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect('/sign-in');
   const { data: profile } = await db.from('profiles').select('full_name,email,role,designation,status').eq('id', user.id).maybeSingle();
   if (!profile || profile.status !== 'active') redirect('/sign-in?inactive=1');
+  if (profile.role === 'chairman') redirect('/employee/dashboard');
   const permissionCodes = [...new Set(superAdminNavigation.flatMap(group => group.links.map(link => link.permission)))];
   const permissionResults = await Promise.all(permissionCodes.map(permission => db.rpc('has_permission', { permission_code: permission })));
   const allowed = new Set<string>(permissionCodes.filter((_, index) => !!permissionResults[index].data));

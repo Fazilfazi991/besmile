@@ -63,7 +63,7 @@ export function ChatHub() {
       } catch (cause: any) { if (alive) setError(cause.message); }
     };
     void loadMessages();
-    const channel = supabase?.channel(`chat-${active.conversation_id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${active.conversation_id}` }, event => {
+    const channel = supabase?.channel(`chat-${active.conversation_id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${active.conversation_id}` }, (event: any) => {
       setMessages(rows => upsertChatMessage(rows, event.new as any));
       if (event.new.sender_id !== profile.id) void employeeRepository.markConversationRead(active.conversation_id, profile.id);
     }).subscribe();

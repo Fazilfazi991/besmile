@@ -6,4 +6,6 @@ const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // The SSR client keeps the browser session in cookies so middleware and server
 // layouts can recognize the user after navigating away from the sign-in page.
-export const supabase = url && key ? createBrowserClient<Database>(url, key) : null;
+// The schema is expanded incrementally through SQL migrations; keep the browser
+// client permissive until generated Supabase types are refreshed.
+export const supabase: any = url && key ? createBrowserClient<Database>(url, key) : null;
