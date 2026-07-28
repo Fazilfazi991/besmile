@@ -1,0 +1,1 @@
+import { PatientProfile } from '@/components/patient-ui'; export default async function PatientPage({params}:{params:Promise<{patientId:string}>}){return <PatientProfile patientId={(await params).patientId}/>}

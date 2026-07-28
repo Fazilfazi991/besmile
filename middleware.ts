@@ -14,6 +14,7 @@ function requiredAdminPermission(path: string) {
   if (path.startsWith('/admin/finance/reports')) return 'reports.view';
   if (path.startsWith('/admin/finance')) return 'finance.view';
   if (path === '/admin/access') return 'roles.manage';
+  if (path.startsWith('/admin/patients')) return 'patients.view';
   if (path.startsWith('/admin/crm/import')) return 'crm.import';
   if (path.startsWith('/admin/crm')) return 'crm.manage_all';
   if (path.startsWith('/admin/employees')) return 'employees.view';
