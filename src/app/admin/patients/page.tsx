@@ -1,1 +1,1 @@
-import { PatientList } from '@/components/patient-ui'; export default function PatientsPage(){return <PatientList/>}
+import { PatientList } from '@/components/patient-list'; export default function PatientsPage(){return <PatientList/>}
