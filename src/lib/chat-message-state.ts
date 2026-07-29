@@ -9,3 +9,5 @@ export function upsertChatMessage(current:ChatMessage[], incoming:ChatMessage){
 }
 
 export function mergeChatMessages(current:ChatMessage[], incoming:ChatMessage[]){return incoming.reduce((items,message)=>upsertChatMessage(items,message),current)}
+
+export function messagesForConversation(messages:ChatMessage[], conversationId:string){return messages.filter(message=>(message as any).conversation_id===conversationId)}

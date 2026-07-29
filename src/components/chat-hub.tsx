@@ -1,10 +1,13 @@
 'use client';
+/* Switching conversations intentionally clears the previous message state before loading. */
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
 import { supabase } from '@/lib/supabase';
 import { mergeChatMessages, upsertChatMessage } from '@/lib/chat-message-state';
+import './chat-hub-fixes.css';
 
 type Tab = 'all' | 'personal' | 'group' | 'unread';
 
@@ -33,6 +36,7 @@ export function ChatHub() {
   const [group, setGroup] = useState({ title: '', description: '', type: 'general', members: [] as string[] });
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const messageRequest = useRef(0);
 
   const load = async (selectedId?: string) => {
     try {
@@ -52,15 +56,18 @@ export function ChatHub() {
   useEffect(() => {
     if (!active || !profile) return;
     let alive = true;
+    const requestId = ++messageRequest.current;
+    setMessages([]);
+    setError('');
     const loadMessages = async () => {
       try {
         const rows = await employeeRepository.chatMessages(active.conversation_id);
-        if (!alive) return;
-        setMessages(current => mergeChatMessages(current, rows));
+        if (!alive || requestId !== messageRequest.current) return;
+        setMessages(rows.filter((message: any) => message.conversation_id === active.conversation_id));
         await employeeRepository.markConversationRead(active.conversation_id, profile.id);
         setConversations(list => list.map(item => item.conversation_id === active.conversation_id ? { ...item, unread_count: 0 } : item));
         setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }), 20);
-      } catch (cause: any) { if (alive) setError(cause.message); }
+      } catch (cause: any) { if (alive && requestId === messageRequest.current) setError(cause.message); }
     };
     void loadMessages();
     const channel = supabase?.channel(`chat-${active.conversation_id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${active.conversation_id}` }, (event: any) => {
@@ -101,7 +108,7 @@ export function ChatHub() {
       setNewChat(false); setSelectedPerson(undefined); setGroup({ title: '', description: '', type: 'general', members: [] }); await load(id);
     } catch (cause: any) { setError('Chat could not be created. Please try again shortly.'); console.error(cause); }
   };
-  const switchConversation = (item: any) => { setActive(item); setDetails(false); setMessageQuery(''); };
+  const switchConversation = (item: any) => { messageRequest.current++; setMessages([]); setError(''); setActive(item); setDetails(false); setMessageQuery(''); };
   if (loading) return <div className="chat-skeleton"><div /><div /></div>;
   if (!profile) return <section className="chat-state"><h1>Internal Chat</h1><p>{error || 'Sign in to use chat.'}</p></section>;
   const isGroup = active?.chat_conversations?.conversation_type === 'group';

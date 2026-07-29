@@ -1,0 +1,8 @@
+.chat-hub{height:calc(100dvh - 150px);min-height:520px;overflow:hidden}
+.chat-hub .chat-layout{height:calc(100% - 84px);min-height:0}
+.chat-hub .chat-conversation-panel{display:flex;min-height:0;flex-direction:column}
+.chat-hub .chat-conversation-list{min-height:0;max-height:none;flex:1;overflow-y:auto}
+.chat-hub .chat-message-panel{min-height:0;overflow:hidden}
+.chat-hub .chat-messages{min-height:0;overflow-y:auto}
+.chat-hub .chat-composer{flex:none;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+@media(max-width:680px){.chat-hub{height:calc(100dvh - 120px);min-height:0}.chat-hub .chat-layout{height:calc(100% - 105px);min-height:0}.chat-hub .chat-conversation-panel,.chat-hub .chat-message-panel{min-height:0;height:100%}}
