@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { currentProfile } from '@/lib/auth';
 import { adminRepository } from '@/lib/admin-repository';
 import { inr } from '@/components/finance-ui';
+import { invoiceTotal, invoiceValidationMessage } from '@/lib/finance-rules';
 
 type InvoiceItem = { description: string; quantity: number; rate: number };
 
@@ -21,7 +22,7 @@ export default function NewInvoice() {
   const [saving, setSaving] = useState<'draft' | 'sent' | null>(null);
   const [error, setError] = useState('');
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.rate || 0), 0), [items]);
-  const total = Math.max(0, subtotal - Number(form.discount || 0) + Number(form.tax || 0));
+  const total = invoiceTotal(items, Number(form.discount || 0), Number(form.tax || 0));
 
   function updateItem(index: number, patch: Partial<InvoiceItem>) {
     setItems(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
@@ -31,7 +32,9 @@ export default function NewInvoice() {
     event?.preventDefault();
     setError('');
     if (!form.customer_name.trim()) return setError('Customer name is required.');
-    if (!items.length || items.some(item => !item.description.trim() || item.quantity <= 0 || item.rate < 0)) return setError('Add at least one item with a description, quantity, and rate.');
+    const validation = invoiceValidationMessage(items, Number(form.discount), Number(form.tax));
+    if (validation) return setError(validation);
+    if (form.due_date && form.due_date < form.issue_date) return setError('Due date cannot be earlier than the invoice date.');
     setSaving(status);
     try {
       const profile = await currentProfile() as any;

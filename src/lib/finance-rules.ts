@@ -1,5 +1,6 @@
 export const financeTotals=(rows:{transaction_type:string;amount:number;archived_at?:string|null}[])=>rows.filter(x=>!x.archived_at).reduce((total,x)=>({income:total.income+(['income','invoice_payment'].includes(x.transaction_type)?x.amount:0),expenses:total.expenses+(['expense','payroll_payment'].includes(x.transaction_type)?x.amount:0)}),{income:0,expenses:0});
 export const invoiceTotal=(items:{quantity:number;rate:number}[],discount=0,tax=0)=>Math.max(0,items.reduce((n,item)=>n+item.quantity*item.rate,0)-discount+tax);
+export const invoiceValidationMessage=(items:{description:string;quantity:number;rate:number}[],discount=0,tax=0)=>!items.length?'Add at least one line item.':!Number.isFinite(discount)||!Number.isFinite(tax)||discount<0||tax<0?'Tax and discount must be zero or greater.':items.some(item=>!item.description.trim()||!Number.isFinite(item.quantity)||!Number.isFinite(item.rate)||item.quantity<=0||item.rate<0)?'Each line item needs a description, positive quantity, and non-negative rate.':null;
 export const outstandingInvoice=(total:number,paid:number)=>Math.max(0,total-paid);
 export const canRecordInvoicePayment=(total:number,paid:number,amount:number)=>amount>0&&amount<=outstandingInvoice(total,paid);
 export const payrollNet=(basic:number,allowances:number,deductions:number)=>Math.max(0,basic+allowances-deductions);

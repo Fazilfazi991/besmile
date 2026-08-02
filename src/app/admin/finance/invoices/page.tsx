@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { adminRepository } from '@/lib/admin-repository';
 import { FinanceEmpty, FinanceStatus, inr } from '@/components/finance-ui';
 
-const totalFor = (invoice: any) => (invoice.finance_invoice_items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 0) * Number(item.rate || 0), 0) + Number(invoice.tax || 0) - Number(invoice.discount || 0);
+const totalFor = (invoice: any) => Math.max(0, (invoice.finance_invoice_items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 0) * Number(item.rate || 0), 0) + Number(invoice.tax || 0) - Number(invoice.discount || 0));
 const paidFor = (invoice: any) => (invoice.finance_invoice_payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
 
 export default function Invoices() {
