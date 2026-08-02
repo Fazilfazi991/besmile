@@ -1,5 +1,6 @@
 import {supabase} from './supabase';
 import type {Employee} from './employees';
+import {employeeSalarySettingsSelect} from './payroll-query';
 const db=supabase as any;
 export type Department={id:string;name:string}; export type Designation={id:string;name:string;department_id:string|null}; export type AuditLog={id:string;action:string;entity_type:string;created_at:string;actor_id:string|null};
 function requireDb(){if(!db)throw new Error('Supabase is not configured.');return db}
@@ -19,7 +20,7 @@ export const adminRepository={
  async updateFinanceInvoice(id:string,patch:any){const {data,error}=await requireDb().from('finance_invoices').update(patch).eq('id',id).eq('status','draft').select().single();if(error)throw error;return data},
  async recordInvoicePayment(payload:any){const {data,error}=await requireDb().from('finance_invoice_payments').insert(payload).select().single();if(error)throw error;return data},
  async payrollRuns(){const {data,error}=await requireDb().from('payroll_runs').select('*,payroll_entries(*)').order('period_start',{ascending:false});if(error)throw error;return data||[]},
- async salarySettings(){const {data,error}=await requireDb().from('employee_salary_settings').select('*,profile:profiles(full_name,email,employee_code,designation,status,department:departments(name))').order('updated_at',{ascending:false});if(error)throw error;return data||[]},
+ async salarySettings(){const {data,error}=await requireDb().from('employee_salary_settings').select(employeeSalarySettingsSelect).order('updated_at',{ascending:false});if(error)throw error;return data||[]},
  async saveSalarySetting(payload:any){const {data,error}=await requireDb().from('employee_salary_settings').upsert(payload,{onConflict:'profile_id'}).select().single();if(error)throw error;return data},
  async createPayrollRun(payload:any,entries:any[]){const r=requireDb();const {data,error}=await r.from('payroll_runs').insert(payload).select().single();if(error)throw error;const result=await r.from('payroll_entries').insert(entries.map(item=>({...item,payroll_run_id:data.id})));if(result.error)throw result.error;return data},
  async payrollRun(id:string){const {data,error}=await requireDb().from('payroll_runs').select('*,payroll_entries(*,profile:profiles(full_name,email,employee_code,designation,department:departments(name)))').eq('id',id).single();if(error)throw error;return data},
