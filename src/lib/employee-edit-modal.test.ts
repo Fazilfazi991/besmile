@@ -30,4 +30,11 @@ describe('employee edit modal layout', () => {
     expect(page).toContain('name="manager_id"');
     expect(page.indexOf('const payload = employeeEditPayload')).toBeLessThan(page.indexOf('setBusy(true); try { await adminRepository.updateEmployee(profile.id, payload'));
   });
+
+  it('loads relation IDs required to preserve selected department and manager values', () => {
+    const repository = readFileSync(new URL('./admin-repository.ts', import.meta.url), 'utf8');
+    expect(repository).toContain('avatar_url,department_id,manager_id');
+    expect(page).toContain('department_id: profile.department_id ||');
+    expect(page).toContain('manager_id: profile.manager_id ||');
+  });
 });
