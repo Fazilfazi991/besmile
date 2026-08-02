@@ -1,25 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-
-function requiredAdminPermission(path: string) {
-  if (path === '/admin/tasks') return 'tasks.assign';
-  if (path === '/admin/task-access') return 'tasks.manage_access';
-  if (path === '/admin/documents') return 'documents.manage';
-  if (path === '/admin/announcements') return 'announcements.manage';
-  if (path === '/admin/notifications') return 'notifications.view';
-  if (path === '/admin/finance/invoices/new') return 'invoices.manage';
-  if (path.startsWith('/admin/finance/invoices')) return 'invoices.view';
-  if (path === '/admin/finance/payroll/settings') return 'payroll.manage';
-  if (path.startsWith('/admin/finance/payroll')) return 'payroll.view';
-  if (path.startsWith('/admin/finance/reports')) return 'reports.view';
-  if (path.startsWith('/admin/finance')) return 'finance.view';
-  if (path === '/admin/access') return 'roles.manage';
-  if (path.startsWith('/admin/patients')) return 'patients.view';
-  if (path.startsWith('/admin/crm/import')) return 'crm.import';
-  if (path.startsWith('/admin/crm')) return 'crm.manage_all';
-  if (path.startsWith('/admin/employees')) return 'employees.view';
-  return 'admin.access';
-}
+import { adminRouteRequirement, employeeRouteRequirement, isManagementRole, workspaceLandingPath } from '@/lib/permission-access';
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
@@ -43,16 +24,34 @@ export async function middleware(request: NextRequest) {
     const { data: profile } = await supabase.from('profiles').select('role,status').eq('id', user.id).maybeSingle();
     if (!profile || profile.status !== 'active') return NextResponse.redirect(new URL('/sign-in?inactive=1', request.url));
     const isSuperAdmin = profile.role === 'super_admin';
-    // The application has two deliberate shells: Super Admin operates from the
-    // control center, while Chairman remains in the employee workspace.
-    if (path === '/') return NextResponse.redirect(new URL(isSuperAdmin ? '/admin' : '/employee/dashboard', request.url));
-    if (isSuperAdmin && path.startsWith('/employee')) return NextResponse.redirect(new URL('/admin', request.url));
-    if (profile.role === 'chairman' && path.startsWith('/admin')) return NextResponse.redirect(new URL('/employee/dashboard', request.url));
-    if (path === '/employee') return NextResponse.redirect(new URL('/employee/dashboard', request.url));
+    const isManagement = isManagementRole(profile.role);
+    const hasAnyPermission = async (permissions: readonly string[]) => {
+      const checks = await Promise.all(permissions.map((permission) => supabase.rpc('has_permission', { permission_code: permission })));
+      return checks.some((check) => check.data === true);
+    };
+    const employeeLandingPath = async () => {
+      for (const candidate of ['/employee/dashboard', '/employee/patients', '/employee/crm', '/employee/announcements', '/employee/attendance', '/employee/leaves', '/employee/tasks', '/employee/documents', '/employee/chat']) {
+        const requirement = employeeRouteRequirement(candidate);
+        if (!requirement || await hasAnyPermission(requirement.anyOf)) return candidate;
+      }
+      return '/employee/profile';
+    };
+    // Management roles always use the control-center shell.  This is role based
+    // so a partially seeded permission set cannot put them in the employee UI.
+    if (path === '/') {
+      return NextResponse.redirect(new URL(isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath(), request.url));
+    }
+    if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return NextResponse.redirect(new URL('/admin', request.url));
+    if (path === '/employee') return NextResponse.redirect(new URL(await employeeLandingPath(), request.url));
     if (path.startsWith('/admin')) {
-      const permission = requiredAdminPermission(path);
-      const { data: allowed } = await supabase.rpc('has_permission', { permission_code: permission });
-      if (!allowed) return NextResponse.redirect(new URL('/employee/dashboard', request.url));
+      const requirement = adminRouteRequirement(path);
+      if (!await hasAnyPermission(requirement.anyOf)) return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+    if (path.startsWith('/employee')) {
+      const requirement = employeeRouteRequirement(path);
+      if (requirement) {
+        if (!await hasAnyPermission(requirement.anyOf)) return NextResponse.redirect(new URL('/unauthorized', request.url));
+      }
     }
   }
 

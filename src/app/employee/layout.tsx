@@ -2,11 +2,7 @@ import { serverSupabase } from '@/lib/supabase-server';
 import { SignOutButton } from '@/components/sign-out-button';
 import { GlobalCommandCenter } from '@/components/global-command-center';
 import { redirect } from 'next/navigation';
-
-const communicationLinks = [
-  ['Announcements', '/employee/announcements'], ['Notifications', '/employee/notifications'], ['Chat', '/employee/chat'], ['Profile', '/employee/profile'],
-];
-const crmLinks = [['CRM Dashboard', '/employee/crm'], ['My Leads', '/employee/crm/leads'], ['My Follow-ups', '/employee/crm/follow-ups'], ['My Sales', '/employee/crm/sales']];
+import { employeeNavigation, filterNavigation, isManagementRole, navigationPermissionCodes } from '@/lib/permission-access';
 
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
@@ -14,26 +10,16 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
   if (!user) redirect('/sign-in');
   const { data: profile } = await db.from('profiles').select('full_name, role, designation, status').eq('id', user.id).maybeSingle();
   if (!profile || profile.status !== 'active') redirect('/sign-in?inactive=1');
-  if (profile.role === 'super_admin') redirect('/admin');
+  if (profile.role === 'super_admin' || isManagementRole(profile.role)) redirect('/admin');
   const name = profile?.full_name || user.email?.split('@')[0] || 'BSmile User';
-  const [assignPermission, accessPermission] = await Promise.all([
-    db.rpc('has_permission', { permission_code: 'tasks.assign' }),
-    db.rpc('has_permission', { permission_code: 'tasks.manage_access' }),
-  ]);
-  const workspaceLinks = [
-    ['Dashboard', '/employee/dashboard'], ['Attendance', '/employee/attendance'], ['Leave', '/employee/leaves'],
-    ['Tasks', '/employee/tasks'], ...(assignPermission.data ? [['Manage Tasks', '/employee/tasks/manage']] : []),
-    ...(accessPermission.data ? [['Task Assignment Access', '/employee/tasks/access']] : []), ['Documents', '/employee/documents'],
-  ];
+  const permissionResults = await Promise.all(navigationPermissionCodes.map((permission) => db.rpc('has_permission', { permission_code: permission })));
+  const allowed = new Set<string>(navigationPermissionCodes.filter((_, index) => permissionResults[index].data === true));
+  const visibleGroups = filterNavigation(employeeNavigation, allowed);
 
   return <div className="app-shell employee-shell">
     <aside className="app-sidebar">
       <div className="brand"><img src="/images/bsmile-logo.png" alt="BSmile" /></div>
-      <nav>
-        <EmployeeNavGroup title="WORKSPACE" links={workspaceLinks} />
-        <EmployeeNavGroup title="COMMUNICATION" links={communicationLinks} />
-        <EmployeeNavGroup title="CRM" links={crmLinks} />
-      </nav>
+      <nav>{visibleGroups.map((group) => <EmployeeNavGroup title={group.title} links={group.links} key={group.title} />)}</nav>
       <div className="sidebar-footer"><a className="sidebar-user" href="/employee/profile"><b>{name}</b><small>{profile?.designation || profile?.role || 'Employee'}</small></a><SignOutButton /></div>
     </aside>
     <main className="app-main">
@@ -43,6 +29,6 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
   </div>;
 }
 
-function EmployeeNavGroup({ title, links }: { title: string; links: string[][] }) {
-  return <div className="nav-group"><p>{title}</p>{links.map(([label, href]) => <a className="nav-link" href={href} key={href}>{label}</a>)}</div>;
+function EmployeeNavGroup({ title, links }: { title: string; links: readonly { label: string; href: string }[] }) {
+  return <div className="nav-group"><p>{title}</p>{links.map((link) => <a className="nav-link" href={link.href} key={link.href}>{link.label}</a>)}</div>;
 }
