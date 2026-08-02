@@ -22,4 +22,11 @@ describe('employee edit modal layout', () => {
     expect(page).toContain("event.key === 'Escape'");
     expect(page).toContain("event.key !== 'Tab'");
   });
+
+  it('serializes the actual form controls rather than stale local state', () => {
+    expect(page).toContain('Object.fromEntries(new FormData(event.currentTarget))');
+    expect(page).toContain('name={key}');
+    expect(page).toContain('name="department_id"');
+    expect(page).toContain('name="manager_id"');
+  });
 });
