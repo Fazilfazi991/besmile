@@ -37,4 +37,11 @@ describe('employee edit modal layout', () => {
     expect(page).toContain('department_id: profile.department_id ||');
     expect(page).toContain('manager_id: profile.manager_id ||');
   });
+
+  it('uses a human-readable update denial instead of raw PostgREST single-row coercion', () => {
+    const repository = readFileSync(new URL('./admin-repository.ts', import.meta.url), 'utf8');
+    expect(repository).toContain('.maybeSingle()');
+    expect(repository).toContain('You do not have permission to update this employee, or the employee no longer exists.');
+    expect(repository).not.toContain("select('id,joining_date').single()");
+  });
 });
