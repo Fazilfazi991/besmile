@@ -51,6 +51,13 @@ describe('permission compatibility', () => {
     expect(permissionAllows(new Set(['employees.view']), adminRouteRequirement('/admin/employees/example'))).toBe(true);
   });
 
+  it('exposes leave approvals only to reviewers', () => {
+    expect(permissionAllows(new Set(['leave.approve']), adminRouteRequirement('/admin/leaves'))).toBe(true);
+    expect(permissionAllows(new Set(['leave.self']), adminRouteRequirement('/admin/leaves'))).toBe(false);
+    const labels = filterNavigation(adminNavigation, new Set(['leave.review'])).flatMap(group => group.links.map(link => link.label));
+    expect(labels).toContain('Leave approvals');
+  });
+
   it('does not let a team CRM view permission satisfy finance routes', () => {
     const granted = new Set(['crm.view_team']);
     expect(permissionAllows(granted, adminRouteRequirement('/admin/crm'))).toBe(true);

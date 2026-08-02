@@ -22,7 +22,7 @@ export default function ExecutiveDashboard() {
   const monthly = useMemo(() => monthTotals(finance?.monthly || [], currentMonth, previousMonth), [finance, currentMonth, previousMonth]);
   const attendanceTotal = Math.max(1, (summary?.presentToday || 0) + (summary?.lateToday || 0) + (summary?.onLeave || 0) + Math.max(0, (summary?.employees || 0) - (summary?.presentToday || 0) - (summary?.onLeave || 0)));
   const absent = Math.max(0, (summary?.employees || 0) - (summary?.presentToday || 0) - (summary?.onLeave || 0));
-  const pendingApprovals = [{ label: 'Leave requests', value: summary?.pendingLeave || 0, href: '/admin/employees', icon: '◷' }, { label: 'Payroll items', value: finance?.salariesPending ? 1 : 0, href: '/admin/finance/payroll', icon: '₹' }, { label: 'Document reviews', value: documents.filter(item => ['requested', 'submitted'].includes(item.status)).length, href: '/admin/documents', icon: '▣' }, { label: 'Overdue tasks', value: summary?.overdueTasks || 0, href: '/admin/tasks', icon: '✓' }];
+  const pendingApprovals = [{ label: 'Leave requests', value: summary?.pendingLeave || 0, href: '/admin/leaves', icon: '◷' }, { label: 'Payroll items', value: finance?.salariesPending ? 1 : 0, href: '/admin/finance/payroll', icon: '₹' }, { label: 'Document reviews', value: documents.filter(item => ['requested', 'submitted'].includes(item.status)).length, href: '/admin/documents', icon: '▣' }, { label: 'Overdue tasks', value: summary?.overdueTasks || 0, href: '/admin/tasks', icon: '✓' }];
 
   if (!summary) return <DashboardSkeleton />;
   const presentPercent = Math.round(((summary.presentToday || 0) / Math.max(1, summary.employees || 1)) * 100);
@@ -32,7 +32,7 @@ export default function ExecutiveDashboard() {
     { icon: '◉', title: 'Present today', value: summary.presentToday, detail: `${presentPercent}% attendance`, href: '/admin/employees' },
     { icon: '◎', title: 'Active leads', value: summary.leads, detail: `${summary.newLeads || 0} new today`, href: '/admin/crm' },
     { icon: '₹', title: 'Monthly revenue', value: inr(monthly.income), detail: trendLabel(monthly.income, monthly.previousIncome), href: '/admin/finance' },
-    { icon: '◷', title: 'Pending leave', value: summary.pendingLeave, detail: 'Requires review', href: '/admin/employees' },
+    { icon: '◷', title: 'Pending leave', value: summary.pendingLeave, detail: 'Requires review', href: '/admin/leaves' },
     { icon: '✓', title: 'Open tasks', value: summary.openTasks, detail: `${summary.overdueTasks || 0} overdue`, href: '/admin/tasks' },
     { icon: '▤', title: 'Outstanding invoices', value: inr(finance?.outstandingAmount || 0), detail: `${finance?.outstanding || 0} unpaid invoice${finance?.outstanding === 1 ? '' : 's'}`, href: '/admin/finance/invoices' },
     { icon: '▣', title: 'Payroll status', value: finance?.salariesPending ? 'Pending' : 'Clear', detail: finance?.recentRuns?.find((run: any) => run.status !== 'paid') ? `Period ends ${fmtDate(finance.recentRuns.find((run: any) => run.status !== 'paid').period_end)}` : 'No pending payroll', href: '/admin/finance/payroll' },
