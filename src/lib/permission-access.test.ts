@@ -44,6 +44,13 @@ describe('permission compatibility', () => {
     expect(permissionAllows(new Set(['payroll.view']), adminRouteRequirement('/admin/finance/payroll'))).toBe(true);
   });
 
+  it('requires employees.create for the employee creation route', () => {
+    expect(permissionAllows(new Set(['employees.view']), adminRouteRequirement('/admin/employees/new'))).toBe(false);
+    expect(permissionAllows(new Set(['employees.create']), adminRouteRequirement('/admin/employees/new'))).toBe(true);
+    expect(permissionAllows(new Set(['employees.edit']), adminRouteRequirement('/admin/employees/new'))).toBe(false);
+    expect(permissionAllows(new Set(['employees.view']), adminRouteRequirement('/admin/employees/example'))).toBe(true);
+  });
+
   it('does not let a team CRM view permission satisfy finance routes', () => {
     const granted = new Set(['crm.view_team']);
     expect(permissionAllows(granted, adminRouteRequirement('/admin/crm'))).toBe(true);

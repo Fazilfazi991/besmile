@@ -48,6 +48,7 @@ export function filterNavigation(groups: readonly NavigationGroup[], granted: Re
 
 export function adminRouteRequirement(path: string): PermissionRequirement {
   if (path === '/admin') return anyOf('admin.access', 'dashboard.view');
+  if (path === '/admin/employees/new') return anyOf('employees.create');
   if (path === '/admin/tasks') return anyOf('tasks.assign');
   if (path === '/admin/task-access') return anyOf('tasks.manage_access');
   if (path.startsWith('/admin/documents')) return anyOf('documents.manage', 'documents.employee.manage');
