@@ -13,8 +13,27 @@ export function isManagementRole(role?: string | null) {
   return managementRoleCodes.has(normalizeRole(role));
 }
 
+export function isSecurityAdministratorRole(role?: string | null) {
+  return normalizeRole(role) === 'super_admin';
+}
+
 export function workspaceLandingPath(role?: string | null) {
   return normalizeRole(role) === 'super_admin' || isManagementRole(role) ? '/admin' : '/employee/dashboard';
+}
+
+export function dashboardTitle(role?: string | null) {
+  const labels: Record<string, string> = {
+    super_admin: 'Super Admin Dashboard',
+    chairman: 'Chairman Dashboard',
+    director: 'Director Dashboard',
+    general_manager: 'General Manager Dashboard',
+  };
+  return labels[normalizeRole(role)] || 'Management Dashboard';
+}
+
+export function workspaceTitle(role?: string | null) {
+  const title = dashboardTitle(role).replace(' Dashboard', '');
+  return `${title} Workspace`;
 }
 
 const anyOf = (...permissions: string[]): PermissionRequirement => ({ anyOf: permissions });

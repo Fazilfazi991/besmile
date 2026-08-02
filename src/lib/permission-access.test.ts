@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminNavigation, adminRouteRequirement, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, permissionAllows, workspaceLandingPath } from './permission-access';
+import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, permissionAllows, workspaceLandingPath, workspaceTitle } from './permission-access';
 
 describe('permission compatibility', () => {
   it('normalizes every management role into the management workspace', () => {
@@ -15,6 +15,22 @@ describe('permission compatibility', () => {
     expect(workspaceLandingPath('Psychologist')).toBe('/employee/dashboard');
     expect(workspaceLandingPath('Intern')).toBe('/employee/dashboard');
     expect(workspaceLandingPath('Guest Sales')).toBe('/employee/dashboard');
+  });
+
+  it('uses role-aware dashboard and workspace labels without elevating management roles', () => {
+    expect(dashboardTitle('general_manager')).toBe('General Manager Dashboard');
+    expect(dashboardTitle('General Manager')).not.toBe('Super Admin Dashboard');
+    expect(workspaceTitle('general_manager')).toBe('General Manager Workspace');
+    expect(dashboardTitle('super_admin')).toBe('Super Admin Dashboard');
+    expect(workspaceTitle('super_admin')).toBe('Super Admin Workspace');
+  });
+
+  it('reserves security administration for an actual Super Admin role', () => {
+    expect(isSecurityAdministratorRole('super_admin')).toBe(true);
+    expect(isSecurityAdministratorRole('General Manager')).toBe(false);
+    expect(isSecurityAdministratorRole('Chairman')).toBe(false);
+    expect(isSecurityAdministratorRole('Director')).toBe(false);
+    expect(permissionAllows(new Set(['dashboard.view', 'employees.view']), adminRouteRequirement('/admin/access'))).toBe(false);
   });
 
   it('shows the General Manager management navigation from granular grants', () => {

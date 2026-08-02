@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { adminRouteRequirement, employeeRouteRequirement, isManagementRole, workspaceLandingPath } from '@/lib/permission-access';
+import { adminRouteRequirement, employeeRouteRequirement, isManagementRole, isSecurityAdministratorRole, workspaceLandingPath } from '@/lib/permission-access';
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
@@ -44,6 +44,7 @@ export async function middleware(request: NextRequest) {
     if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return NextResponse.redirect(new URL('/admin', request.url));
     if (path === '/employee') return NextResponse.redirect(new URL(await employeeLandingPath(), request.url));
     if (path.startsWith('/admin')) {
+      if (path.startsWith('/admin/access') && !isSecurityAdministratorRole(profile.role)) return NextResponse.redirect(new URL('/unauthorized', request.url));
       const requirement = adminRouteRequirement(path);
       if (!await hasAnyPermission(requirement.anyOf)) return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
