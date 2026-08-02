@@ -28,5 +28,6 @@ describe('employee edit modal layout', () => {
     expect(page).toContain('name={key}');
     expect(page).toContain('name="department_id"');
     expect(page).toContain('name="manager_id"');
+    expect(page.indexOf('const payload = employeeEditPayload')).toBeLessThan(page.indexOf('setBusy(true); try { await adminRepository.updateEmployee(profile.id, payload'));
   });
 });
