@@ -21,4 +21,11 @@ describe('employee operational activity access', () => {
     expect(migration).not.toContain("'password'");
     expect(migration).not.toContain("'token'");
   });
+
+  it('renders relation changes with operational labels and display names', () => {
+    expect(repository).toContain("field==='department_id'?'department'");
+    expect(repository).toContain("field==='manager_id'?'reporting_manager'");
+    expect(repository).toContain('departmentNames.get(raw)||raw');
+    expect(repository).toContain('managerNames.get(raw)||raw');
+  });
 });
