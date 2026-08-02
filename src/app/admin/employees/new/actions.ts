@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { serverSupabase } from '@/lib/supabase-server';
 import { isSecurityAdministratorRole, normalizeRole } from '@/lib/permission-access';
+import { normalizeDateOnly } from '@/lib/employee-edit-rules';
 
 const operationalRoles = new Set(['chairman', 'director', 'general_manager', 'psychologist', 'social_worker', 'intern', 'guest_sales', 'staff']);
 
@@ -22,10 +23,14 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   const fullName = String(form.get('full_name') || '').trim();
   const email = String(form.get('email') || '').trim().toLowerCase();
   const employeeCode = String(form.get('employee_code') || '').trim();
+  const designation = String(form.get('designation') || '').trim();
   const role = normalizeRole(String(form.get('role') || 'staff'));
   const departmentId = String(form.get('department_id') || '') || null;
   const managerId = String(form.get('manager_id') || '') || null;
-  if (!fullName || !email || !employeeCode || !departmentId || !operationalRoles.has(role)) return { error: 'Full name, email, employee code, department, and a valid operational role are required.' };
+  const rawJoiningDate = String(form.get('joining_date') || '');
+  let joiningDate: string | null = null;
+  try { joiningDate = rawJoiningDate ? normalizeDateOnly(rawJoiningDate) : null; } catch { return { error: 'Joining date must be a valid calendar date.' }; }
+  if (!fullName || !email || !employeeCode || !departmentId || !designation || !operationalRoles.has(role)) return { error: 'Full name, email, employee code, department, designation, and a valid operational role are required.' };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: 'Enter a valid work email address.' };
   if (role === 'super_admin' || (!isSecurityAdministratorRole(profileResult.data.role) && role === 'super_admin')) return { error: 'Only a Super Admin can assign the Super Admin role.' };
 
@@ -40,8 +45,8 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   if (inviteError || !invitation.user) return { error: inviteError?.message || 'The employee invitation could not be created.' };
   const { error: profileError } = await admin.from('profiles').insert({
     id: invitation.user.id, full_name: fullName, email, employee_code: employeeCode, phone: String(form.get('phone') || '').trim() || null,
-    department_id: departmentId, designation: String(form.get('designation') || '').trim() || null, role, manager_id: managerId,
-    joining_date: String(form.get('joining_date') || '') || null, employment_type: String(form.get('employment_type') || '').trim() || null,
+    department_id: departmentId, designation, role, manager_id: managerId,
+    joining_date: joiningDate, employment_type: String(form.get('employment_type') || '').trim() || null,
     status: form.get('status') === 'inactive' ? 'inactive' : 'active',
   });
   if (profileError) {
