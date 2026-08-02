@@ -8,6 +8,7 @@ export const permissionCatalogue = [
   'patient_documents.view','patient_documents.upload','patient_documents.download','patient_documents.replace','patient_documents.archive','patient_documents.delete',
   'patient_notes.view','patient_notes.create','patient_notes.edit','patient_notes.delete',
   'clinical_notes.view','clinical_notes.create','clinical_notes.edit','clinical_notes.delete','patient_activity.view',
+  'patient_sessions.create','patient_sessions.edit','patient_sessions.cancel',
 ] as const;
 
 export type PermissionCode = typeof permissionCatalogue[number];
