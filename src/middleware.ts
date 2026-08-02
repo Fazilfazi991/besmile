@@ -36,11 +36,7 @@ export async function middleware(request: NextRequest) {
       }
       return '/employee/profile';
     };
-    // Management roles always use the control-center shell.  This is role based
-    // so a partially seeded permission set cannot put them in the employee UI.
-    if (path === '/') {
-      return NextResponse.redirect(new URL(isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath(), request.url));
-    }
+    if (path === '/') return NextResponse.redirect(new URL(isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath(), request.url));
     if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return NextResponse.redirect(new URL('/admin', request.url));
     if (path === '/employee') return NextResponse.redirect(new URL(await employeeLandingPath(), request.url));
     if (path.startsWith('/admin')) {
@@ -50,9 +46,7 @@ export async function middleware(request: NextRequest) {
     }
     if (path.startsWith('/employee')) {
       const requirement = employeeRouteRequirement(path);
-      if (requirement) {
-        if (!await hasAnyPermission(requirement.anyOf)) return NextResponse.redirect(new URL('/unauthorized', request.url));
-      }
+      if (requirement && !await hasAnyPermission(requirement.anyOf)) return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
   }
 
