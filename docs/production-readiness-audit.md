@@ -1,0 +1,42 @@
+# BSmile CRM production-readiness audit
+
+Status: in progress. This register records live evidence only; passing unit tests
+or a successful build is not counted as production acceptance.
+
+## Coverage started
+
+- Environment: live BSmile CRM and Supabase project `ksmqzxncdvuxiabypjth`
+- Roles authenticated or inspected: Super Admin (QA), Chairman (QA), Director
+  (QA), General Manager, Social Worker, Psychologist, Intern, Guest Sales,
+  Staff (QA)
+- Live browser checks: General Manager, Guest Sales, Social Worker,
+  Psychologist
+- Authenticated RLS/storage checks: Intern and Guest Sales
+
+## Issue register
+
+| ID | Severity | Module | Role | Finding | Resolution | Retest |
+| --- | --- | --- | --- | --- | --- | --- |
+| SEC-001 | High | Roles & Access | Chairman, Director | `has_permission` returned `true` for `roles.manage`, `permissions.manage`, and `audit.view`, contrary to the security model. | Applied forward-only migration `0049_security_permissions_super_admin_only.sql`; it revokes protected role and direct grants from all non-super-admin management roles. | Passed: authenticated checks show all three permissions false for Chairman and Director; Super Admin remains true. |
+| AUTH-002 | High | Employee workspace | Social Worker | The dashboard showed attendance, leave, and task actions, but `/employee/attendance` redirected to `/unauthorized` because self-service grants were missing. | Applied forward-only migration `0050_employee_self_service_permission_baseline.sql` with scoped self-service grants only. | Passed: Social Worker sidebar includes Attendance, Leave, Tasks and Chat; direct attendance route loads. |
+| AUTH-003 | Medium | Role matrix tooling | QA audit accounts | Existing QA passwords differ from the shared employee credential, so API audit tooling must use the controlled QA credential from local secure configuration. | Audit script reports failed authentication rather than assuming a role result. | Open: keep credentials out of source and use the secure test credential only. |
+
+## Verified controls
+
+- General Manager: role-aware dashboard label, profile route, and denial of
+  `/admin/access`.
+- Guest Sales: assigned CRM access, attendance and finance route denial, safe
+  unavailable-lead response without raw database errors.
+- Intern: assigned patient and document metadata/signed URL access only;
+  unassigned patient/document, finance, and employee directory are blocked by
+  authenticated RLS tests.
+- Guest Sales: assigned lead/sale and sales-document access works; patients,
+  finance, and employee directory are blocked by authenticated RLS tests.
+- Psychologist: self-service workspace loads; direct finance route is denied.
+
+## Remaining audit batches
+
+1. Complete role-by-role browser and responsive navigation/route coverage.
+2. Employees, attendance, leave, task, chat, and notification workflows.
+3. CRM, patients/documents, finance, payroll, invoices, and reports workflows.
+4. API, storage, and RLS operation matrix; final regression/build validation.
