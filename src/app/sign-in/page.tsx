@@ -16,7 +16,8 @@ export default function SignIn() {
     try {
       await signIn(email, password);
       // Use a full navigation so middleware reads the freshly written auth cookie.
-      window.location.assign('/');
+      // The employee resolver also redirects management roles to the admin shell.
+      window.location.assign('/employee');
     } catch (caughtError: any) {
       setError(caughtError.message || 'Unable to sign in. Please try again.');
       setBusy(false);
