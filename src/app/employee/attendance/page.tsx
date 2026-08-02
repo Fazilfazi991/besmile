@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
-import { dateKey, minutes, monthlyDays, weekday } from '@/lib/attendance-rules';
+import { canClockIn, dateKey, minutes, monthlyDays, weekday } from '@/lib/attendance-rules';
 import { EmployeeBanner, EmployeeLoading, EmployeeMetric, EmployeeMetricGrid, EmployeePageHeader, EmployeeSection, EmployeeStatusBadge } from '@/components/employee-ui';
 
 const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -71,13 +71,14 @@ export default function AttendancePage() {
   if (error && !data) return <section><EmployeePageHeader title="Attendance" subtitle="View your monthly attendance and working time." /><EmployeeBanner>{error}</EmployeeBanner><button className="btn btn-primary" onClick={() => void load()}>Try again</button></section>;
   const firstOffset = weekday(new Date(`${data.days[0].key}T12:00:00Z`), data.settings.timezone) - 1;
   const todayStatus = activeToday?.row?.clock_in ? label(activeToday.status) : activeToday?.status === 'absent' ? 'Not clocked in' : label(activeToday?.status || '');
+  const clockInAllowed = canClockIn(activeToday?.status || 'future');
 
   return <section className="space-y-4">
     <EmployeePageHeader title="Attendance" subtitle="View your monthly attendance and working time." action={<div className="flex flex-wrap items-center justify-end gap-2"><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1))}>Previous</button><div className="min-w-36 text-center text-sm font-bold">{month.toLocaleString('en', { month: 'long', year: 'numeric' })}</div><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1))}>Next</button><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date())}>Today</button></div>} />
     <EmployeeSection title="Today's attendance" description={activeToday?.row?.clock_in ? 'Your current attendance and working time.' : 'Start your day when you are ready.'} className="border-teal-100">
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Detail label="Current status" value={todayStatus} /><Detail label="Clock in" value={time(activeToday?.row?.clock_in)} /><Detail label="Clock out" value={time(activeToday?.row?.clock_out)} /><Detail label="Working hours" value={activeToday?.row?.clock_in ? duration(minutes(activeToday.row)) : '—'} /></div>
-        <div className="flex flex-wrap gap-2 lg:justify-end">{!activeToday?.row && <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockIn')}>{acting ? 'Clocking in...' : 'Clock in'}</button>}{activeToday?.row && !activeToday.row.clock_out && <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>{acting ? 'Clocking out...' : 'Clock out'}</button>}</div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">{!activeToday?.row && <button className="btn btn-primary" disabled={acting || !clockInAllowed} title={clockInAllowed ? undefined : `Clock-in is unavailable on ${activeToday?.status || 'this day'}.`} onClick={() => void attendanceAction('clockIn')}>{acting ? 'Clocking in...' : 'Clock in'}</button>}{activeToday?.row && !activeToday.row.clock_out && <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>{acting ? 'Clocking out...' : 'Clock out'}</button>}</div>
       </div>
     </EmployeeSection>
     <EmployeeMetricGrid columns={4}><EmployeeMetric label="Present" value={summary.present} tone="success" /><EmployeeMetric label="Absent" value={summary.absent} tone="danger" /><EmployeeMetric label="Leave" value={summary.leave} tone="info" /><EmployeeMetric label="Working hours" value={duration(summary.work)} /></EmployeeMetricGrid>
