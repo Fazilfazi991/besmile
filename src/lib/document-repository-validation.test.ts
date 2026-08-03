@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const upload = vi.fn();
@@ -53,5 +55,15 @@ describe('employee document repository validation', () => {
 
     expect(from).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('cleans uploaded employee-request objects and restores request status when metadata persistence fails', () => {
+    const repository = readFileSync(resolve(process.cwd(), 'src/lib/employee-repository.ts'), 'utf8');
+
+    expect(repository).toContain("select('status')");
+    expect(repository).toContain('previousStatus');
+    expect(repository).toContain("storage.from('employee-documents').remove([path])");
+    expect(repository).toContain('update({status:previousStatus})');
+    expect(repository).toContain('file_size:file.size');
   });
 });
