@@ -69,13 +69,13 @@ on conflict(name) do update set is_active=true;
 insert into public.designations(name,is_active)
 select seed.name, true
 from (values
- ('General Manager'),('Psychologist'),('Social Worker'),('Director'),('Chairman'),
+ ('General Manager'),('Psychologist'),('Director'),('Chairman'),
  ('Psychology Intern'),('Social Work Intern'),('Administration Intern'),('Online Psychologist'),('Guest Sales')
 ) as seed(name)
 where not exists (select 1 from public.designations existing where existing.name=seed.name and existing.department_id is null);
 
 insert into public.roles(code,name) values
- ('psychologist','Psychologist'),('social_worker','Social Worker'),('intern','Intern'),('guest_sales','Guest – Sales')
+ ('psychologist','Psychologist'),('intern','Intern'),('guest_sales','Guest – Sales')
 on conflict(code) do update set name=excluded.name;
 
 insert into public.permissions(code,description) values
@@ -103,19 +103,17 @@ do $$ begin
     select r.id,p.id from public.roles r join public.permissions p on
       (r.code in ('chairman','director','general_manager') and p.code in ('admin.access','dashboard.view','leads.view','leads.create','leads.edit','leads.assign','leads.manage_status','employees.view','employees.create','employees.edit','attendance.view','attendance.manage','leave.view','leave.manage','leave.approve','innovation.view','innovation.create','innovation.comment','innovation.manage','calendar.view','calendar.create','calendar.edit','calendar.manage','feedback.view','feedback.manage','members.view','members.manage','finance.dashboard.view','income.view','income.manage','expenses.view','expenses.manage','payroll.view','payroll.manage','invoices.view','invoices.manage','reports.finance.view','roles.view','roles.manage','permissions.view','permissions.manage','departments.manage','designations.manage','company_settings.manage'))
       or (r.code='psychologist' and p.code in ('innovation.view','innovation.create','innovation.comment','calendar.view','calendar.create','calendar.edit','feedback.view','patients.view','patients.create','patients.edit','patient_documents.view','patient_documents.upload','patient_documents.download','patient_notes.view','patient_notes.create','patient_notes.edit','clinical_notes.view','clinical_notes.create','clinical_notes.edit'))
-      or (r.code='social_worker' and p.code in ('dashboard.view','leads.view','leads.create','leads.edit','leads.manage_status','employees.view','innovation.view','innovation.create','innovation.comment','calendar.view','calendar.create','calendar.edit','feedback.view','members.view','patients.view','patients.create','patients.edit','patient_documents.view','patient_documents.upload','patient_documents.download','patient_notes.view','patient_notes.create','patient_notes.edit'))
       or (r.code='intern' and p.code in ('patient_documents.view','patient_documents.download'))
       or (r.code='guest_sales' and p.code in ('leads.view','leads.edit','leads.manage_status','leads.documents.view','leads.documents.manage'))
     on conflict do nothing;
   elsif exists(select 1 from information_schema.columns where table_schema='public' and table_name='role_permissions' and column_name='role') then
     insert into public.role_permissions(role,permission_id)
-    select (case r.code when 'psychologist' then 'Psychologist' when 'social_worker' then 'Social Worker' when 'intern' then 'Intern' when 'guest_sales' then 'Guest – Sales' end)::public.employee_role,p.id
+    select (case r.code when 'psychologist' then 'Psychologist' when 'intern' then 'Intern' when 'guest_sales' then 'Guest – Sales' end)::public.employee_role,p.id
     from public.roles r join public.permissions p on
       (r.code='psychologist' and p.code in ('innovation.view','innovation.create','innovation.comment','calendar.view','calendar.create','calendar.edit','feedback.view','patients.view','patients.create','patients.edit','patient_documents.view','patient_documents.upload','patient_documents.download','patient_notes.view','patient_notes.create','patient_notes.edit','clinical_notes.view','clinical_notes.create','clinical_notes.edit'))
-      or (r.code='social_worker' and p.code in ('dashboard.view','leads.view','leads.create','leads.edit','leads.manage_status','employees.view','innovation.view','innovation.create','innovation.comment','calendar.view','calendar.create','calendar.edit','feedback.view','members.view','patients.view','patients.create','patients.edit','patient_documents.view','patient_documents.upload','patient_documents.download','patient_notes.view','patient_notes.create','patient_notes.edit'))
       or (r.code='intern' and p.code in ('patient_documents.view','patient_documents.download'))
       or (r.code='guest_sales' and p.code in ('leads.view','leads.edit','leads.manage_status','leads.documents.view','leads.documents.manage'))
-    where r.code in ('psychologist','social_worker','intern','guest_sales')
+    where r.code in ('psychologist','intern','guest_sales')
     on conflict do nothing;
   end if;
 end $$;
@@ -125,7 +123,7 @@ end $$;
 with staff(employee_code,full_name,email,phone,department_name,designation,joining_date,role_code) as (
  values
  ('A001','Muhammad Faiz AU','bsmile.gm@gmail.com','9207626952','Management','General Manager',null::date,'general_manager'::public.app_role),
- ('A002','Diya Anthikat','diyaadminbsmile@gmail.com','8779665569','Administration','Social Worker','2026-01-26'::date,'social_worker'::public.app_role),
+ ('A002','Diya Anthikat','diyaadminbsmile@gmail.com','8779665569','Administration','Admin','2026-01-26'::date,'staff'::public.app_role),
  ('A004','Aiswarya P','aiswaryabsmile@gmail.com','8606774707','Psychology','Psychologist','2026-02-15'::date,'psychologist'::public.app_role)
 )
 insert into public.profiles(id,employee_code,full_name,email,phone,department_id,designation,joining_date,role,status,manager_id)

@@ -9,7 +9,7 @@ const inviteMissing = process.argv.includes('--invite-missing');
 const createMissingWithoutEmail = process.argv.includes('--create-missing-no-email');
 const staff = [
   { employee_code: 'A001', full_name: 'Muhammad Faiz AU', email: 'bsmile.gm@gmail.com', phone: '9207626952', department: 'Management', designation: 'General Manager', joining_date: null, role: 'general_manager' },
-  { employee_code: 'A002', full_name: 'Diya Anthikat', email: 'diyaadminbsmile@gmail.com', phone: '8779665569', department: 'Administration', designation: 'Social Worker', joining_date: '2026-01-26', role: 'social_worker' },
+  { employee_code: 'A002', full_name: 'Diya Anthikat', email: 'diyaadminbsmile@gmail.com', phone: '8779665569', department: 'Administration', designation: 'Admin', joining_date: '2026-01-26', role: 'staff' },
   { employee_code: 'A004', full_name: 'Aiswarya P', email: 'aiswaryabsmile@gmail.com', phone: '8606774707', department: 'Psychology', designation: 'Psychologist', joining_date: '2026-02-15', role: 'psychologist' },
 ];
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });

@@ -116,7 +116,6 @@ begin
     select seed.role_name::public.employee_role, permission.id
     from (
       values
-        ('Social Worker', care_team_permissions),
         ('Psychologist', care_team_permissions || psychologist_extra),
         ('Intern', intern_permissions)
     ) as seed(role_name, codes)
@@ -135,7 +134,6 @@ begin
     join public.permissions permission
       on (
         (role.code = 'general_manager' and permission.code = any(gm_permissions))
-        or (role.code = 'social_worker' and permission.code = any(care_team_permissions))
         or (role.code = 'psychologist' and permission.code = any(care_team_permissions || psychologist_extra))
         or (role.code = 'intern' and permission.code = any(intern_permissions))
       )

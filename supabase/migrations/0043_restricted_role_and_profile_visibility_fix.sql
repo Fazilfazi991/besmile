@@ -11,7 +11,6 @@ begin
       when 'director' then 'Director'
       when 'general_manager' then 'General Manager'
       when 'psychologist' then 'Psychologist'
-      when 'social_worker' then 'Social Worker'
       when 'intern' then 'Intern'
       when 'guest_sales' then 'Guest – Sales'
       else initcap(replace(subject_role::text,'_',' '))

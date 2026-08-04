@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
 
@@ -35,6 +36,8 @@ function leaveErrorMessage(error: unknown) {
 }
 
 export default function LeavesPage() {
+  const searchParams = useSearchParams();
+  const requestId = searchParams.get('request') || '';
   const [profile, setProfile] = useState<any>();
   const [types, setTypes] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
@@ -81,6 +84,7 @@ export default function LeavesPage() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, []);
+  useEffect(() => { if (!requestId) return; window.setTimeout(() => document.getElementById(`leave-request-${requestId}`)?.scrollIntoView({ block: 'center' }), 100); }, [requestId, requests.length]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -123,6 +127,7 @@ export default function LeavesPage() {
   const upcoming = requests.find(
     (request) => request.status === 'approved' && request.starts_on >= today,
   );
+  const linkedRequestMissing = requestId && requests.length > 0 && !requests.some(request => request.id === requestId);
 
   if (loading) {
     return (
@@ -191,6 +196,11 @@ export default function LeavesPage() {
           className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"
         >
           {error}
+        </p>
+      )}
+      {linkedRequestMissing && (
+        <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          This request is no longer available.
         </p>
       )}
 
@@ -302,7 +312,7 @@ export default function LeavesPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {requests.map((request) => (
-                <article className="p-4 md:px-5" key={request.id}>
+                <article className={`p-4 md:px-5 ${request.id === requestId ? 'bg-amber-50 ring-2 ring-inset ring-amber-300' : ''}`} id={`leave-request-${request.id}`} key={request.id}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <b>{request.leave_types?.name || request.leave_type || 'Leave request'}</b>

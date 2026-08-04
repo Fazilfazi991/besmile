@@ -15,7 +15,7 @@ const accounts = [
   ['chairman', 'chairman@qa.bsmile.local'],
   ['director', 'director@qa.bsmile.local'],
   ['general_manager', 'bsmile.gm@gmail.com'],
-  ['social_worker', 'diyaadminbsmile@gmail.com'],
+  ['staff', 'diyaadminbsmile@gmail.com'],
   ['psychologist', 'aiswaryabsmile@gmail.com'],
   ['intern', 'ayishamuneer.dxb@gmail.com'],
   ['guest_sales', 'fazil4fazi@gmail.com'],

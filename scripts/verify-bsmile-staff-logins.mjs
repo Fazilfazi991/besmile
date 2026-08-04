@@ -7,7 +7,7 @@ if (projectRef !== 'ksmqzxncdvuxiabypjth' || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const approvedTemporaryCredential = String.fromCharCode(66, 115, 109, 105, 108, 101, 64, 49, 50, 51, 52);
 const staff = [
   { email: 'bsmile.gm@gmail.com', id: 'e64c5750-b585-4cab-9478-2c1fbad3b26e', role: 'general_manager', route: '/admin', landingPermission: 'leave.approve' },
-  { email: 'diyaadminbsmile@gmail.com', id: 'ccb736c8-de18-4dec-9b18-cda4c3fdd1b5', role: 'social_worker', route: '/employee/dashboard' },
+  { email: 'diyaadminbsmile@gmail.com', id: 'ccb736c8-de18-4dec-9b18-cda4c3fdd1b5', role: 'staff', route: '/employee/dashboard', landingPermission: 'dashboard.view' },
   { email: 'aiswaryabsmile@gmail.com', id: '4096a95f-970b-4542-8f18-cf5dd6a66150', role: 'psychologist', route: '/employee/patients', landingPermission: 'patients.view' },
 ];
 

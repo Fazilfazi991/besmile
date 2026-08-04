@@ -1,3 +1,5 @@
+import { normalizeGender } from './gender';
+
 export type EmployeeEditInput = Record<string, unknown>;
 
 export function normalizeDateOnly(value: unknown): string | null {
@@ -12,8 +14,10 @@ export function normalizeDateOnly(value: unknown): string | null {
 }
 
 export function employeeEditPayload(input: EmployeeEditInput) {
+  const gender = normalizeGender(String(input.gender || ''));
   return {
     ...input,
+    gender: gender || null,
     department_id: input.department_id || null,
     manager_id: input.manager_id || null,
     joining_date: normalizeDateOnly(input.joining_date),

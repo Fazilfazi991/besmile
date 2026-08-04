@@ -30,7 +30,7 @@ const { data: buckets, error: bucketError } = await admin.storage.listBuckets();
 if (bucketError) throw bucketError;
 const { data: rolePermissionRows, error: rolePermissionError } = await admin.from('role_permissions').select('role,permission:permissions(code)');
 if (rolePermissionError) throw rolePermissionError;
-const relevantRoles = ['General Manager', 'Psychologist', 'Social Worker', 'Intern', 'Guest – Sales'];
+const relevantRoles = ['General Manager', 'Psychologist', 'Intern', 'Guest – Sales'];
 const rolePermissions = Object.fromEntries(relevantRoles.map((role) => [role, rolePermissionRows.filter((row) => row.role === role).map((row) => row.permission?.code).filter(Boolean).sort()]));
 const { data: restrictedProfiles, error: restrictedProfileError } = await admin.from('profiles').select('id,email,role,status').in('role', ['intern', 'guest_sales']).eq('status', 'active');
 if (restrictedProfileError) throw restrictedProfileError;

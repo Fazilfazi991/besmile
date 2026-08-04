@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 describe('assigned patient routes', () => {
   it('ships the intern landing route and its scoped detail route', () => {
     const listRoute = resolve(process.cwd(), 'src/app/employee/patients/page.tsx');
-    const detailRoute = resolve(process.cwd(), 'src/app/employee/patients/[patientId]/page.tsx');
+    const detailRoute = resolve(process.cwd(), 'src/app/employee/patients/[slug]/page.tsx');
     expect(existsSync(listRoute)).toBe(true);
     expect(existsSync(detailRoute)).toBe(true);
     expect(readFileSync(listRoute, 'utf8')).toContain('basePath="/employee/patients"');

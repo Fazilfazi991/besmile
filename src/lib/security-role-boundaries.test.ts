@@ -20,7 +20,6 @@ describe('security administration boundary', () => {
 
   it('restores only the employee self-service baseline for scoped roles', () => {
     const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0050_employee_self_service_permission_baseline.sql'), 'utf8');
-    expect(migration).toContain("'Social Worker'");
     expect(migration).toContain("'attendance.self'");
     expect(migration).toContain("'leave.self'");
     expect(migration).toContain("'tasks.view_self'");

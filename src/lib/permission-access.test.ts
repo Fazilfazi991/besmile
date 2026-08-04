@@ -8,10 +8,8 @@ describe('permission compatibility', () => {
     expect(isManagementRole('GENERAL_MANAGER')).toBe(true);
     expect(isManagementRole('Chairman')).toBe(true);
     expect(isManagementRole('Director')).toBe(true);
-    expect(isManagementRole('Social Worker')).toBe(false);
     expect(isManagementRole('Psychologist')).toBe(false);
     expect(workspaceLandingPath('General Manager')).toBe('/admin');
-    expect(workspaceLandingPath('Social Worker')).toBe('/employee/dashboard');
     expect(workspaceLandingPath('Psychologist')).toBe('/employee/dashboard');
     expect(workspaceLandingPath('Intern')).toBe('/employee/dashboard');
     expect(workspaceLandingPath('Guest Sales')).toBe('/employee/dashboard');

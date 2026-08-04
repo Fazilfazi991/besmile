@@ -8,7 +8,6 @@ begin
     select baseline.role_name::public.employee_role, permission.id
     from (values
       ('Psychologist', array['dashboard.view','attendance.self','leave.self','tasks.view_self','chat.use','notifications.view']::text[]),
-      ('Social Worker', array['attendance.self','leave.self','tasks.view_self','chat.use','notifications.view']::text[]),
       ('Intern', array['tasks.view_self','notifications.view']::text[]),
       ('Staff', array['dashboard.view','attendance.self','leave.self','tasks.view_self','documents.view','announcements.view','chat.use','notifications.view']::text[]),
       ('Chairman', array['chat.use']::text[]),
@@ -22,14 +21,13 @@ begin
     from public.roles role
     join public.permissions permission on permission.code = any(case role.code
       when 'psychologist' then array['dashboard.view','attendance.self','leave.self','tasks.view_self','chat.use','notifications.view']
-      when 'social_worker' then array['attendance.self','leave.self','tasks.view_self','chat.use','notifications.view']
       when 'intern' then array['tasks.view_self','notifications.view']
       when 'staff' then array['dashboard.view','attendance.self','leave.self','tasks.view_self','documents.view','announcements.view','chat.use','notifications.view']
       when 'chairman' then array['chat.use']
       when 'director' then array['chat.use']
       else array[]::text[]
     end)
-    where role.code in ('psychologist','social_worker','intern','staff','chairman','director')
+    where role.code in ('psychologist','intern','staff','chairman','director')
     on conflict do nothing;
   end if;
 end $$;
