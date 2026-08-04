@@ -1,7 +1,133 @@
 'use client';
-/* Async data loading deliberately updates state after Supabase responses resolve. */
-/* eslint-disable react-hooks/set-state-in-effect, @next/next/no-html-link-for-pages */
-import { FormEvent,useEffect,useState } from 'react'; import { supabase } from '@/lib/supabase';
-const db:any=supabase; const types=['Initial consultation','Individual session','Couple session','Family session','Child session','Online session','Follow-up','Assessment','Other'];
-export function PatientWorkspace({patientId}:{patientId:string}){const [p,setP]=useState<any>(),[sessions,setSessions]=useState<any[]>([]),[notes,setNotes]=useState<any[]>([]),[docs,setDocs]=useState<any[]>([]),[activity,setActivity]=useState<any[]>([]),[tab,setTab]=useState('Overview'),[form,setForm]=useState(''),[message,setMessage]=useState(''),[perms,setPerms]=useState<Record<string,boolean>>({});const [unavailable,setUnavailable]=useState(false);const load=async()=>{setUnavailable(false);const [a,b,c,d,e]=await Promise.all([db.from('patients').select('*,assigned:profiles!patients_assigned_psychologist_id_fkey(full_name)').eq('id',patientId).single(),db.from('patient_sessions').select('*').eq('patient_id',patientId).order('appointment_at',{ascending:false}),db.from('patient_notes').select('*,author:profiles!patient_notes_created_by_fkey(full_name)').eq('patient_id',patientId).order('created_at',{ascending:false}),db.from('patient_documents').select('*').eq('patient_id',patientId).is('deleted_at',null).order('uploaded_at',{ascending:false}),db.from('patient_activity_logs').select('*').eq('patient_id',patientId).order('created_at',{ascending:false})]);if(a.error||!a.data){setP(null);setUnavailable(true);return}setP(a.data);setSessions(b.data||[]);setNotes(c.data||[]);setDocs(d.data||[]);setActivity(e.data||[]);const codes=['patients.edit','patient_sessions.create','patient_notes.create','clinical_notes.create','patient_documents.upload'];const results=await Promise.all(codes.map(code=>db.rpc('has_permission',{permission_code:code})));setPerms(Object.fromEntries(codes.map((code,i)=>[code,!!results[i].data])))};useEffect(()=>{void load()},[patientId]);const save=async(kind:string,e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const payload=Object.fromEntries(new FormData(e.currentTarget));setMessage('Saving…');const r=await fetch(`/api/patients/${patientId}/manage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,payload})});const data=await r.json();if(!r.ok){setMessage(data.error||'Unable to save.');return}setForm('');setMessage('Saved successfully.');await load()};const upload=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setMessage('Uploading…');const r=await fetch(`/api/patients/${patientId}/documents/upload`,{method:'POST',body:new FormData(e.currentTarget)});const data=await r.json();if(!r.ok){setMessage(data.error||'Upload failed.');return}setForm('');setMessage('Document uploaded.');await load()};if(unavailable)return <p className="rounded bg-rose-50 p-4 text-rose-700">Patient is unavailable or you do not have access.</p>;if(!p)return <p>Loading patient…</p>;const action=(permission:string,label:string,key:string)=>(perms[permission]&&<button className="rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={()=>setForm(form===key?'':key)}>{label}</button>);return <section className="space-y-5"><div className="card flex flex-wrap justify-between gap-4 p-5"><div><h1 className="text-2xl font-bold">{p.full_name} {p.is_demo&&<span className="rounded bg-amber-100 px-2 py-1 text-xs text-amber-800">Demo</span>}</h1><p className="text-slate-600">{p.patient_number} · {p.status}</p></div><div className="flex gap-2">{action('patients.edit','Edit Patient','patient')}<button className="rounded border px-3 py-2 text-sm" onClick={()=>setForm('more')}>More actions</button></div></div>{message&&<p className="rounded bg-slate-100 p-3 text-sm">{message}</p>}<div className="flex gap-2 overflow-x-auto border-b">{['Overview','Sessions','Documents','Notes','Activity'].map(x=><button key={x} onClick={()=>{setTab(x);setForm('')}} className={`px-3 py-2 ${tab===x?'border-b-2 border-slate-900 font-bold':''}`}>{x}</button>)}</div>{tab==='Overview'&&<><div className="flex justify-end">{action('patients.edit','Edit patient','patient')}</div>{form==='patient'&&<form className="card grid gap-3 p-4 md:grid-cols-2" onSubmit={e=>save('patient',e)}>{[['full_name','Full name'],['phone','Phone'],['email','Email'],['date_of_birth','Date of birth'],['gender','Gender'],['nationality','Nationality'],['preferred_language','Preferred language'],['emergency_contact_name','Emergency contact name'],['emergency_contact_phone','Emergency phone'],['source','Source'],['status','Status']].map(([n,l])=><label key={n}>{l}<input name={n} defaultValue={p[n]||''} type={n==='date_of_birth'?'date':'text'} className="mt-1 w-full rounded border p-2"/></label>)}<label className="md:col-span-2">Address<textarea name="address" defaultValue={p.address||''} className="mt-1 w-full rounded border p-2"/></label><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white">Save patient</button></form>}<div className="card grid gap-3 p-5 md:grid-cols-2">{[['Phone',p.phone],['Email',p.email],['Assigned clinician',p.assigned?.full_name],['Address',p.address],['Nationality',p.nationality],['Language',p.preferred_language]].map(([l,v])=><div key={l as string}><small className="text-slate-500">{l}</small><p>{v||'—'}</p></div>)}</div></>}{tab==='Sessions'&&<Tab title="Sessions" action={action('patient_sessions.create','Add Session','session')} form={form==='session'&&<form className="card grid gap-3 p-4 md:grid-cols-2" onSubmit={e=>save('session',e)}><label>Date & time<input required name="appointment_at" type="datetime-local" className="mt-1 w-full rounded border p-2"/></label><label>Type<select name="session_type" className="mt-1 w-full rounded border p-2">{types.map(x=><option key={x}>{x}</option>)}</select></label><label>Duration (minutes)<input required min="0" name="duration_minutes" type="number" defaultValue="45" className="mt-1 w-full rounded border p-2"/></label><label>Status<select name="attendance_status" className="mt-1 w-full rounded border p-2">{['scheduled','completed','cancelled','no_show','rescheduled'].map(x=><option key={x}>{x}</option>)}</select></label><label>Session number<input name="session_number" type="number" min="1" className="mt-1 w-full rounded border p-2"/></label><label>Follow-up<input name="follow_up_at" type="date" className="mt-1 w-full rounded border p-2"/></label><label className="md:col-span-2">Administrative summary<textarea name="administrative_summary" className="mt-1 w-full rounded border p-2"/></label><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white">Save session</button></form>} rows={sessions} empty="No sessions have been added yet." render={x=><><b>{new Date(x.appointment_at).toLocaleString()}</b> · {x.session_type}<p>{x.attendance_status} · {x.duration_minutes} minutes</p></>}/>} {tab==='Notes'&&<Tab title="Notes" action={action('patient_notes.create','Add Note','note')} form={form==='note'&&<form className="card grid gap-3 p-4" onSubmit={e=>save('note',e)}><label>Type<select name="note_type" className="mt-1 w-full rounded border p-2"><option value="administrative">Administrative</option>{perms['clinical_notes.create']&&<option value="clinical">Clinical</option>}</select></label><label>Visibility<input name="visibility" defaultValue="general_staff" className="mt-1 w-full rounded border p-2"/></label><label>Note<textarea required name="content" className="mt-1 w-full rounded border p-2"/></label><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white">Save note</button></form>} rows={notes} empty="No notes have been added yet." render={x=><><b className="capitalize">{x.note_type}</b> · {x.author?.full_name||'Staff'}<p>{x.content}</p></>}/>} {tab==='Documents'&&<Tab title="Documents" action={action('patient_documents.upload','Upload Document','document')} form={form==='document'&&<form className="card grid gap-3 p-4 md:grid-cols-2" onSubmit={upload}><input required name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"/><input required name="documentName" placeholder="Document name" className="rounded border p-2"/><input required name="category" placeholder="Category" className="rounded border p-2"/><input required name="documentDate" type="date" className="rounded border p-2"/><select name="visibility" className="rounded border p-2"><option value="general_staff">General staff</option><option value="assigned_psychologist">Assigned psychologist</option><option value="clinical_team">Clinical team</option><option value="management_only">Management only</option></select><input name="expiryDate" type="date" className="rounded border p-2"/><textarea name="notes" placeholder="Notes" className="rounded border p-2 md:col-span-2"/><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white">Upload</button></form>} rows={docs} empty="No documents have been uploaded yet." render={x=><><b>{x.document_name}</b><p>{x.category} · v{x.version}</p></>}/>} {tab==='Activity'&&<Tab title="Activity" rows={activity} empty="No activity recorded." render={x=><><b>{x.action.replaceAll('_',' ')}</b><p>{new Date(x.created_at).toLocaleString()}</p></>}/>}</section>}
-function Tab({title,action,form,rows,empty,render}:{title:string;action?:any;form?:any;rows:any[];empty:string;render:(x:any)=>any}){return <div className="space-y-4"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2>{action}</div>{form}<div className="card divide-y">{rows.length?rows.map(x=><div className="p-4" key={x.id}>{render(x)}</div>):<p className="p-5 text-slate-600">{empty}</p>}</div></div>}
+/* eslint-disable react-hooks/set-state-in-effect */
+import { FormEvent, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { genderLabel, genderOptions, normalizeGender } from '@/lib/gender';
+import { isUuid } from '@/lib/patient-slug';
+import { isLegacyPatientSource, normalizePatientSource, patientSourceLabel, patientSourceOptions } from '@/lib/patient-source';
+
+const db: any = supabase;
+const types = ['Initial consultation', 'Individual session', 'Couple session', 'Family session', 'Child session', 'Online session', 'Follow-up', 'Assessment', 'Other'];
+const statuses = ['active', 'inactive', 'discharged'];
+const nullablePatientFields = ['phone', 'email', 'date_of_birth', 'gender', 'nationality', 'preferred_language', 'emergency_contact_name', 'emergency_contact_phone', 'source', 'status', 'address'];
+
+export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: { patientSlug: string; basePath?: string }) {
+  const params = useSearchParams();
+  const [p, setP] = useState<any>();
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [docs, setDocs] = useState<any[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
+  const [tab, setTab] = useState('Overview');
+  const [form, setForm] = useState('');
+  const [message, setMessage] = useState(params.get('created') === '1' ? 'Patient created successfully.' : '');
+  const [saving, setSaving] = useState('');
+  const [perms, setPerms] = useState<Record<string, boolean>>({});
+  const [unavailable, setUnavailable] = useState(false);
+
+  const load = async () => {
+    setUnavailable(false);
+    const patientQuery = db.from('patients').select('*,assigned:profiles!patients_assigned_psychologist_id_fkey(full_name)').is('deleted_at', null);
+    const patientResult = isUuid(patientSlug) ? await patientQuery.eq('id', patientSlug).single() : await patientQuery.eq('slug', patientSlug).single();
+    if (patientResult.error || !patientResult.data) { setP(null); setUnavailable(true); return; }
+    const patient = patientResult.data;
+    if (isUuid(patientSlug) && patient.slug) {
+      window.location.replace(`${basePath}/${patient.slug}`);
+      return;
+    }
+    const patientId = patient.id;
+    const [b, c, d, e] = await Promise.all([
+      db.from('patient_sessions').select('*').eq('patient_id', patientId).order('appointment_at', { ascending: false }),
+      db.from('patient_notes').select('*,author:profiles!patient_notes_created_by_fkey(full_name)').eq('patient_id', patientId).order('created_at', { ascending: false }),
+      db.from('patient_documents').select('*').eq('patient_id', patientId).is('deleted_at', null).order('uploaded_at', { ascending: false }),
+      db.from('patient_activity_logs').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
+    ]);
+    setP(patient);
+    setSessions(b.data || []);
+    setNotes(c.data || []);
+    setDocs(d.data || []);
+    setActivity(e.data || []);
+    const codes = ['patients.edit', 'patient_sessions.create', 'patient_notes.create', 'clinical_notes.create', 'patient_documents.upload'];
+    const results = await Promise.all(codes.map(code => db.rpc('has_permission', { permission_code: code })));
+    setPerms(Object.fromEntries(codes.map((code, i) => [code, !!results[i].data])));
+  };
+
+  useEffect(() => { void load(); }, [patientSlug]);
+
+  const save = async (kind: string, event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!p?.id || saving) return;
+    const payload: Record<string, FormDataEntryValue | null> = Object.fromEntries(new FormData(event.currentTarget));
+    if (kind === 'patient') {
+      payload.gender = normalizeGender(String(payload.gender || ''));
+      payload.source = normalizePatientSource(String(payload.source || ''));
+      payload.status = statuses.includes(String(payload.status)) ? payload.status : 'active';
+      for (const key of nullablePatientFields) if (payload[key] === '') payload[key] = null;
+      if (!String(payload.full_name || '').trim()) { setMessage('Full name is required.'); return; }
+      if (!payload.gender) { setMessage('Select Male or Female.'); return; }
+      if (!payload.source) { setMessage('Select a valid source.'); return; }
+    }
+    setSaving(kind);
+    setMessage(kind === 'patient' ? 'Saving patient details...' : 'Saving...');
+    try {
+      const response = await fetch(`/api/patients/${p.id}/manage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, payload }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to save.');
+      setForm('');
+      setMessage(kind === 'patient' ? 'Patient details updated successfully.' : 'Saved successfully.');
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to save changes.');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const upload = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!p?.id || saving) return;
+    setSaving('document');
+    setMessage('Uploading...');
+    try {
+      const response = await fetch(`/api/patients/${p.id}/documents/upload`, { method: 'POST', body: new FormData(event.currentTarget) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Upload failed.');
+      setForm('');
+      setMessage('Document uploaded.');
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Upload failed.');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  if (unavailable) return <p className="rounded bg-rose-50 p-4 text-rose-700">Patient is unavailable or you do not have access.</p>;
+  if (!p) return <p>Loading patient...</p>;
+
+  const action = (permission: string, label: string, key: string) => perms[permission] && <button className="rounded bg-slate-900 px-3 py-2 text-sm text-white" type="button" onClick={() => setForm(form === key ? '' : key)}>{label}</button>;
+  const legacySource = isLegacyPatientSource(p.source) ? String(p.source) : '';
+  const editFields = [['full_name', 'Full name'], ['phone', 'Phone'], ['email', 'Email'], ['date_of_birth', 'Date of birth'], ['nationality', 'Nationality'], ['preferred_language', 'Preferred language'], ['emergency_contact_name', 'Emergency contact name'], ['emergency_contact_phone', 'Emergency phone']];
+
+  return <section className="space-y-5">
+    <div className="card flex flex-wrap justify-between gap-4 p-5"><div><h1 className="text-2xl font-bold">{p.full_name} {p.is_demo && <span className="rounded bg-amber-100 px-2 py-1 text-xs text-amber-800">Demo</span>}</h1><p className="text-slate-600">{p.patient_number} - {p.status}</p></div><div className="flex gap-2">{action('patients.edit', 'Edit Patient', 'patient')}<button className="rounded border px-3 py-2 text-sm" type="button" onClick={() => setForm('more')}>More actions</button></div></div>
+    {message && <p role="status" aria-live="polite" className="rounded bg-slate-100 p-3 text-sm">{message}</p>}
+    <div className="flex gap-2 overflow-x-auto border-b">{['Overview', 'Sessions', 'Documents', 'Notes', 'Activity'].map(x => <button key={x} type="button" onClick={() => { setTab(x); setForm(''); }} className={`px-3 py-2 ${tab === x ? 'border-b-2 border-slate-900 font-bold' : ''}`}>{x}</button>)}</div>
+    {tab === 'Overview' && <><div className="flex justify-end">{action('patients.edit', 'Edit patient', 'patient')}</div>{form === 'patient' && <form className="card grid gap-3 p-4 md:grid-cols-2" onSubmit={event => save('patient', event)}>
+      {editFields.map(([name, label]) => <label key={name}>{label}<input name={name} defaultValue={p[name] || ''} type={name === 'date_of_birth' ? 'date' : 'text'} className="mt-1 w-full rounded border p-2" /></label>)}
+      <label>Gender<select name="gender" required defaultValue={normalizeGender(p.gender)} className="mt-1 w-full rounded border p-2"><option value="" disabled>Select gender</option>{genderOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
+      <label>Source<select name="source" required defaultValue={normalizePatientSource(p.source) || legacySource} className="mt-1 w-full rounded border p-2"><option value="" disabled>Select source</option>{legacySource && <option value={legacySource}>Legacy: {legacySource}</option>}{patientSourceOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
+      <label>Status<select name="status" defaultValue={p.status || 'active'} className="mt-1 w-full rounded border p-2">{statuses.map(status => <option value={status} key={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}</select></label>
+      <label className="md:col-span-2">Address<textarea name="address" defaultValue={p.address || ''} className="mt-1 w-full rounded border p-2" /></label><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white disabled:opacity-60" disabled={saving === 'patient'}>{saving === 'patient' ? 'Saving...' : 'Save patient'}</button>
+    </form>}<div className="card grid gap-3 p-5 md:grid-cols-2">{[['Phone', p.phone], ['Email', p.email], ['Gender', genderLabel(p.gender)], ['Source', patientSourceLabel(p.source)], ['Assigned clinician', p.assigned?.full_name], ['Address', p.address], ['Nationality', p.nationality], ['Language', p.preferred_language]].map(([label, value]) => <div key={label as string}><small className="text-slate-500">{label}</small><p>{value || '-'}</p></div>)}</div></>}
+    {tab === 'Sessions' && <Tab title="Sessions" action={action('patient_sessions.create', 'Add Session', 'session')} form={form === 'session' && <form className="card grid gap-3 p-4 md:grid-cols-2" onSubmit={event => save('session', event)}><label>Date & time<input required name="appointment_at" type="datetime-local" className="mt-1 w-full rounded border p-2" /></label><label>Type<select name="session_type" className="mt-1 w-full rounded border p-2">{types.map(x => <option key={x}>{x}</option>)}</select></label><label>Duration (minutes)<input required min="0" name="duration_minutes" type="number" defaultValue="45" className="mt-1 w-full rounded border p-2" /></label><label>Status<select name="attendance_status" className="mt-1 w-full rounded border p-2">{['scheduled', 'completed', 'cancelled', 'no_show', 'rescheduled'].map(x => <option key={x}>{x}</option>)}</select></label><label>Session number<input name="session_number" type="number" min="1" className="mt-1 w-full rounded border p-2" /></label><label>Follow-up<input name="follow_up_at" type="date" className="mt-1 w-full rounded border p-2" /></label><label className="md:col-span-2">Administrative summary<textarea name="administrative_summary" className="mt-1 w-full rounded border p-2" /></label><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white" disabled={saving === 'session'}>{saving === 'session' ? 'Saving...' : 'Save session'}</button></form>} rows={sessions} empty="No sessions have been added yet." render={x => <><b>{new Date(x.appointment_at).toLocaleString()}</b> - {x.session_type}<p>{x.attendance_status} - {x.duration_minutes} minutes</p></>} />}
+    {tab === 'Notes' && <Tab title="Notes" action={action('patient_notes.create', 'Add Note', 'note')} form={form === 'note' && <form className="card grid gap-3 p-4" onSubmit={event => save('note', event)}><label>Type<select name="note_type" className="mt-1 w-full rounded border p-2"><option value="administrative">Administrative</option>{perms['clinical_notes.create'] && <option value="clinical">Clinical</option>}</select></label><label>Visibility<input name="visibility" defaultValue="general_staff" className="mt-1 w-full rounded border p-2" /></label><label>Note<textarea required name="content" className="mt-1 w-full rounded border p-2" /></label><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white" disabled={saving === 'note'}>{saving === 'note' ? 'Saving...' : 'Save note'}</button></form>} rows={notes} empty="No notes have been added yet." render={x => <><b className="capitalize">{x.note_type}</b> - {x.author?.full_name || 'Staff'}<p>{x.content}</p></>} />}
+    {tab === 'Documents' && <Tab title="Documents" action={action('patient_documents.upload', 'Upload Document', 'document')} form={form === 'document' && <form className="card grid gap-3 p-4 md:grid-cols-2" onSubmit={upload}><input required name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" /><input required name="documentName" placeholder="Document name" className="rounded border p-2" /><input required name="category" placeholder="Category" className="rounded border p-2" /><input required name="documentDate" type="date" className="rounded border p-2" /><select name="visibility" className="rounded border p-2"><option value="general_staff">General staff</option><option value="assigned_psychologist">Assigned psychologist</option><option value="clinical_team">Clinical team</option><option value="management_only">Management only</option></select><input name="expiryDate" type="date" className="rounded border p-2" /><textarea name="notes" placeholder="Notes" className="rounded border p-2 md:col-span-2" /><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white" disabled={saving === 'document'}>{saving === 'document' ? 'Uploading...' : 'Upload'}</button></form>} rows={docs} empty="No documents have been uploaded yet." render={x => <><b>{x.document_name}</b><p>{x.category} - v{x.version}</p></>} />}
+    {tab === 'Activity' && <Tab title="Activity" rows={activity} empty="No activity recorded." render={x => <><b>{x.action.replaceAll('_', ' ')}</b><p>{new Date(x.created_at).toLocaleString()}</p></>} />}
+  </section>;
+}
+
+function Tab({ title, action, form, rows, empty, render }: { title: string; action?: any; form?: any; rows: any[]; empty: string; render: (x: any) => any }) {
+  return <div className="space-y-4"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2>{action}</div>{form}<div className="card divide-y">{rows.length ? rows.map(x => <div className="p-4" key={x.id}>{render(x)}</div>) : <p className="p-5 text-slate-600">{empty}</p>}</div></div>;
+}

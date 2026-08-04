@@ -2,6 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminRouteRequirement, employeeRouteRequirement, isManagementRole, isSecurityAdministratorRole, workspaceLandingPath } from '@/lib/permission-access';
 
+function redirectWithCookies(request: NextRequest, response: NextResponse, path: string) {
+  const redirectResponse = NextResponse.redirect(new URL(path, request.url));
+  response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+  return redirectResponse;
+}
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   const supabase = createServerClient(
@@ -18,11 +24,16 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const protectedPath = path.startsWith('/employee') || path.startsWith('/admin');
 
-  if (protectedPath && !user) return NextResponse.redirect(new URL('/sign-in', request.url));
+  if (protectedPath && !user) return redirectWithCookies(request, response, '/sign-in');
 
   if (user) {
-    const { data: profile } = await supabase.from('profiles').select('role,status').eq('id', user.id).maybeSingle();
-    if (!profile || profile.status !== 'active') return NextResponse.redirect(new URL('/sign-in?inactive=1', request.url));
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('role,status').eq('id', user.id).maybeSingle();
+    if (profileError) {
+      console.warn('Middleware profile lookup failed', { path, userId: user.id, code: profileError.code });
+      return response;
+    }
+    if (!profile) return redirectWithCookies(request, response, '/unauthorized');
+    if (profile.status !== 'active') return redirectWithCookies(request, response, '/sign-in?inactive=1');
     const isSuperAdmin = profile.role === 'super_admin';
     const isManagement = isManagementRole(profile.role);
     const hasAnyPermission = async (permissions: readonly string[]) => {
@@ -36,21 +47,21 @@ export async function middleware(request: NextRequest) {
       }
       return '/employee/profile';
     };
-    if (path === '/') return NextResponse.redirect(new URL(isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath(), request.url));
-    if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return NextResponse.redirect(new URL('/admin', request.url));
-    if (path === '/employee') return NextResponse.redirect(new URL(await employeeLandingPath(), request.url));
+    if (path === '/') return redirectWithCookies(request, response, isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath());
+    if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return redirectWithCookies(request, response, '/admin');
+    if (path === '/employee') return redirectWithCookies(request, response, await employeeLandingPath());
     if (path.startsWith('/admin')) {
-      if (path.startsWith('/admin/access') && !isSecurityAdministratorRole(profile.role)) return NextResponse.redirect(new URL('/unauthorized', request.url));
+      if (path.startsWith('/admin/access') && !isSecurityAdministratorRole(profile.role)) return redirectWithCookies(request, response, '/unauthorized');
       const requirement = adminRouteRequirement(path);
-      if (!await hasAnyPermission(requirement.anyOf)) return NextResponse.redirect(new URL('/unauthorized', request.url));
+      if (!await hasAnyPermission(requirement.anyOf)) return redirectWithCookies(request, response, '/unauthorized');
     }
     if (path.startsWith('/employee')) {
       const requirement = employeeRouteRequirement(path);
-      if (requirement && !await hasAnyPermission(requirement.anyOf)) return NextResponse.redirect(new URL('/unauthorized', request.url));
+      if (requirement && !await hasAnyPermission(requirement.anyOf)) return redirectWithCookies(request, response, '/unauthorized');
     }
   }
 
-  if (path === '/') return NextResponse.redirect(new URL('/sign-in', request.url));
+  if (path === '/') return redirectWithCookies(request, response, '/sign-in');
   return response;
 }
 

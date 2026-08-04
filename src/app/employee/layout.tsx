@@ -8,8 +8,13 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
   const db = await serverSupabase();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/sign-in');
-  const { data: profile } = await db.from('profiles').select('full_name, role, designation, status').eq('id', user.id).maybeSingle();
-  if (!profile || profile.status !== 'active') redirect('/sign-in?inactive=1');
+  const { data: profile, error: profileError } = await db.from('profiles').select('full_name, role, designation, status').eq('id', user.id).maybeSingle();
+  if (profileError) {
+    console.warn('Employee layout profile lookup failed', { route: '/employee', userId: user.id, code: profileError.code });
+    redirect('/unauthorized');
+  }
+  if (!profile) redirect('/unauthorized');
+  if (profile.status !== 'active') redirect('/sign-in?inactive=1');
   if (profile.role === 'super_admin' || isManagementRole(profile.role)) redirect('/admin');
   const name = profile?.full_name || user.email?.split('@')[0] || 'BSmile User';
   const permissionResults = await Promise.all(navigationPermissionCodes.map((permission) => db.rpc('has_permission', { permission_code: permission })));

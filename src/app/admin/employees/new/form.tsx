@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState } from 'react';
+import { useActionState, useMemo } from 'react';
 import { createEmployee, type CreateEmployeeState } from './actions';
+import { genderOptions } from '@/lib/gender';
 
 const initial: CreateEmployeeState = {};
+type DepartmentOption = { id: string; name: string };
+type ManagerOption = { id: string; full_name: string; role: string | null };
 const roles = [
   ['staff', 'Staff'],
   ['psychologist', 'Psychologist'],
-  ['social_worker', 'Social Worker'],
   ['intern', 'Intern'],
   ['guest_sales', 'Guest Sales'],
   ['general_manager', 'General Manager'],
@@ -19,11 +21,17 @@ const roles = [
 export function EmployeeCreateForm({
   departments,
   managers,
+  referenceError,
 }: {
-  departments: { id: string; name: string }[];
-  managers: { id: string; full_name: string; role: string }[];
+  departments?: DepartmentOption[] | null;
+  managers?: ManagerOption[] | null;
+  referenceError?: string;
 }) {
   const [state, action, pending] = useActionState(createEmployee, initial);
+  const departmentOptions = useMemo(() => Array.isArray(departments) ? departments.filter((item) => item?.id && item?.name) : [], [departments]);
+  const managerOptions = useMemo(() => Array.isArray(managers) ? managers.filter((item) => item?.id && item?.full_name) : [], [managers]);
+  const values = state.fields || {};
+  const cannotSubmit = pending || !!referenceError || departmentOptions.length === 0;
 
   return (
     <section className="mx-auto max-w-4xl space-y-5">
@@ -43,29 +51,57 @@ export function EmployeeCreateForm({
       {state.error && (
         <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-800">{state.error}</p>
       )}
+      {referenceError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <b>Employee reference data did not load.</b>
+          <p className="mt-1">{referenceError}</p>
+          <button className="mt-2 font-bold text-amber-950 underline" type="button" onClick={() => window.location.reload()}>
+            Retry
+          </button>
+        </div>
+      )}
+      {!referenceError && departmentOptions.length === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <b>No departments are available.</b>
+          <p className="mt-1">Create at least one department before adding an employee.</p>
+          <Link className="mt-2 inline-block font-bold text-amber-950 underline" href="/admin/access">
+            Open access settings
+          </Link>
+        </div>
+      )}
       {state.success && (
         <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-800">{state.success}</p>
       )}
 
       <form action={action} className="card grid gap-4 p-5 md:grid-cols-2">
         <Field label="Full name" required>
-          <input name="full_name" className="input" required />
+          <input name="full_name" className="input" required defaultValue={values.full_name || ''} />
         </Field>
         <Field label="Work email" required>
-          <input name="email" type="email" className="input" required />
+          <input name="email" type="email" className="input" required defaultValue={values.email || ''} />
         </Field>
         <Field label="Phone">
-          <input name="phone" type="tel" className="input" />
+          <input name="phone" type="tel" className="input" defaultValue={values.phone || ''} />
+        </Field>
+        <Field label="Gender" required>
+          <select name="gender" className="input" required defaultValue={values.gender || ''}>
+            <option value="" disabled>Select gender</option>
+            {genderOptions.map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Employee code" required>
-          <input name="employee_code" className="input" required />
+          <input name="employee_code" className="input" required defaultValue={values.employee_code || ''} />
         </Field>
         <Field label="Department" required>
-          <select name="department_id" className="input" required defaultValue="">
-            <option value="" disabled>
-              Select department
+          <select name="department_id" className="input" required defaultValue={values.department_id || ''} disabled={!!referenceError || departmentOptions.length === 0}>
+            <option value="" disabled={departmentOptions.length > 0}>
+              {departmentOptions.length ? 'Select department' : 'No departments available'}
             </option>
-            {departments.map((item) => (
+            {departmentOptions.map((item) => (
               <option value={item.id} key={item.id}>
                 {item.name}
               </option>
@@ -73,10 +109,10 @@ export function EmployeeCreateForm({
           </select>
         </Field>
         <Field label="Designation" required>
-          <input name="designation" className="input" required />
+          <input name="designation" className="input" required defaultValue={values.designation || ''} />
         </Field>
         <Field label="Role" required>
-          <select name="role" className="input" defaultValue="staff">
+          <select name="role" className="input" defaultValue={values.role || 'staff'}>
             {roles.map(([value, label]) => (
               <option value={value} key={value}>
                 {label}
@@ -85,29 +121,29 @@ export function EmployeeCreateForm({
           </select>
         </Field>
         <Field label="Reporting manager">
-          <select name="manager_id" className="input" defaultValue="">
+          <select name="manager_id" className="input" defaultValue={values.manager_id || ''} disabled={!!referenceError}>
             <option value="">No manager assigned</option>
-            {managers.map((item) => (
+            {managerOptions.map((item) => (
               <option value={item.id} key={item.id}>
-                {item.full_name} ({item.role.replace('_', ' ')})
+                {item.full_name} ({String(item.role || 'management').replaceAll('_', ' ')})
               </option>
             ))}
           </select>
         </Field>
         <Field label="Joining date">
-          <input name="joining_date" type="date" className="input" />
+          <input name="joining_date" type="date" className="input" defaultValue={values.joining_date || ''} />
         </Field>
         <Field label="Employment type">
-          <input name="employment_type" className="input" placeholder="Full-time, contract, intern..." />
+          <input name="employment_type" className="input" placeholder="Full-time, contract, intern..." defaultValue={values.employment_type || ''} />
         </Field>
         <Field label="Status">
-          <select name="status" className="input" defaultValue="active">
+          <select name="status" className="input" defaultValue={values.status || 'active'}>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
         </Field>
         <div className="flex items-end">
-          <button className="btn btn-primary w-full" disabled={pending}>
+          <button className="btn btn-primary w-full" disabled={cannotSubmit}>
             {pending ? 'Creating employee...' : 'Create employee and send invitation'}
           </button>
         </div>
