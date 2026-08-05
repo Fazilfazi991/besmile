@@ -1,14 +1,16 @@
 export const permissionCatalogue = [
-  'admin.access','employees.view','employees.manage','attendance.view_self','attendance.view_team','attendance.manage',
+  'admin.access','admin.shell','employees.view','employees.manage','employees.create','employees.edit','attendance.view_self','attendance.view_team','attendance.manage',
   'leave.request','leave.review','tasks.view_self','tasks.assign','tasks.manage_access','documents.view','documents.manage',
   'announcements.view','announcements.manage','notifications.view','chat.use','crm.view_assigned','crm.view_team',
   'crm.manage_all','crm.import','finance.view','finance.manage','payroll.view','payroll.manage','invoices.view',
   'invoices.manage','reports.view','roles.manage','permissions.manage','audit.view','settings.manage',
-  'patients.view','patients.create','patients.edit','patients.archive',
+  'patients.view','patients.view_all','patients.create','patients.edit','patients.assign','patients.archive',
   'patient_documents.view','patient_documents.upload','patient_documents.download','patient_documents.replace','patient_documents.archive','patient_documents.delete',
   'patient_notes.view','patient_notes.create','patient_notes.edit','patient_notes.delete',
   'clinical_notes.view','clinical_notes.create','clinical_notes.edit','clinical_notes.delete','patient_activity.view',
-  'patient_sessions.create','patient_sessions.edit','patient_sessions.cancel',
+  'patient_sessions.create','patient_sessions.edit','patient_sessions.cancel','patient_activity.view',
+  'documents.employee.manage','documents.administration.manage','documents.operational_client.manage',
+  'ideas.view','ideas.create','ideas.edit_own','ideas.comment','ideas.support',
 ] as const;
 
 export type PermissionCode = typeof permissionCatalogue[number];

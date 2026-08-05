@@ -1,4 +1,4 @@
-export type PermissionRequirement = { anyOf: readonly string[] };
+export type PermissionRequirement = { anyOf?: readonly string[]; allOf?: readonly string[]; noneOf?: readonly string[] };
 export type NavigationLink = { label: string; href: string; requirement?: PermissionRequirement };
 export type NavigationGroup = { title: string; links: readonly NavigationLink[] };
 
@@ -37,9 +37,15 @@ export function workspaceTitle(role?: string | null) {
 }
 
 const anyOf = (...permissions: string[]): PermissionRequirement => ({ anyOf: permissions });
+const requireAllAndAny = (all: readonly string[], any: readonly string[]): PermissionRequirement => ({ allOf: all, anyOf: any });
+const requireAnyWithout = (any: readonly string[], none: readonly string[]): PermissionRequirement => ({ anyOf: any, noneOf: none });
 
 export function permissionAllows(granted: ReadonlySet<string>, requirement?: PermissionRequirement) {
-  return !requirement || requirement.anyOf.some((permission) => granted.has(permission));
+  if (!requirement) return true;
+  const allAllowed = !requirement.allOf || requirement.allOf.every((permission) => granted.has(permission));
+  const anyAllowed = !requirement.anyOf || requirement.anyOf.some((permission) => granted.has(permission));
+  const noneBlocked = !requirement.noneOf || requirement.noneOf.every((permission) => !granted.has(permission));
+  return allAllowed && anyAllowed && noneBlocked;
 }
 
 export function filterNavigation(groups: readonly NavigationGroup[], granted: ReadonlySet<string>) {
@@ -47,12 +53,14 @@ export function filterNavigation(groups: readonly NavigationGroup[], granted: Re
 }
 
 export function adminRouteRequirement(path: string): PermissionRequirement {
-  if (path === '/admin') return anyOf('admin.access', 'dashboard.view');
+  if (path === '/admin') return anyOf('admin.access');
   if (path === '/admin/profile') return anyOf('admin.access', 'dashboard.view');
   if (path === '/admin/employees/new') return anyOf('employees.create');
   if (path.startsWith('/admin/leaves')) return anyOf('leave.approve', 'leave.manage', 'leave.review');
   if (path === '/admin/tasks') return anyOf('tasks.assign');
   if (path === '/admin/task-access') return anyOf('tasks.manage_access');
+  if (path.startsWith('/admin/ideas/categories')) return anyOf('ideas.manage_categories');
+  if (path.startsWith('/admin/ideas')) return anyOf('ideas.view', 'ideas.view_reports', 'ideas.manage_status');
   if (path.startsWith('/admin/documents')) return anyOf('documents.manage', 'documents.employee.manage');
   if (path.startsWith('/admin/announcements')) return anyOf('announcements.manage');
   if (path.startsWith('/admin/notifications')) return anyOf('notifications.view');
@@ -81,6 +89,7 @@ export function employeeRouteRequirement(path: string): PermissionRequirement | 
   if (path.startsWith('/employee/tasks/access')) return anyOf('tasks.manage_access');
   if (path.startsWith('/employee/tasks/manage')) return anyOf('tasks.assign');
   if (path.startsWith('/employee/tasks')) return anyOf('tasks.view_self', 'tasks.assign');
+  if (path.startsWith('/employee/ideas')) return anyOf('ideas.view');
   if (path.startsWith('/employee/documents')) return anyOf('documents.view', 'documents.employee.view', 'patient_documents.view');
   if (path.startsWith('/employee/patients')) return anyOf('patients.view', 'patients.view_assigned');
   if (path.startsWith('/employee/crm/sales')) return anyOf('crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'sales.view');
@@ -92,7 +101,7 @@ export function employeeRouteRequirement(path: string): PermissionRequirement | 
 export const adminNavigation: readonly NavigationGroup[] = [
   { title: 'OVERVIEW', links: [{ label: 'Dashboard', href: '/admin', requirement: anyOf('admin.access', 'dashboard.view') }] },
   { title: 'PEOPLE', links: [{ label: 'Employees', href: '/admin/employees', requirement: anyOf('employees.view') }, { label: 'Patients', href: '/admin/patients', requirement: anyOf('patients.view', 'patients.view_assigned') }] },
-  { title: 'WORK MANAGEMENT', links: [{ label: 'Leave approvals', href: '/admin/leaves', requirement: anyOf('leave.approve', 'leave.manage', 'leave.review') }, { label: 'Tasks', href: '/admin/tasks', requirement: anyOf('tasks.assign') }, { label: 'Task Access', href: '/admin/task-access', requirement: anyOf('tasks.manage_access') }, { label: 'Documents', href: '/admin/documents', requirement: anyOf('documents.manage', 'documents.employee.manage') }] },
+  { title: 'WORK MANAGEMENT', links: [{ label: 'Leave approvals', href: '/admin/leaves', requirement: anyOf('leave.approve', 'leave.manage', 'leave.review') }, { label: 'Tasks', href: '/admin/tasks', requirement: anyOf('tasks.assign') }, { label: 'Task Access', href: '/admin/task-access', requirement: anyOf('tasks.manage_access') }, { label: 'Idea Hub', href: '/admin/ideas', requirement: anyOf('ideas.view', 'ideas.manage_status', 'ideas.view_reports') }, { label: 'Idea Categories', href: '/admin/ideas/categories', requirement: anyOf('ideas.manage_categories') }, { label: 'Documents', href: '/admin/documents', requirement: anyOf('documents.manage', 'documents.employee.manage') }] },
   { title: 'COMMUNICATION', links: [{ label: 'Chat', href: '/admin/chat', requirement: anyOf('chat.use') }, { label: 'Announcements', href: '/admin/announcements', requirement: anyOf('announcements.manage') }, { label: 'Notifications', href: '/admin/notifications', requirement: anyOf('notifications.view') }, { label: 'Profile', href: '/admin/profile', requirement: anyOf('admin.access', 'dashboard.view') }] },
   { title: 'CRM', links: [{ label: 'CRM Dashboard', href: '/admin/crm', requirement: anyOf('crm.manage_all', 'crm.view_team', 'leads.view') }, { label: 'Leads Management', href: '/admin/crm/leads', requirement: anyOf('crm.manage_all', 'crm.view_team', 'leads.view') }, { label: 'Follow-ups', href: '/admin/crm/follow-ups', requirement: anyOf('crm.manage_all', 'crm.view_team', 'leads.view') }, { label: 'Import Leads', href: '/admin/crm/import', requirement: anyOf('crm.import') }, { label: 'Sales', href: '/admin/crm/sales', requirement: anyOf('crm.manage_all', 'crm.view_team', 'sales.view') }] },
   { title: 'FINANCE', links: [{ label: 'Finance Dashboard', href: '/admin/finance', requirement: anyOf('finance.dashboard.view', 'finance.view') }, { label: 'Income', href: '/admin/finance/income', requirement: anyOf('income.view', 'income.manage') }, { label: 'Expenses', href: '/admin/finance/expenses', requirement: anyOf('expenses.view', 'expenses.manage') }, { label: 'Invoices', href: '/admin/finance/invoices', requirement: anyOf('invoices.view', 'invoices.manage') }, { label: 'Payroll', href: '/admin/finance/payroll', requirement: anyOf('payroll.view', 'payroll.manage') }, { label: 'Reports', href: '/admin/finance/reports', requirement: anyOf('reports.finance.view', 'reports.view') }] },
@@ -100,9 +109,10 @@ export const adminNavigation: readonly NavigationGroup[] = [
 ];
 
 export const employeeNavigation: readonly NavigationGroup[] = [
-  { title: 'WORKSPACE', links: [{ label: 'Dashboard', href: '/employee/dashboard', requirement: anyOf('dashboard.view') }, { label: 'Attendance', href: '/employee/attendance', requirement: anyOf('attendance.self', 'attendance.view_self', 'attendance.view', 'attendance.manage') }, { label: 'Leave', href: '/employee/leaves', requirement: anyOf('leave.self', 'leave.request', 'leave.view', 'leave.manage', 'leave.approve') }, { label: 'Tasks', href: '/employee/tasks', requirement: anyOf('tasks.view_self', 'tasks.assign') }, { label: 'Manage Tasks', href: '/employee/tasks/manage', requirement: anyOf('tasks.assign') }, { label: 'Task Assignment Access', href: '/employee/tasks/access', requirement: anyOf('tasks.manage_access') }, { label: 'Documents', href: '/employee/documents', requirement: anyOf('documents.view', 'documents.employee.view', 'patient_documents.view') }, { label: 'Assigned Patients', href: '/employee/patients', requirement: anyOf('patients.view', 'patients.view_assigned') }] },
+  { title: 'WORKSPACE', links: [{ label: 'Dashboard', href: '/employee/dashboard', requirement: anyOf('dashboard.view') }, { label: 'Attendance', href: '/employee/attendance', requirement: anyOf('attendance.self', 'attendance.view_self', 'attendance.view', 'attendance.manage') }, { label: 'Leave', href: '/employee/leaves', requirement: anyOf('leave.self', 'leave.request', 'leave.view', 'leave.manage', 'leave.approve') }, { label: 'Tasks', href: '/employee/tasks', requirement: anyOf('tasks.view_self', 'tasks.assign') }, { label: 'Manage Tasks', href: '/employee/tasks/manage', requirement: anyOf('tasks.assign') }, { label: 'Idea Hub', href: '/employee/ideas', requirement: anyOf('ideas.view') }, { label: 'Documents', href: '/employee/documents', requirement: anyOf('documents.view', 'documents.employee.view', 'patient_documents.view') }, { label: 'Assigned Patients', href: '/employee/patients', requirement: anyOf('patients.view', 'patients.view_assigned') }] },
+  { title: 'OPERATIONS', links: [{ label: 'Employees', href: '/admin/employees', requirement: requireAllAndAny(['admin.shell'], ['employees.view']) }, { label: 'Patients', href: '/admin/patients', requirement: requireAllAndAny(['admin.shell'], ['patients.view', 'patients.view_all']) }, { label: 'Operational Documents', href: '/admin/documents', requirement: requireAllAndAny(['admin.shell'], ['documents.employee.manage', 'documents.administration.manage']) }] },
   { title: 'COMMUNICATION', links: [{ label: 'Announcements', href: '/employee/announcements', requirement: anyOf('announcements.view', 'announcements.manage') }, { label: 'Notifications', href: '/employee/notifications' }, { label: 'Chat', href: '/employee/chat', requirement: anyOf('chat.use') }, { label: 'Profile', href: '/employee/profile' }] },
-  { title: 'CRM', links: [{ label: 'CRM Dashboard', href: '/employee/crm', requirement: anyOf('crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view', 'sales.view') }, { label: 'My Leads', href: '/employee/crm/leads', requirement: anyOf('crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view') }, { label: 'My Follow-ups', href: '/employee/crm/follow-ups', requirement: anyOf('crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view') }, { label: 'My Sales', href: '/employee/crm/sales', requirement: anyOf('crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'sales.view') }] },
+  { title: 'CRM', links: [{ label: 'CRM Dashboard', href: '/admin/crm', requirement: requireAllAndAny(['admin.shell'], ['crm.manage_all', 'crm.view_team', 'leads.view', 'sales.view']) }, { label: 'Leads', href: '/admin/crm/leads', requirement: requireAllAndAny(['admin.shell'], ['crm.manage_all', 'crm.view_team', 'leads.view']) }, { label: 'Follow-ups', href: '/admin/crm/follow-ups', requirement: requireAllAndAny(['admin.shell'], ['crm.manage_all', 'crm.view_team', 'leads.view']) }, { label: 'Clients', href: '/admin/crm/sales', requirement: requireAllAndAny(['admin.shell'], ['crm.manage_all', 'crm.view_team', 'sales.view']) }, { label: 'CRM Dashboard', href: '/employee/crm', requirement: requireAnyWithout(['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view', 'sales.view'], ['admin.shell']) }, { label: 'My Leads', href: '/employee/crm/leads', requirement: requireAnyWithout(['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view'], ['admin.shell']) }, { label: 'My Follow-ups', href: '/employee/crm/follow-ups', requirement: requireAnyWithout(['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view'], ['admin.shell']) }, { label: 'My Sales', href: '/employee/crm/sales', requirement: requireAnyWithout(['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'sales.view'], ['admin.shell']) }] },
 ];
 
-export const navigationPermissionCodes = [...new Set([...adminNavigation, ...employeeNavigation].flatMap((group) => group.links.flatMap((link) => link.requirement?.anyOf || [])))];
+export const navigationPermissionCodes = [...new Set([...adminNavigation, ...employeeNavigation].flatMap((group) => group.links.flatMap((link) => [...(link.requirement?.anyOf || []), ...(link.requirement?.allOf || []), ...(link.requirement?.noneOf || [])])))];

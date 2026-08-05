@@ -13,6 +13,8 @@ const roles = [
   ['psychologist', 'Psychologist'],
   ['intern', 'Intern'],
   ['guest_sales', 'Guest Sales'],
+];
+const protectedRoles = [
   ['general_manager', 'General Manager'],
   ['director', 'Director'],
   ['chairman', 'Chairman'],
@@ -22,15 +24,18 @@ export function EmployeeCreateForm({
   departments,
   managers,
   referenceError,
+  canCreateProtectedRoles = false,
 }: {
   departments?: DepartmentOption[] | null;
   managers?: ManagerOption[] | null;
   referenceError?: string;
+  canCreateProtectedRoles?: boolean;
 }) {
   const [state, action, pending] = useActionState(createEmployee, initial);
   const departmentOptions = useMemo(() => Array.isArray(departments) ? departments.filter((item) => item?.id && item?.name) : [], [departments]);
   const managerOptions = useMemo(() => Array.isArray(managers) ? managers.filter((item) => item?.id && item?.full_name) : [], [managers]);
   const values = state.fields || {};
+  const roleOptions = canCreateProtectedRoles ? [...roles, ...protectedRoles] : roles;
   const cannotSubmit = pending || !!referenceError || departmentOptions.length === 0;
 
   return (
@@ -113,7 +118,7 @@ export function EmployeeCreateForm({
         </Field>
         <Field label="Role" required>
           <select name="role" className="input" defaultValue={values.role || 'staff'}>
-            {roles.map(([value, label]) => (
+            {roleOptions.map(([value, label]) => (
               <option value={value} key={value}>
                 {label}
               </option>

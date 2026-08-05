@@ -31,13 +31,34 @@ describe('permission compatibility', () => {
     expect(permissionAllows(new Set(['dashboard.view', 'employees.view']), adminRouteRequirement('/admin/access'))).toBe(false);
   });
 
+  it('requires admin access for the admin root dashboard', () => {
+    expect(permissionAllows(new Set(['dashboard.view', 'admin.shell']), adminRouteRequirement('/admin'))).toBe(false);
+    expect(permissionAllows(new Set(['admin.access']), adminRouteRequirement('/admin'))).toBe(true);
+  });
+
+  it('shows Administration Admin operational links without finance or access management', () => {
+    const administrationAdmin = new Set([
+      'admin.shell', 'dashboard.view', 'crm.manage_all', 'leads.view', 'sales.view',
+      'employees.view', 'patients.view', 'patients.view_all', 'attendance.view',
+      'leave.self', 'leave.view', 'tasks.assign', 'documents.employee.manage',
+      'documents.administration.manage', 'announcements.view', 'notifications.view',
+      'chat.use', 'ideas.view',
+    ]);
+    const labels = filterNavigation(employeeNavigation, administrationAdmin).flatMap(group => group.links.map(link => link.label));
+    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'CRM Dashboard', 'Leads', 'Follow-ups', 'Clients', 'Employees', 'Patients', 'Operational Documents', 'Attendance', 'Leave', 'Chat', 'Profile']));
+    expect(labels).not.toEqual(expect.arrayContaining(['Finance Dashboard', 'Payroll', 'Roles & Access', 'Task Assignment Access']));
+    expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/finance'))).toBe(false);
+    expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/access'))).toBe(false);
+    expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/leaves'))).toBe(false);
+  });
+
   it('shows the General Manager management navigation from granular grants', () => {
     const granted = new Set(['dashboard.view', 'employees.view', 'leads.view', 'tasks.assign', 'documents.employee.manage', 'chat.use', 'announcements.manage', 'notifications.view', 'finance.dashboard.view', 'income.view', 'expenses.view', 'payroll.view', 'invoices.view', 'reports.finance.view']);
     const labels = filterNavigation(adminNavigation, granted).flatMap(group => group.links.map(link => link.label));
     expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'Leads Management', 'Tasks', 'Documents', 'Finance Dashboard', 'Income', 'Expenses', 'Payroll', 'Invoices', 'Reports']));
   });
   it('accepts granular dashboard and finance permissions without legacy aliases', () => {
-    expect(permissionAllows(new Set(['dashboard.view']), adminRouteRequirement('/admin'))).toBe(true);
+    expect(permissionAllows(new Set(['admin.access']), adminRouteRequirement('/admin'))).toBe(true);
     expect(permissionAllows(new Set(['finance.dashboard.view']), adminRouteRequirement('/admin/finance'))).toBe(true);
     expect(permissionAllows(new Set(['payroll.view']), adminRouteRequirement('/admin/finance/payroll'))).toBe(true);
   });

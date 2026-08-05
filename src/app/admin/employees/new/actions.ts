@@ -8,6 +8,7 @@ import { normalizeDateOnly } from '@/lib/employee-edit-rules';
 import { normalizeGender } from '@/lib/gender';
 
 const operationalRoles = new Set(['chairman', 'director', 'general_manager', 'psychologist', 'intern', 'guest_sales', 'staff']);
+const protectedManagementRoles = new Set(['chairman', 'director', 'general_manager', 'super_admin']);
 
 export type CreateEmployeeState = { error?: string; success?: string; fields?: Record<string, string> };
 
@@ -37,7 +38,7 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   try { joiningDate = rawJoiningDate ? normalizeDateOnly(rawJoiningDate) : null; } catch { return { error: 'Joining date must be a valid calendar date.', fields }; }
   if (!fullName || !email || !employeeCode || !gender || !departmentId || !designation || !operationalRoles.has(role)) return { error: 'Full name, email, gender, employee code, department, designation, and a valid operational role are required.', fields };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: 'Enter a valid work email address.', fields };
-  if (role === 'super_admin' || (!isSecurityAdministratorRole(profileResult.data.role) && role === 'super_admin')) return { error: 'Only a Super Admin can assign the Super Admin role.', fields };
+  if (!isSecurityAdministratorRole(profileResult.data.role) && protectedManagementRoles.has(role)) return { error: 'Only a Super Admin can assign protected management roles.', fields };
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
   const { data: duplicate } = await admin.from('profiles').select('id').or(`email.eq.${email},employee_code.eq.${employeeCode}`).limit(1);

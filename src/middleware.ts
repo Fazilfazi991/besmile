@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
     const employeeLandingPath = async () => {
       for (const candidate of ['/employee/dashboard', '/employee/patients', '/employee/crm', '/employee/announcements', '/employee/attendance', '/employee/leaves', '/employee/tasks', '/employee/documents', '/employee/chat']) {
         const requirement = employeeRouteRequirement(candidate);
-        if (!requirement || await hasAnyPermission(requirement.anyOf)) return candidate;
+        if (!requirement || await hasAnyPermission(requirement.anyOf || [])) return candidate;
       }
       return '/employee/profile';
     };
@@ -51,13 +51,14 @@ export async function middleware(request: NextRequest) {
     if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return redirectWithCookies(request, response, '/admin');
     if (path === '/employee') return redirectWithCookies(request, response, await employeeLandingPath());
     if (path.startsWith('/admin')) {
+      if (!isSuperAdmin && !isManagement && !await hasAnyPermission(['admin.shell'])) return redirectWithCookies(request, response, '/unauthorized');
       if (path.startsWith('/admin/access') && !isSecurityAdministratorRole(profile.role)) return redirectWithCookies(request, response, '/unauthorized');
       const requirement = adminRouteRequirement(path);
-      if (!await hasAnyPermission(requirement.anyOf)) return redirectWithCookies(request, response, '/unauthorized');
+      if (!await hasAnyPermission(requirement.anyOf || [])) return redirectWithCookies(request, response, '/unauthorized');
     }
     if (path.startsWith('/employee')) {
       const requirement = employeeRouteRequirement(path);
-      if (requirement && !await hasAnyPermission(requirement.anyOf)) return redirectWithCookies(request, response, '/unauthorized');
+      if (requirement && !await hasAnyPermission(requirement.anyOf || [])) return redirectWithCookies(request, response, '/unauthorized');
     }
   }
 

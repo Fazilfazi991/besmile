@@ -1,5 +1,6 @@
 import { serverSupabase } from '@/lib/supabase-server';
 import { redirect } from 'next/navigation';
+import { isSecurityAdministratorRole } from '@/lib/permission-access';
 import { EmployeeCreateForm } from './form';
 
 export default async function NewEmployeePage() {
@@ -7,7 +8,7 @@ export default async function NewEmployeePage() {
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/sign-in');
   const [{ data: profile, error: profileError }, permission, departments, managers] = await Promise.all([
-    db.from('profiles').select('status').eq('id', user.id).maybeSingle(), db.rpc('has_permission', { permission_code: 'employees.create' }),
+    db.from('profiles').select('role,status').eq('id', user.id).maybeSingle(), db.rpc('has_permission', { permission_code: 'employees.create' }),
     db.from('departments').select('id,name').order('name'), db.from('profiles').select('id,full_name,role').eq('status', 'active').in('role', ['super_admin', 'chairman', 'director', 'general_manager']).order('full_name'),
   ]);
   if (profileError) {
@@ -20,5 +21,5 @@ export default async function NewEmployeePage() {
     managers.error && 'Reporting managers could not be loaded.',
   ].filter(Boolean);
   if (referenceErrors.length) console.warn('Add employee reference data failed', { route: '/admin/employees/new', userId: user.id, referenceErrors });
-  return <EmployeeCreateForm departments={departments.data} managers={managers.data} referenceError={referenceErrors.join(' ')} />;
+  return <EmployeeCreateForm departments={departments.data} managers={managers.data} referenceError={referenceErrors.join(' ')} canCreateProtectedRoles={isSecurityAdministratorRole(profile.role)} />;
 }
