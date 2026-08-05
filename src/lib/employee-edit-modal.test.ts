@@ -17,10 +17,12 @@ describe('employee edit modal layout', () => {
   });
 
   it('exposes an accessible dialog with close, Escape, and keyboard focus containment', () => {
-    expect(page).toContain('role="dialog" aria-modal="true" aria-labelledby="edit-employee-title"');
+    expect(page).toContain('role="dialog"');
+    expect(page).toContain('aria-modal="true"');
+    expect(page).toContain('aria-labelledby="edit-employee-title"');
     expect(page).toContain('aria-label="Close edit employee"');
-    expect(page).toContain("event.key === 'Escape'");
-    expect(page).toContain("event.key !== 'Tab'");
+    expect(page).toContain('event.key === "Escape"');
+    expect(page).toContain('event.key !== "Tab"');
   });
 
   it('serializes the actual form controls rather than stale local state', () => {
@@ -28,7 +30,7 @@ describe('employee edit modal layout', () => {
     expect(page).toContain('name={key}');
     expect(page).toContain('name="department_id"');
     expect(page).toContain('name="manager_id"');
-    expect(page.indexOf('const payload = employeeEditPayload')).toBeLessThan(page.indexOf('setBusy(true); try { await adminRepository.updateEmployee(profile.id, payload'));
+    expect(page.indexOf('const payload = employeeEditPayload')).toBeLessThan(page.indexOf('await adminRepository.updateEmployee('));
   });
 
   it('loads relation IDs required to preserve selected department and manager values', () => {
@@ -41,7 +43,8 @@ describe('employee edit modal layout', () => {
   it('uses a human-readable update denial instead of raw PostgREST single-row coercion', () => {
     const repository = readFileSync(new URL('./admin-repository.ts', import.meta.url), 'utf8');
     expect(repository).toContain('.maybeSingle()');
-    expect(repository).toContain('You do not have permission to update this employee, or the employee no longer exists.');
+    expect(repository).toContain('Employee not found.');
+    expect(repository).toContain('You do not have permission to update this employee.');
     expect(repository).not.toContain("select('id,joining_date').single()");
   });
 });

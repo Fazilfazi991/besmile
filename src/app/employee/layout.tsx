@@ -14,7 +14,7 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
     redirect('/unauthorized');
   }
   if (!profile) redirect('/unauthorized');
-  if (profile.status !== 'active') redirect('/sign-in?inactive=1');
+  if (profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
   if (profile.role === 'super_admin' || isManagementRole(profile.role)) redirect('/admin');
   const name = profile?.full_name || user.email?.split('@')[0] || 'BSmile User';
   const permissionResults = await Promise.all(navigationPermissionCodes.map((permission) => db.rpc('has_permission', { permission_code: permission })));

@@ -12,7 +12,7 @@ export default async function AccessAdministrationLayout({ children }: { childre
     redirect('/unauthorized');
   }
   if (!profile) redirect('/unauthorized');
-  if (profile.status !== 'active') redirect('/sign-in?inactive=1');
+  if (profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
   if (!isSecurityAdministratorRole(profile.role)) redirect('/unauthorized');
   return children;
 }

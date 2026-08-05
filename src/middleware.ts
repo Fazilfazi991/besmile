@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
       return response;
     }
     if (!profile) return redirectWithCookies(request, response, '/unauthorized');
-    if (profile.status !== 'active') return redirectWithCookies(request, response, '/sign-in?inactive=1');
+    if (profile.status === 'inactive' || profile.status === 'terminated') return redirectWithCookies(request, response, '/sign-in?inactive=1');
     const isSuperAdmin = profile.role === 'super_admin';
     const isManagement = isManagementRole(profile.role);
     const hasAnyPermission = async (permissions: readonly string[]) => {

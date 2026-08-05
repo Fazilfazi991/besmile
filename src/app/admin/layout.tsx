@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/unauthorized');
   }
   if (!profile) redirect('/unauthorized');
-  if (profile.status !== 'active') redirect('/sign-in?inactive=1');
+  if (profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
   const permissionResults = await Promise.all(navigationPermissionCodes.map(permission => db.rpc('has_permission', { permission_code: permission })));
   const allowed = new Set<string>(navigationPermissionCodes.filter((_, index) => permissionResults[index].data === true));
   if (profile.role !== 'super_admin' && !isManagementRole(profile.role) && !allowed.has('admin.shell')) redirect('/employee/dashboard');

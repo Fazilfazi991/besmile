@@ -1,5 +1,5 @@
 export const permissionCatalogue = [
-  'admin.access','admin.shell','employees.view','employees.manage','employees.create','employees.edit','attendance.view_self','attendance.view_team','attendance.manage',
+  'admin.access','admin.shell','employees.view','employees.manage','employees.create','employees.edit','employees.status.manage','attendance.view_self','attendance.view_team','attendance.manage',
   'leave.request','leave.review','tasks.view_self','tasks.view','tasks.create','tasks.manage','tasks.edit','tasks.complete','tasks.reassign','tasks.assign','tasks.manage_access','documents.view','documents.manage',
   'announcements.view','announcements.manage','notifications.view','chat.use','crm.view_assigned','crm.view_team',
   'crm.manage_all','crm.import','finance.view','finance.manage','payroll.view','payroll.manage','invoices.view',

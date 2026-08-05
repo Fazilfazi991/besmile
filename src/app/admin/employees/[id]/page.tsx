@@ -1,49 +1,885 @@
-'use client';
+"use client";
 /* eslint-disable react/jsx-key */
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { adminRepository } from '@/lib/admin-repository';
-import { currentProfile } from '@/lib/auth';
-import { employeeRepository } from '@/lib/employee-repository';
-import { employeeEditPayload, normalizeDateOnly } from '@/lib/employee-edit-rules';
-import { genderLabel, genderOptions, normalizeGender } from '@/lib/gender';
-import { FinanceStatus, inr } from '@/components/finance-ui';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { adminRepository } from "@/lib/admin-repository";
+import { currentProfile } from "@/lib/auth";
+import { employeeRepository } from "@/lib/employee-repository";
+import {
+  employeeEditPayload,
+  normalizeDateOnly,
+} from "@/lib/employee-edit-rules";
+import { genderLabel, genderOptions, normalizeGender } from "@/lib/gender";
+import { FinanceStatus, inr } from "@/components/finance-ui";
+import {
+  canChangeEmployeeStatus,
+  canManageEmployee,
+  employeeStatuses,
+  statusChangeValidation,
+  type EmployeeStatus,
+} from "@/lib/employee-management-rules";
 
-const dash = (value: any) => value === null || value === undefined || value === '' ? '—' : value;
-const hours = (row: any) => { if (!row?.clock_in || !row?.clock_out) return '—'; const minutes = Math.max(0, Math.round((new Date(row.clock_out).getTime() - new Date(row.clock_in).getTime()) / 60000) - Number(row.break_minutes || 0)); return `${Math.floor(minutes / 60)}h ${minutes % 60}m`; };
-const formatDate = (value: any) => value ? new Date(value).toLocaleDateString() : '—';
+const dash = (value: any) =>
+  value === null || value === undefined || value === "" ? "—" : value;
+const hours = (row: any) => {
+  if (!row?.clock_in || !row?.clock_out) return "—";
+  const minutes = Math.max(
+    0,
+    Math.round(
+      (new Date(row.clock_out).getTime() - new Date(row.clock_in).getTime()) /
+        60000,
+    ) - Number(row.break_minutes || 0),
+  );
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+};
+const formatDate = (value: any) =>
+  value ? new Date(value).toLocaleDateString() : "—";
 
 export default function AdminEmployeeProfile() {
   const { id } = useParams<{ id: string }>();
-  const [viewer, setViewer] = useState<any>(); const [profile, setProfile] = useState<any>(); const [data, setData] = useState<any>(); const [photo, setPhoto] = useState(''); const [tab, setTab] = useState('overview'); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [statusOpen, setStatusOpen] = useState(false); const [editOpen, setEditOpen] = useState(false); const [edit, setEdit] = useState<any>({}); const [editOptions, setEditOptions] = useState<any>({ departments: [], managers: [] }); const [busy, setBusy] = useState(false); const editDialogRef = useRef<HTMLFormElement>(null);
-  const load = async () => { try { const admin = await currentProfile() as any; if (!admin) throw new Error('Please sign in again.'); const [canViewEmployees, canManageRoles, canManagePermissions] = await Promise.all([employeeRepository.hasPermission('employees.view'), employeeRepository.hasPermission('roles.manage'), employeeRepository.hasPermission('permissions.manage')]); if (!canViewEmployees) throw new Error('You do not have permission to view employee profiles.'); const [employee, status] = await Promise.all([adminRepository.employeeProfile(id), adminRepository.employeeWorkspaceStatus(id)]); setViewer({ ...admin, canManageAccess: canManageRoles || canManagePermissions }); setProfile(employee); setData(status); setError(''); if (employee.avatar_url) setPhoto(await employeeRepository.signedProfilePhoto(employee.avatar_url)); } catch (caught: any) { setError(caught.message || 'Employee details could not be loaded.'); } };
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [id]);
-  useEffect(() => { if (!editOpen) return; const timer = window.setTimeout(() => editDialogRef.current?.querySelector<HTMLElement>('input, select, textarea, button:not([disabled])')?.focus(), 0); return () => window.clearTimeout(timer); }, [editOpen]);
-  const metrics = useMemo(() => { const tasks = data?.tasks || []; return { days: (data?.attendance || []).filter((row: any) => row.clock_in).length, pendingLeave: (data?.leaves || []).filter((row: any) => row.status === 'pending').length, activeTasks: tasks.filter((row: any) => row.tasks?.status !== 'completed').length, docs: (data?.documents || []).length, grants: (data?.grants || []).length }; }, [data]);
-  const payrollAllowed = ['super_admin', 'chairman', 'director'].includes(viewer?.role); const tabs = ['overview', 'attendance', 'leave', 'tasks', 'documents', ...(viewer?.canManageAccess ? ['access'] : []), ...(payrollAllowed ? ['payroll'] : []), 'activity'];
-  const updateStatus = async (status: 'active' | 'inactive') => { if (viewer?.id === profile.id && profile.role === 'super_admin' && status === 'inactive') { setError('You cannot deactivate your own Super Admin account.'); return; } setBusy(true); try { await adminRepository.updateEmployee(profile.id, { status } as any); setNotice(`Employee marked ${status}.`); setStatusOpen(false); await load(); } catch (caught: any) { setError(caught.message || 'Employee status could not be changed.'); } finally { setBusy(false); } };
-  const openEdit = async () => { setBusy(true); try { const [departments, employees] = await Promise.all([adminRepository.departments(), adminRepository.employees('', 0, 200)]); setEditOptions({ departments, managers: employees.data.filter((person: any) => ['super_admin', 'chairman', 'director', 'general_manager'].includes(person.role) && person.status === 'active') }); setEdit({ full_name: profile.full_name || '', phone: profile.phone || '', gender: normalizeGender(profile.gender), department_id: profile.department_id || '', designation: profile.designation || '', manager_id: profile.manager_id || '', joining_date: normalizeDateOnly(profile.joining_date) || '', employment_type: profile.employment_type || '' }); setEditOpen(true); } catch (caught: any) { setError(caught.message || 'Employee edit options could not be loaded.'); } finally { setBusy(false); } };
-  const saveEdit = async (event: any) => { event.preventDefault(); const payload = employeeEditPayload({ ...edit, ...Object.fromEntries(new FormData(event.currentTarget)) }); setBusy(true); try { await adminRepository.updateEmployee(profile.id, payload as any); setNotice('Employee details updated.'); setEditOpen(false); await load(); } catch (caught: any) { setError(caught.message || 'Employee details could not be updated.'); } finally { setBusy(false); } };
-  const handleEditDialogKeyDown = (event: KeyboardEvent<HTMLFormElement>) => { if (event.key === 'Escape') { event.preventDefault(); setEditOpen(false); return; } if (event.key !== 'Tab') return; const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')).filter(element => !element.hasAttribute('disabled')); if (!focusable.length) return; const first = focusable[0]; const last = focusable[focusable.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } };
-  if (!profile || !data) return <section className="mx-auto max-w-[1320px] space-y-4"><div className="card h-36 animate-pulse" /><div className="grid gap-3 md:grid-cols-4">{[1, 2, 3, 4].map(index => <div className="card h-24 animate-pulse" key={index} />)}</div>{error && <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</p>}</section>;
-  const employment = [['Employee ID', profile.employee_code], ['Work email', profile.email], ['Role', profile.role], ['Department', profile.department?.name], ['Designation', profile.designation], ['Reporting manager', profile.manager?.full_name], ['Joining date', profile.joining_date], ['Employment type', profile.employment_type], ['Employment status', profile.status]];
-  const personal = [['Personal phone', profile.phone], ['Personal email', profile.personal_email], ['Date of birth', profile.date_of_birth], ['Gender', genderLabel(profile.gender)], ['Address', typeof profile.address === 'string' ? profile.address : profile.address?.line1 || profile.address?.text]];
-  return <section className="mx-auto max-w-[1320px] space-y-5"><header className="card flex flex-wrap items-center justify-between gap-4 p-5"><div className="flex min-w-0 items-center gap-4">{photo ? <img src={photo} alt="Employee" className="h-20 w-20 rounded-full object-cover" /> : <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-teal-100 text-2xl font-bold text-teal-900">{profile.full_name?.[0]}</div>}<div className="min-w-0"><Link className="text-sm font-semibold text-teal-700 hover:underline" href="/admin/employees">Back to employees</Link><h1 className="mt-1 truncate text-2xl font-bold">{profile.full_name}</h1><p className="mt-1 text-sm text-slate-600">{profile.employee_code || 'Employee'} · {profile.designation || 'Employee'} · {profile.department?.name || 'No department'}</p><div className="mt-2 flex gap-2"><FinanceStatus value={profile.status} /><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold capitalize">{profile.role}</span></div></div></div><div className="flex flex-wrap gap-2"><button className="btn border" disabled={busy} onClick={() => void openEdit()}>Edit employee</button><button className="btn border" onClick={() => setStatusOpen(true)}>Change status</button>{viewer?.canManageAccess && <Link className="btn border" href="/admin/access">Manage access</Link>}<Link className="btn btn-primary" href="/admin/tasks">Assign task</Link></div></header>{error && <Banner error={error} />}{notice && <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">{notice}</p>}<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6"><Metric label="Attendance this month" value={`${metrics.days} days`} /><Metric label="Leave requests" value={`${metrics.pendingLeave} pending`} /><Metric label="Active tasks" value={String(metrics.activeTasks)} /><Metric label="Documents" value={String(metrics.docs)} />{viewer?.canManageAccess && <Metric label="Direct grants" value={String(metrics.grants)} />}{payrollAllowed && <Metric label="Payroll status" value={data.payroll?.[0]?.payment_status || 'No payroll'} />}</div><nav className="flex gap-2 overflow-x-auto border-b border-slate-200"><>{tabs.map(key => <button className={`shrink-0 border-b-2 px-3 py-2 text-sm font-semibold capitalize ${tab === key ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-600'}`} onClick={() => setTab(key)} key={key}>{key}</button>)}</></nav>{tab === 'overview' && <Overview profile={profile} data={data} employment={employment} personal={personal} metrics={metrics} />}{tab === 'attendance' && <Attendance rows={data.attendance} />}{tab === 'leave' && <Leave rows={data.leaves} />}{tab === 'tasks' && <Tasks rows={data.tasks} />}{tab === 'documents' && <Documents rows={data.documents} />}{tab === 'access' && viewer?.canManageAccess && <Access role={profile.role} rows={data.grants} />}{tab === 'payroll' && payrollAllowed && <Payroll rows={data.payroll} />}{tab === 'activity' && <Activity rows={data.activity} />}{editOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-3 sm:p-4"><form ref={editDialogRef} className="card flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden sm:max-h-[90dvh]" role="dialog" aria-modal="true" aria-labelledby="edit-employee-title" onKeyDown={handleEditDialogKeyDown} onSubmit={saveEdit}><div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6"><h2 id="edit-employee-title" className="text-lg font-bold">Edit employee</h2><button type="button" className="btn border px-3 py-1.5 text-sm" aria-label="Close edit employee" onClick={()=>setEditOpen(false)}>Close</button></div><div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6"><div className="grid gap-3 md:grid-cols-2">{[['Full name','full_name','text'],['Phone','phone','tel'],['Designation','designation','text'],['Joining date','joining_date','date'],['Employment type','employment_type','text']].map(([label,key,type])=><label className="text-sm font-medium" key={key}>{label}<input name={key} className="input mt-1" type={type} value={edit[key]||''} onChange={event=>setEdit({...edit,[key]:event.target.value})}/></label>)}<label className="text-sm font-medium">Gender<select name="gender" className="input mt-1" required value={edit.gender||''} onChange={event=>setEdit({...edit,gender:event.target.value})}><option value="" disabled>Select gender</option>{genderOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="text-sm font-medium">Department<select name="department_id" className="input mt-1" value={edit.department_id||''} onChange={event=>setEdit({...edit,department_id:event.target.value})}><option value="">No department</option>{editOptions.departments.map((item:any)=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="text-sm font-medium">Reporting manager<select name="manager_id" className="input mt-1" value={edit.manager_id||''} onChange={event=>setEdit({...edit,manager_id:event.target.value})}><option value="">No manager assigned</option>{editOptions.managers.map((item:any)=><option key={item.id} value={item.id}>{item.full_name}</option>)}</select></label></div></div><div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-200 px-4 py-3 sm:px-6"><button type="button" className="btn border" onClick={()=>setEditOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy?'Saving…':'Save employee'}</button></div></form></div>}{statusOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="card w-full max-w-md p-6"><h2 className="text-lg font-bold">Change employee status</h2><p className="mt-2 text-sm text-slate-600">Inactive users lose access to protected CRM routes and data. This action does not delete employee records.</p><div className="mt-5 flex gap-2"><button className="btn btn-primary" disabled={busy || profile.status === 'active'} onClick={() => void updateStatus('active')}>Set active</button><button className="btn border border-rose-300 text-rose-700" disabled={busy || profile.status !== 'active'} onClick={() => void updateStatus('inactive')}>{busy ? 'Saving…' : 'Set inactive'}</button></div><button className="mt-4 text-sm font-semibold text-slate-600" onClick={() => setStatusOpen(false)}>Cancel</button></div></div>}</section>;
+  const router = useRouter();
+  const [viewer, setViewer] = useState<any>();
+  const [profile, setProfile] = useState<any>();
+  const [data, setData] = useState<any>();
+  const [photo, setPhoto] = useState("");
+  const [tab, setTab] = useState("overview");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [nextStatus, setNextStatus] = useState<EmployeeStatus>("active");
+  const [statusReason, setStatusReason] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [edit, setEdit] = useState<any>({});
+  const [editOptions, setEditOptions] = useState<any>({
+    departments: [],
+    managers: [],
+  });
+  const [busy, setBusy] = useState(false);
+  const editDialogRef = useRef<HTMLFormElement>(null);
+  const load = async () => {
+    try {
+      const admin = (await currentProfile()) as any;
+      if (!admin)
+        throw new Error("Your session is unavailable. Please try again.");
+      const [canViewEmployees, canEditEmployees, canManageEmployees, canStatusEmployees] =
+        await Promise.all([
+          employeeRepository.hasPermission("employees.view"),
+          employeeRepository.hasPermission("employees.edit"),
+          employeeRepository.hasPermission("employees.manage"),
+          employeeRepository.hasPermission("employees.status.manage"),
+        ]);
+      if (!canViewEmployees)
+        throw new Error(
+          "You do not have permission to view employee profiles.",
+        );
+      const [employee, status, statusHistory] = await Promise.all([
+        adminRepository.employeeProfile(id),
+        adminRepository.employeeWorkspaceStatus(id),
+        adminRepository.employeeStatusHistory(id),
+      ]);
+      setViewer({
+        ...admin,
+        canEditEmployees: canEditEmployees || canManageEmployees,
+        canStatusEmployees: canStatusEmployees || canManageEmployees,
+        canManageAccess: admin.role === "super_admin",
+      });
+      setProfile(employee);
+      setData({ ...status, statusHistory });
+      setError("");
+      if (employee.avatar_url)
+        setPhoto(
+          await employeeRepository.signedProfilePhoto(employee.avatar_url),
+        );
+    } catch (caught: any) {
+      setError(caught.message || "Employee details could not be loaded.");
+    }
+  };
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [id]);
+  useEffect(() => {
+    if (!editOpen) return;
+    const timer = window.setTimeout(
+      () =>
+        editDialogRef.current
+          ?.querySelector<HTMLElement>(
+            "input, select, textarea, button:not([disabled])",
+          )
+          ?.focus(),
+      0,
+    );
+    return () => window.clearTimeout(timer);
+  }, [editOpen]);
+  const metrics = useMemo(() => {
+    const tasks = data?.tasks || [];
+    return {
+      days: (data?.attendance || []).filter((row: any) => row.clock_in).length,
+      pendingLeave: (data?.leaves || []).filter(
+        (row: any) => row.status === "pending",
+      ).length,
+      activeTasks: tasks.filter((row: any) => row.tasks?.status !== "completed")
+        .length,
+      docs: (data?.documents || []).length,
+      grants: (data?.grants || []).length,
+    };
+  }, [data]);
+  const payrollAllowed = ["super_admin", "chairman", "director"].includes(
+    viewer?.role,
+  );
+  const tabs = [
+    "overview",
+    "attendance",
+    "leave",
+    "tasks",
+    "documents",
+    ...(viewer?.canManageAccess ? ["access"] : []),
+    ...(payrollAllowed ? ["payroll"] : []),
+    "activity",
+  ];
+  const updateStatus = async () => {
+    const message = statusChangeValidation(nextStatus, statusReason);
+    if (message) {
+      setError(message);
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await adminRepository.changeEmployeeStatus(
+        profile.id,
+        nextStatus,
+        statusReason,
+      );
+      setNotice(`Employee marked ${nextStatus.replace("_", " ")}.`);
+      setStatusOpen(false);
+      setStatusReason("");
+      await load();
+      router.refresh();
+    } catch (caught: any) {
+      setError(caught.message || "Employee status could not be changed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const openEdit = async () => {
+    setBusy(true);
+    try {
+      const [departments, employees] = await Promise.all([
+        adminRepository.departments(),
+        adminRepository.employees("", 0, 200),
+      ]);
+      setEditOptions({
+        departments,
+        managers: employees.data.filter(
+          (person: any) =>
+            ["super_admin", "chairman", "director", "general_manager"].includes(
+              person.role,
+            ) && person.status === "active",
+        ),
+      });
+      setEdit({
+        full_name: profile.full_name || "",
+        phone: profile.phone || "",
+        gender: normalizeGender(profile.gender),
+        department_id: profile.department_id || "",
+        designation: profile.designation || "",
+        manager_id: profile.manager_id || "",
+        joining_date: normalizeDateOnly(profile.joining_date) || "",
+        employment_type: profile.employment_type || "",
+      });
+      setEditOpen(true);
+    } catch (caught: any) {
+      setError(caught.message || "Employee edit options could not be loaded.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saveEdit = async (event: any) => {
+    event.preventDefault();
+    const payload = employeeEditPayload({
+      ...edit,
+      ...Object.fromEntries(new FormData(event.currentTarget)),
+    });
+    setBusy(true);
+    setError("");
+    try {
+      await adminRepository.updateEmployee(profile.id, payload as any);
+      setNotice("Employee updated successfully.");
+      setEditOpen(false);
+      await load();
+      router.refresh();
+    } catch (caught: any) {
+      setError(caught.message || "Employee details could not be updated.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const handleEditDialogKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setEditOpen(false);
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => !element.hasAttribute("disabled"));
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+  if (!profile || !data)
+    return (
+      <section className="mx-auto max-w-[1320px] space-y-4">
+        <div className="card h-36 animate-pulse" />
+        <div className="grid gap-3 md:grid-cols-4">
+          {[1, 2, 3, 4].map((index) => (
+            <div className="card h-24 animate-pulse" key={index} />
+          ))}
+        </div>
+        {error && (
+          <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+            {error}
+          </p>
+        )}
+      </section>
+    );
+  const canEdit =
+    Boolean(viewer?.canEditEmployees) && canManageEmployee(viewer, profile);
+  const canChangeStatus =
+    Boolean(viewer?.canStatusEmployees) &&
+    canChangeEmployeeStatus(viewer, profile);
+  const employment = [
+    ["Employee ID", profile.employee_code],
+    ["Work email", profile.email],
+    ["Role", profile.role],
+    ["Department", profile.department?.name],
+    ["Designation", profile.designation],
+    ["Reporting manager", profile.manager?.full_name],
+    ["Joining date", profile.joining_date],
+    ["Employment type", profile.employment_type],
+    ["Employment status", profile.status],
+  ];
+  const personal = [
+    ["Personal phone", profile.phone],
+    ["Personal email", profile.personal_email],
+    ["Date of birth", profile.date_of_birth],
+    ["Gender", genderLabel(profile.gender)],
+    [
+      "Address",
+      typeof profile.address === "string"
+        ? profile.address
+        : profile.address?.line1 || profile.address?.text,
+    ],
+  ];
+  return (
+    <section className="mx-auto max-w-[1320px] space-y-5">
+      <header className="card flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="flex min-w-0 items-center gap-4">
+          {photo ? (
+            <img
+              src={photo}
+              alt="Employee"
+              className="h-20 w-20 rounded-full object-cover"
+            />
+          ) : (
+            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-teal-100 text-2xl font-bold text-teal-900">
+              {profile.full_name?.[0]}
+            </div>
+          )}
+          <div className="min-w-0">
+            <Link
+              className="text-sm font-semibold text-teal-700 hover:underline"
+              href="/admin/employees"
+            >
+              Back to employees
+            </Link>
+            <h1 className="mt-1 truncate text-2xl font-bold">
+              {profile.full_name}
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              {profile.employee_code || "Employee"} ·{" "}
+              {profile.designation || "Employee"} ·{" "}
+              {profile.department?.name || "No department"}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <FinanceStatus value={profile.status} />
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold capitalize">
+                {profile.role}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canEdit && <button className="btn border" disabled={busy} onClick={() => void openEdit()}>Edit employee</button>}
+          {canChangeStatus && <button className="btn border" disabled={busy} onClick={() => { setNextStatus(profile.status); setStatusOpen(true); }}>Change status</button>}
+          {viewer?.canManageAccess && (
+            <Link className="btn border" href="/admin/access">
+              Manage access
+            </Link>
+          )}
+          <Link className="btn btn-primary" href="/admin/tasks">
+            Assign task
+          </Link>
+        </div>
+      </header>
+      {error && <Banner error={error} />}
+      {notice && (
+        <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+          {notice}
+        </p>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <Metric label="Attendance this month" value={`${metrics.days} days`} />
+        <Metric
+          label="Leave requests"
+          value={`${metrics.pendingLeave} pending`}
+        />
+        <Metric label="Active tasks" value={String(metrics.activeTasks)} />
+        <Metric label="Documents" value={String(metrics.docs)} />
+        {viewer?.canManageAccess && (
+          <Metric label="Direct grants" value={String(metrics.grants)} />
+        )}
+        {payrollAllowed && (
+          <Metric
+            label="Payroll status"
+            value={data.payroll?.[0]?.payment_status || "No payroll"}
+          />
+        )}
+      </div>
+      <nav className="flex gap-2 overflow-x-auto border-b border-slate-200">
+        <>
+          {tabs.map((key) => (
+            <button
+              className={`shrink-0 border-b-2 px-3 py-2 text-sm font-semibold capitalize ${tab === key ? "border-teal-600 text-teal-800" : "border-transparent text-slate-600"}`}
+              onClick={() => setTab(key)}
+              key={key}
+            >
+              {key}
+            </button>
+          ))}
+        </>
+      </nav>
+      {tab === "overview" && (
+        <Overview
+          profile={profile}
+          data={data}
+          employment={employment}
+          personal={personal}
+          metrics={metrics}
+        />
+      )}
+      {tab === "attendance" && <Attendance rows={data.attendance} />}
+      {tab === "leave" && <Leave rows={data.leaves} />}
+      {tab === "tasks" && <Tasks rows={data.tasks} />}
+      {tab === "documents" && <Documents rows={data.documents} />}
+      {tab === "access" && viewer?.canManageAccess && (
+        <Access role={profile.role} rows={data.grants} />
+      )}
+      {tab === "payroll" && payrollAllowed && <Payroll rows={data.payroll} />}
+      {tab === "activity" && <Activity rows={data.activity} statusHistory={data.statusHistory} />}
+      {editOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-3 sm:p-4">
+          <form
+            ref={editDialogRef}
+            className="card flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden sm:max-h-[90dvh]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-employee-title"
+            onKeyDown={handleEditDialogKeyDown}
+            onSubmit={saveEdit}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6">
+              <h2 id="edit-employee-title" className="text-lg font-bold">
+                Edit employee
+              </h2>
+              <button
+                type="button"
+                className="btn border px-3 py-1.5 text-sm"
+                aria-label="Close edit employee"
+                onClick={() => setEditOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+              <div className="grid gap-3 md:grid-cols-2">
+                {[
+                  ["Full name", "full_name", "text"],
+                  ["Phone", "phone", "tel"],
+                  ["Designation", "designation", "text"],
+                  ["Joining date", "joining_date", "date"],
+                  ["Employment type", "employment_type", "text"],
+                ].map(([label, key, type]) => (
+                  <label className="text-sm font-medium" key={key}>
+                    {label}
+                    <input
+                      name={key}
+                      className="input mt-1"
+                      type={type}
+                      value={edit[key] || ""}
+                      onChange={(event) =>
+                        setEdit({ ...edit, [key]: event.target.value })
+                      }
+                    />
+                  </label>
+                ))}
+                <label className="text-sm font-medium">
+                  Gender
+                  <select
+                    name="gender"
+                    className="input mt-1"
+                    required
+                    value={edit.gender || ""}
+                    onChange={(event) =>
+                      setEdit({ ...edit, gender: event.target.value })
+                    }
+                  >
+                    <option value="" disabled>
+                      Select gender
+                    </option>
+                    {genderOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm font-medium">
+                  Department
+                  <select
+                    name="department_id"
+                    className="input mt-1"
+                    value={edit.department_id || ""}
+                    onChange={(event) =>
+                      setEdit({ ...edit, department_id: event.target.value })
+                    }
+                  >
+                    <option value="">No department</option>
+                    {editOptions.departments.map((item: any) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm font-medium">
+                  Reporting manager
+                  <select
+                    name="manager_id"
+                    className="input mt-1"
+                    value={edit.manager_id || ""}
+                    onChange={(event) =>
+                      setEdit({ ...edit, manager_id: event.target.value })
+                    }
+                  >
+                    <option value="">No manager assigned</option>
+                    {editOptions.managers.map((item: any) => (
+                      <option key={item.id} value={item.id}>
+                        {item.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-200 px-4 py-3 sm:px-6">
+              <button
+                type="button"
+                className="btn border"
+                onClick={() => setEditOpen(false)}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary" disabled={busy}>
+                {busy ? "Saving…" : "Save employee"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {statusOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
+          <div className="card w-full max-w-md p-6">
+            <h2 className="text-lg font-bold">Change employee status</h2>
+            <p className="mt-2 text-sm text-slate-600">Change {profile.full_name}&apos;s employment status. Inactive and terminated employees cannot access protected CRM routes.</p>
+            <div className="mt-5 grid gap-3">
+              <label className="text-sm font-medium">New status<select className="input mt-1" value={nextStatus} onChange={(event) => setNextStatus(event.target.value as EmployeeStatus)}>{employeeStatuses.map((status) => <option value={status} key={status}>{status.replace('_', ' ')}</option>)}</select></label>
+              <label className="text-sm font-medium">Reason{['inactive', 'terminated'].includes(nextStatus) ? ' (required)' : ' (optional)'}<textarea className="input mt-1 min-h-20" value={statusReason} onChange={(event) => setStatusReason(event.target.value)} /></label>
+              <button className="btn btn-primary" disabled={busy || nextStatus === profile.status} onClick={() => void updateStatus()}>{busy ? 'Saving…' : 'Confirm status change'}</button>
+            </div>
+            <button
+              className="mt-4 text-sm font-semibold text-slate-600"
+              onClick={() => setStatusOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }
-function Overview({ profile, data, employment, personal, metrics }: any) { const today = data.todayAttendance; return <div className="grid gap-5 xl:grid-cols-2"><Panel title="Employment information"><Pairs entries={employment} /></Panel><Panel title="Contact information"><Pairs entries={personal} /><div className="mt-4 border-t border-slate-100 pt-4 text-sm"><b>Emergency contact:</b> {dash(profile.emergency_contact?.name)} · {dash(profile.emergency_contact?.phone)}</div></Panel><Panel title="Today’s status"><div className="grid gap-3 sm:grid-cols-2"><Metric label="Attendance" value={today?.status || (profile.status === 'active' ? 'Not clocked in' : 'Inactive')} /><Metric label="Clock in" value={today?.clock_in ? new Date(today.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'} /><Metric label="Clock out" value={today?.clock_out ? new Date(today.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'} /><Metric label="Working duration" value={hours(today)} /></div></Panel><Panel title="Current attention items"><div className="space-y-3 text-sm"><p>{metrics.pendingLeave ? `${metrics.pendingLeave} pending leave request(s)` : 'No pending leave requests'}</p><p className={data.tasks.some((row: any) => row.tasks?.due_date && row.tasks.due_date < new Date().toISOString().slice(0, 10) && row.tasks.status !== 'completed') ? 'font-semibold text-rose-700' : ''}>{metrics.activeTasks} active task(s)</p><p>{data.documents.filter((item: any) => ['requested', 'rejected'].includes(item.status)).length} document item(s) need attention</p></div></Panel><Panel title="Reporting structure"><p className="text-sm"><b>Reports to:</b> {profile.manager?.full_name || 'No reporting manager'}</p><p className="mt-3 text-sm"><b>Direct reports:</b> {data.directReports?.length ? data.directReports.map((person: any) => person.full_name).join(', ') : 'None'}</p></Panel></div>; }
-function Attendance({ rows }: any) { return <Panel title="Attendance this month"><DataTable headings={['Date', 'Status', 'Clock in', 'Clock out', 'Working hours']} rows={rows.map((row: any) => [row.work_date, <FinanceStatus value={row.status || 'not clocked in'} />, row.clock_in ? new Date(row.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—', row.clock_out ? new Date(row.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—', hours(row)])} empty="No attendance recorded for this month." /></Panel>; }
-function Leave({ rows }: any) { return <Panel title="Leave requests"><DataTable headings={['Type', 'Dates', 'Status', 'Reason', 'Reviewed']} rows={rows.map((row: any) => [row.leave_types?.name || 'Leave', `${row.starts_on} – ${row.ends_on}`, <FinanceStatus value={row.status} />, row.reason || '—', formatDate(row.reviewed_at)])} empty="No leave requests recorded." /></Panel>; }
-function Tasks({ rows }: any) { return <Panel title="Assigned tasks"><DataTable headings={['Task', 'Priority', 'Due date', 'Status', 'Last update']} rows={rows.map((row: any) => [row.tasks?.title || 'Task', row.tasks?.priority || '—', row.tasks?.due_date || '—', <FinanceStatus value={row.status || row.tasks?.status || 'todo'} />, formatDate(row.updated_at)])} empty="No assigned tasks." /></Panel>; }
-function Documents({ rows }: any) { return <Panel title="Documents"><DataTable headings={['Document request', 'Category', 'Uploaded', 'Status']} rows={rows.map((row: any) => [row.title || 'Document', row.category || 'Other', row.document_submissions?.[0]?.submitted_at ? formatDate(row.document_submissions[0].submitted_at) : 'Not uploaded', <FinanceStatus value={row.status || 'requested'} />])} empty="No document requests." /></Panel>; }
-function Access({ role, rows }: any) { return <div className="grid gap-5 xl:grid-cols-2"><Panel title="Base role"><p className="text-2xl font-bold capitalize">{role}</p><p className="mt-2 text-sm text-slate-600">Role-based access is managed centrally.</p><Link className="btn mt-4 border" href="/admin/access">Open Roles & Access</Link></Panel><Panel title="Direct grants"><DataTable headings={['Permission', 'Start', 'Expiry', 'Status', 'Granted by']} rows={rows.map((row: any) => [row.permission?.code || 'Permission', formatDate(row.starts_at || row.granted_at), formatDate(row.expires_at), <FinanceStatus value={row.revoked_at ? 'revoked' : 'active'} />, row.granter?.full_name || '—'])} empty="No direct grants for this employee." /></Panel></div>; }
-function Payroll({ rows }: any) { return <Panel title="Payroll"><DataTable headings={['Period', 'Basic salary', 'Allowances', 'Deductions', 'Status', 'Payment date']} rows={rows.map((row: any) => [row.payroll_run ? `${row.payroll_run.period_start} – ${row.payroll_run.period_end}` : '—', inr(row.basic_salary), inr(row.allowances), inr(row.deductions), <FinanceStatus value={row.payment_status || 'draft'} />, formatDate(row.payment_date)])} empty="No payroll records for this employee." /></Panel>; }
-function Activity({ rows }: any) { return <Panel title="Recent activity"><div className="divide-y divide-slate-100">{rows.length ? rows.map((row: any) => <article className="py-4" key={row.id}><b>{row.actor?.full_name || 'System'} {String(row.action || 'employee_updated').replaceAll('_', ' ')}</b><p className="mt-1 text-sm text-slate-600">{Object.entries(row.changes || {}).map(([field, value]: any) => `${field.replaceAll('_', ' ')}: ${value?.from || '—'} → ${value?.to || '—'}`).join(' · ') || 'Employee operational update'}</p><p className="mt-1 text-sm text-slate-500">{new Date(row.created_at).toLocaleString()}</p></article>) : <Empty text="No authorized employee activity recorded yet." />}</div></Panel>; }
-function Panel({ title, children }: { title: string; children: React.ReactNode }) { return <section className="card p-5"><h2 className="font-bold">{title}</h2><div className="mt-4">{children}</div></section>; }
-function Pairs({ entries }: { entries: any[] }) { return <dl className="grid gap-4 sm:grid-cols-2">{entries.map(([label, value]) => <div key={label}><dt className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1 text-sm capitalize">{dash(value)}</dd></div>)}</dl>; }
-function Metric({ label, value }: { label: string; value: string }) { return <div className="card p-4"><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-lg font-bold capitalize">{value}</p></div>; }
-function DataTable({ headings, rows, empty }: { headings: string[]; rows: any[][]; empty: string }) { return <div className="overflow-x-auto"><table className="min-w-[680px] w-full text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{headings.map(heading => <th className="px-4 py-3 text-left" key={heading}>{heading}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr className="border-t" key={index}>{row.map((cell, cellIndex) => <td className="px-4 py-3" key={cellIndex}>{cell}</td>)}</tr>)}</tbody></table>{!rows.length && <Empty text={empty} />}</div>; }
-function Empty({ text }: { text: string }) { return <p className="p-6 text-center text-sm text-slate-500">{text}</p>; }
-function Banner({ error }: { error: string }) { return <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</p>; }
-
+function Overview({ profile, data, employment, personal, metrics }: any) {
+  const today = data.todayAttendance;
+  return (
+    <div className="grid gap-5 xl:grid-cols-2">
+      <Panel title="Employment information">
+        <Pairs entries={employment} />
+      </Panel>
+      <Panel title="Contact information">
+        <Pairs entries={personal} />
+        <div className="mt-4 border-t border-slate-100 pt-4 text-sm">
+          <b>Emergency contact:</b> {dash(profile.emergency_contact?.name)} ·{" "}
+          {dash(profile.emergency_contact?.phone)}
+        </div>
+      </Panel>
+      <Panel title="Today’s status">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Metric
+            label="Attendance"
+            value={
+              today?.status ||
+              (profile.status === "active" ? "Not clocked in" : "Inactive")
+            }
+          />
+          <Metric
+            label="Clock in"
+            value={
+              today?.clock_in
+                ? new Date(today.clock_in).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—"
+            }
+          />
+          <Metric
+            label="Clock out"
+            value={
+              today?.clock_out
+                ? new Date(today.clock_out).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—"
+            }
+          />
+          <Metric label="Working duration" value={hours(today)} />
+        </div>
+      </Panel>
+      <Panel title="Current attention items">
+        <div className="space-y-3 text-sm">
+          <p>
+            {metrics.pendingLeave
+              ? `${metrics.pendingLeave} pending leave request(s)`
+              : "No pending leave requests"}
+          </p>
+          <p
+            className={
+              data.tasks.some(
+                (row: any) =>
+                  row.tasks?.due_date &&
+                  row.tasks.due_date < new Date().toISOString().slice(0, 10) &&
+                  row.tasks.status !== "completed",
+              )
+                ? "font-semibold text-rose-700"
+                : ""
+            }
+          >
+            {metrics.activeTasks} active task(s)
+          </p>
+          <p>
+            {
+              data.documents.filter((item: any) =>
+                ["requested", "rejected"].includes(item.status),
+              ).length
+            }{" "}
+            document item(s) need attention
+          </p>
+        </div>
+      </Panel>
+      <Panel title="Reporting structure">
+        <p className="text-sm">
+          <b>Reports to:</b>{" "}
+          {profile.manager?.full_name || "No reporting manager"}
+        </p>
+        <p className="mt-3 text-sm">
+          <b>Direct reports:</b>{" "}
+          {data.directReports?.length
+            ? data.directReports
+                .map((person: any) => person.full_name)
+                .join(", ")
+            : "None"}
+        </p>
+      </Panel>
+    </div>
+  );
+}
+function Attendance({ rows }: any) {
+  return (
+    <Panel title="Attendance this month">
+      <DataTable
+        headings={["Date", "Status", "Clock in", "Clock out", "Working hours"]}
+        rows={rows.map((row: any) => [
+          row.work_date,
+          <FinanceStatus value={row.status || "not clocked in"} />,
+          row.clock_in
+            ? new Date(row.clock_in).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "—",
+          row.clock_out
+            ? new Date(row.clock_out).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "—",
+          hours(row),
+        ])}
+        empty="No attendance recorded for this month."
+      />
+    </Panel>
+  );
+}
+function Leave({ rows }: any) {
+  return (
+    <Panel title="Leave requests">
+      <DataTable
+        headings={["Type", "Dates", "Status", "Reason", "Reviewed"]}
+        rows={rows.map((row: any) => [
+          row.leave_types?.name || "Leave",
+          `${row.starts_on} – ${row.ends_on}`,
+          <FinanceStatus value={row.status} />,
+          row.reason || "—",
+          formatDate(row.reviewed_at),
+        ])}
+        empty="No leave requests recorded."
+      />
+    </Panel>
+  );
+}
+function Tasks({ rows }: any) {
+  return (
+    <Panel title="Assigned tasks">
+      <DataTable
+        headings={["Task", "Priority", "Due date", "Status", "Last update"]}
+        rows={rows.map((row: any) => [
+          row.tasks?.title || "Task",
+          row.tasks?.priority || "—",
+          row.tasks?.due_date || "—",
+          <FinanceStatus value={row.status || row.tasks?.status || "todo"} />,
+          formatDate(row.updated_at),
+        ])}
+        empty="No assigned tasks."
+      />
+    </Panel>
+  );
+}
+function Documents({ rows }: any) {
+  return (
+    <Panel title="Documents">
+      <DataTable
+        headings={["Document request", "Category", "Uploaded", "Status"]}
+        rows={rows.map((row: any) => [
+          row.title || "Document",
+          row.category || "Other",
+          row.document_submissions?.[0]?.submitted_at
+            ? formatDate(row.document_submissions[0].submitted_at)
+            : "Not uploaded",
+          <FinanceStatus value={row.status || "requested"} />,
+        ])}
+        empty="No document requests."
+      />
+    </Panel>
+  );
+}
+function Access({ role, rows }: any) {
+  return (
+    <div className="grid gap-5 xl:grid-cols-2">
+      <Panel title="Base role">
+        <p className="text-2xl font-bold capitalize">{role}</p>
+        <p className="mt-2 text-sm text-slate-600">
+          Role-based access is managed centrally.
+        </p>
+        <Link className="btn mt-4 border" href="/admin/access">
+          Open Roles & Access
+        </Link>
+      </Panel>
+      <Panel title="Direct grants">
+        <DataTable
+          headings={["Permission", "Start", "Expiry", "Status", "Granted by"]}
+          rows={rows.map((row: any) => [
+            row.permission?.code || "Permission",
+            formatDate(row.starts_at || row.granted_at),
+            formatDate(row.expires_at),
+            <FinanceStatus value={row.revoked_at ? "revoked" : "active"} />,
+            row.granter?.full_name || "—",
+          ])}
+          empty="No direct grants for this employee."
+        />
+      </Panel>
+    </div>
+  );
+}
+function Payroll({ rows }: any) {
+  return (
+    <Panel title="Payroll">
+      <DataTable
+        headings={[
+          "Period",
+          "Basic salary",
+          "Allowances",
+          "Deductions",
+          "Status",
+          "Payment date",
+        ]}
+        rows={rows.map((row: any) => [
+          row.payroll_run
+            ? `${row.payroll_run.period_start} – ${row.payroll_run.period_end}`
+            : "—",
+          inr(row.basic_salary),
+          inr(row.allowances),
+          inr(row.deductions),
+          <FinanceStatus value={row.payment_status || "draft"} />,
+          formatDate(row.payment_date),
+        ])}
+        empty="No payroll records for this employee."
+      />
+    </Panel>
+  );
+}
+function Activity({ rows, statusHistory = [] }: any) {
+  return (
+    <Panel title="Recent activity">
+      <div className="divide-y divide-slate-100">
+        {statusHistory.map((row: any) => <article className="py-4" key={`status-${row.id}`}><b>{row.actor?.full_name || 'System'} employee status changed</b><p className="mt-1 text-sm text-slate-600">status: {row.previous_status} → {row.next_status}{row.reason ? ` · reason: ${row.reason}` : ''}</p><p className="mt-1 text-sm text-slate-500">{new Date(row.created_at).toLocaleString()}</p></article>)}
+        {rows.length ? (
+          rows.map((row: any) => (
+            <article className="py-4" key={row.id}>
+              <b>
+                {row.actor?.full_name || "System"}{" "}
+                {String(row.action || "employee_updated").replaceAll("_", " ")}
+              </b>
+              <p className="mt-1 text-sm text-slate-600">
+                {Object.entries(row.changes || {})
+                  .map(
+                    ([field, value]: any) =>
+                      `${field.replaceAll("_", " ")}: ${value?.from || "—"} → ${value?.to || "—"}`,
+                  )
+                  .join(" · ") || "Employee operational update"}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {new Date(row.created_at).toLocaleString()}
+              </p>
+            </article>
+          ))
+        ) : (
+          <Empty text="No authorized employee activity recorded yet." />
+        )}
+      </div>
+    </Panel>
+  );
+}
+function Panel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="card p-5">
+      <h2 className="font-bold">{title}</h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+function Pairs({ entries }: { entries: any[] }) {
+  return (
+    <dl className="grid gap-4 sm:grid-cols-2">
+      {entries.map(([label, value]) => (
+        <div key={label}>
+          <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            {label}
+          </dt>
+          <dd className="mt-1 text-sm capitalize">{dash(value)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="card p-4">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-bold capitalize">{value}</p>
+    </div>
+  );
+}
+function DataTable({
+  headings,
+  rows,
+  empty,
+}: {
+  headings: string[];
+  rows: any[][];
+  empty: string;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-[680px] w-full text-sm">
+        <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            {headings.map((heading) => (
+              <th className="px-4 py-3 text-left" key={heading}>
+                {heading}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr className="border-t" key={index}>
+              {row.map((cell, cellIndex) => (
+                <td className="px-4 py-3" key={cellIndex}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!rows.length && <Empty text={empty} />}
+    </div>
+  );
+}
+function Empty({ text }: { text: string }) {
+  return <p className="p-6 text-center text-sm text-slate-500">{text}</p>;
+}
+function Banner({ error }: { error: string }) {
+  return (
+    <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+      {error}
+    </p>
+  );
+}
