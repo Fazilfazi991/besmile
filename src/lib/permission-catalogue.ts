@@ -1,6 +1,6 @@
 export const permissionCatalogue = [
   'admin.access','admin.shell','employees.view','employees.manage','employees.create','employees.edit','attendance.view_self','attendance.view_team','attendance.manage',
-  'leave.request','leave.review','tasks.view_self','tasks.assign','tasks.manage_access','documents.view','documents.manage',
+  'leave.request','leave.review','tasks.view_self','tasks.view','tasks.create','tasks.manage','tasks.edit','tasks.complete','tasks.reassign','tasks.assign','tasks.manage_access','documents.view','documents.manage',
   'announcements.view','announcements.manage','notifications.view','chat.use','crm.view_assigned','crm.view_team',
   'crm.manage_all','crm.import','finance.view','finance.manage','payroll.view','payroll.manage','invoices.view',
   'invoices.manage','reports.view','roles.manage','permissions.manage','audit.view','settings.manage',
@@ -17,7 +17,7 @@ export type PermissionCode = typeof permissionCatalogue[number];
 
 export const adminRoutePermissions: Record<string, PermissionCode> = {
   '/admin': 'admin.access',
-  '/admin/tasks': 'tasks.assign',
+  '/admin/tasks': 'tasks.manage',
   '/admin/task-access': 'tasks.manage_access',
   '/admin/documents': 'documents.manage',
   '/admin/announcements': 'announcements.manage',
@@ -32,7 +32,7 @@ export const adminRoutePermissions: Record<string, PermissionCode> = {
 export const superAdminNavigation = [
   { title: 'OVERVIEW', links: [{ label: 'Dashboard', href: '/admin', permission: 'admin.access' }] },
   { title: 'PEOPLE', links: [{ label: 'Employees', href: '/admin/employees', permission: 'employees.view' }] },
-  { title: 'WORK MANAGEMENT', links: [{ label: 'Tasks', href: '/admin/tasks', permission: 'tasks.assign' }, { label: 'Task Access', href: '/admin/task-access', permission: 'tasks.manage_access' }, { label: 'Documents', href: '/admin/documents', permission: 'documents.manage' }] },
+  { title: 'WORK MANAGEMENT', links: [{ label: 'Tasks', href: '/admin/tasks', permission: 'tasks.manage' }, { label: 'Task Access', href: '/admin/task-access', permission: 'tasks.manage_access' }, { label: 'Documents', href: '/admin/documents', permission: 'documents.manage' }] },
   { title: 'COMMUNICATION', links: [{ label: 'Chat', href: '/admin/chat', permission: 'chat.use' }, { label: 'Announcements', href: '/admin/announcements', permission: 'announcements.manage' }, { label: 'Notifications', href: '/admin/notifications', permission: 'notifications.view' }] },
   { title: 'CRM', links: [{ label: 'CRM Overview', href: '/admin/crm', permission: 'crm.manage_all' }, { label: 'Patients', href: '/admin/patients', permission: 'patients.view' }, { label: 'Import Leads', href: '/admin/crm/import', permission: 'crm.import' }, { label: 'Sales', href: '/admin/crm/sales', permission: 'crm.manage_all' }] },
   { title: 'FINANCE', links: [{ label: 'Finance Dashboard', href: '/admin/finance', permission: 'finance.view' }, { label: 'Income', href: '/admin/finance/income', permission: 'finance.view' }, { label: 'Expenses', href: '/admin/finance/expenses', permission: 'finance.view' }, { label: 'Invoices', href: '/admin/finance/invoices', permission: 'invoices.view' }, { label: 'Payroll', href: '/admin/finance/payroll', permission: 'payroll.view' }, { label: 'Reports', href: '/admin/finance/reports', permission: 'reports.view' }] },

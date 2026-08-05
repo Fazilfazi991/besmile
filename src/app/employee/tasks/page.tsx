@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { currentProfile } from "@/lib/auth";
 import { employeeRepository } from "@/lib/employee-repository";
 import { isOverdue } from "@/lib/task-rules";
+import { applyAssignmentStatus, canEmployeeChangeTaskStatus, taskCounts } from "@/lib/task-workspace";
 const labels: Record<string, string> = {
   todo: "To Do",
   in_progress: "In Progress",
@@ -30,18 +31,29 @@ export default function TasksPage() {
   const [updateOpen, setUpdateOpen] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [taskError, setTaskError] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
+  const loadTasks = async (currentProfile = profile) => {
+    if (!currentProfile) return;
+    try {
+      setTasks(await employeeRepository.myTasks(currentProfile.id));
+      setTaskError("");
+    } catch (cause: any) {
+      setTaskError(cause?.message || "Your task list could not be loaded. Please try again.");
+    }
+  };
   const load = async () => {
     setLoading(true);
     try {
       const p = (await currentProfile()) as any;
-      if (!p) throw Error();
+      if (!p) throw Error("Your employee profile could not be loaded.");
       setProfile(p);
-      setTasks(await employeeRepository.myTasks(p.id));
-      setError("");
-    } catch {
-      setError("Tasks could not be loaded. Please try again.");
+      setProfileError("");
+      await loadTasks(p);
+    } catch (cause: any) {
+      setProfileError(cause?.message || "Your employee profile could not be loaded. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -50,16 +62,32 @@ export default function TasksPage() {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, []);
+  useEffect(() => {
+    const refreshOnFocus = () => void loadTasks();
+    window.addEventListener("focus", refreshOnFocus);
+    return () => window.removeEventListener("focus", refreshOnFocus);
+  }, [profile]);
   const update = async (id: string, value: string, comment = "") => {
+    const current = tasks.find((item) => item.id === id);
+    if (!current || !profile) return;
+    if (!canEmployeeChangeTaskStatus(current.status, value as any)) {
+      setTaskError("This task cannot move directly to that status.");
+      return;
+    }
+    const previous = tasks;
     setSaving(id);
-    setError("");
+    setTaskError("");
+    setNotice("");
+    setTasks((items) => applyAssignmentStatus(items, id, value as any));
     try {
-      await employeeRepository.updateMyTask(id, value, comment, profile.id);
+      await employeeRepository.updateMyTask(id, value as any, comment, profile.id);
       setComments((current) => ({ ...current, [id]: "" }));
       setUpdateOpen(null);
-      await load();
-    } catch {
-      setError("Task update could not be saved. Please try again.");
+      setNotice(value === "completed" ? "Task completed successfully." : `Task moved to ${labels[value]}.`);
+      await loadTasks(profile);
+    } catch (cause: any) {
+      setTasks(previous);
+      setTaskError(cause?.message || "Task update could not be saved. Your previous status was restored.");
     } finally {
       setSaving(null);
     }
@@ -85,40 +113,41 @@ export default function TasksPage() {
         </div>
       </section>
     );
-  if (error && !profile)
+  if (profileError && !profile)
     return (
       <section>
         <h1 className="text-2xl font-bold">My Tasks</h1>
-        <p className="mt-3 text-rose-700">{error}</p>
+        <p className="mt-3 text-rose-700">{profileError}</p>
         <button onClick={() => void load()} className="btn btn-primary mt-3">
           Try again
         </button>
       </section>
     );
   const today = new Date().toISOString().slice(0, 10);
+  const counts = taskCounts(tasks, today);
   const metrics = [
     [
       "✓",
       "To Do",
-      tasks.filter((item) => item.status === "todo").length,
+      counts.todo,
       "text-slate-700",
     ],
     [
       "↻",
       "In Progress",
-      tasks.filter((item) => item.status === "in_progress").length,
+      counts.in_progress,
       "text-sky-700",
     ],
     [
       "✓",
       "Completed",
-      tasks.filter((item) => item.status === "completed").length,
+      counts.completed,
       "text-emerald-700",
     ],
     [
       "!",
       "Overdue",
-      tasks.filter((item) => isOverdue(item.tasks, today)).length,
+      counts.overdue,
       "text-rose-700",
     ],
   ];
@@ -150,7 +179,8 @@ export default function TasksPage() {
           </p>
         </div>
       </div>
-      {error && <p className="rounded bg-rose-50 p-3 text-rose-800">{error}</p>}
+      {notice && <p className="rounded bg-emerald-50 p-3 text-emerald-800">{notice}</p>}
+      {taskError && <div className="rounded bg-rose-50 p-3 text-rose-800"><p>{taskError}</p><button className="mt-2 font-semibold underline" onClick={() => void loadTasks()}>Retry task list</button></div>}
       <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/70 p-1.5 md:grid-cols-4">
         {metrics.map(([icon, label, count, color]) => (
           <div
@@ -282,6 +312,7 @@ export default function TasksPage() {
                         </option>
                       ))}
                     </select>
+                    {saving === item.id && <span className="text-xs text-slate-500">Updating...</span>}
                     <button
                       className="btn border px-2.5 py-1 text-xs md:w-full"
                       onClick={() => setDetail(item)}

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
@@ -19,6 +20,7 @@ const taskFormPayload = (form: HTMLFormElement) => {
 };
 
 export default function AdminTasksPage() {
+  const router = useRouter();
   const [profile, setProfile] = useState<any>();
   const [staff, setStaff] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -27,20 +29,35 @@ export default function AdminTasksPage() {
   const [assigneeQuery, setAssigneeQuery] = useState('');
   const [editing, setEditing] = useState<any>();
   const [error, setError] = useState('');
+  const [assigneeError, setAssigneeError] = useState('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const loadTasks = async () => {
+    try {
+      setTasks(await adminRepository.tasks(filter));
+      setError('');
+    } catch (cause: any) {
+      setError(cause?.message || 'Task list could not be loaded. Please try again.');
+    }
+  };
   const load = async () => {
     setLoading(true);
     try {
       const p = await currentProfile() as any;
-      if (!p || !(await employeeRepository.hasPermission('tasks.assign'))) throw Error('You do not have permission to manage tasks.');
+      const canManage = await Promise.all(['tasks.manage', 'tasks.assign'].map((permission) => employeeRepository.hasPermission(permission)));
+      if (!p || !canManage.some(Boolean)) throw Error('You do not have permission to manage tasks.');
       setProfile(p);
-      const [employees, allTasks] = await Promise.all([adminRepository.employees('', 0, 100), adminRepository.tasks(filter)]);
-      setStaff(employees.data);
-      setTasks(allTasks);
-      setError('');
+      const [employees, allTasks] = await Promise.allSettled([adminRepository.employees('', 0, 100), adminRepository.tasks(filter)]);
+      if (employees.status === 'fulfilled') {
+        setStaff(employees.value.data);
+        setAssigneeError('');
+      } else setAssigneeError('Assignee list could not be loaded. Existing tasks are still available.');
+      if (allTasks.status === 'fulfilled') {
+        setTasks(allTasks.value);
+        setError('');
+      } else setError(allTasks.reason?.message || 'Task list could not be loaded. Please try again.');
     } catch (e: any) {
       setError(e.message || 'Tasks could not be loaded. Please try again.');
     } finally {
@@ -51,6 +68,12 @@ export default function AdminTasksPage() {
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter.employee, filter.status, filter.priority, filter.dueDate]);
+  useEffect(() => {
+    const refreshOnFocus = () => void loadTasks();
+    window.addEventListener('focus', refreshOnFocus);
+    return () => window.removeEventListener('focus', refreshOnFocus);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter.employee, filter.status, filter.priority, filter.dueDate]);
 
@@ -77,7 +100,8 @@ export default function AdminTasksPage() {
       setForm(emptyTask);
       setAssigneeQuery('');
       setNotice('Task created and assigned.');
-      await load();
+      await loadTasks();
+      router.refresh();
     } catch (e: any) {
       setError(e.message || 'Task could not be created.');
     } finally {
@@ -95,7 +119,8 @@ export default function AdminTasksPage() {
       await adminRepository.setTaskAssignees(editing.id, editing.assigneeIds);
       setEditing(null);
       setNotice('Task updated.');
-      await load();
+      await loadTasks();
+      router.refresh();
     } catch (e: any) {
       setError(e.message || 'Task could not be updated.');
     } finally {
@@ -121,7 +146,8 @@ export default function AdminTasksPage() {
       </div>
 
       {notice && <p className="rounded bg-emerald-50 p-3 text-emerald-800">{notice}</p>}
-      {error && <p className="rounded bg-rose-50 p-3 text-rose-800">{error}</p>}
+      {error && <div className="rounded bg-rose-50 p-3 text-rose-800"><p>{error}</p><button className="mt-2 font-semibold underline" onClick={() => void loadTasks()}>Retry task list</button></div>}
+      {assigneeError && <div className="rounded bg-amber-50 p-3 text-amber-900"><p>{assigneeError}</p><button className="mt-2 font-semibold underline" onClick={() => void load()}>Retry assignee list</button></div>}
 
       <form className="card grid gap-3 p-5 md:grid-cols-2" onSubmit={submit}>
         <h2 className="font-bold md:col-span-2">Create task</h2>
@@ -212,16 +238,26 @@ export default function AdminTasksPage() {
                   {isOverdue(task) && <span className="rounded bg-rose-100 px-2 py-1 text-xs text-rose-800">Overdue</span>}
                   <span className="rounded bg-slate-100 px-2 py-1 text-xs">{labels[task.status]}</span>
                   <button className="btn border px-2 py-1 text-xs" onClick={() => setEditing({ ...task, assigneeIds: task.task_assignments.map((a: any) => a.profile_id) })}>Edit / reassign</button>
-                  <button className="btn border px-2 py-1 text-xs" onClick={async () => {
+                  <button disabled={saving} className="btn border px-2 py-1 text-xs" onClick={async () => {
+                    const nextStatus = task.status === 'completed' ? 'todo' : 'completed';
+                    const previous = tasks;
+                    setSaving(true);
+                    setError('');
+                    setNotice('');
+                    setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status: nextStatus, task_assignments: item.task_assignments.map((assignment: any) => ({ ...assignment, status: nextStatus })) } : item));
                     try {
-                      await adminRepository.setTaskStatus(task.id, task.status === 'completed' ? 'todo' : 'completed');
+                      await adminRepository.setTaskStatus(task.id, nextStatus);
                       setNotice(task.status === 'completed' ? 'Task reopened.' : 'Task completed.');
-                      await load();
+                      await loadTasks();
+                      router.refresh();
                     } catch (e: any) {
-                      setError(e.message);
+                      setTasks(previous);
+                      setError(e.message || 'Task update failed.');
+                    } finally {
+                      setSaving(false);
                     }
                   }}>
-                    {task.status === 'completed' ? 'Reopen' : 'Complete'}
+                    {saving ? 'Updating...' : task.status === 'completed' ? 'Reopen' : 'Complete'}
                   </button>
                 </div>
               </div>
