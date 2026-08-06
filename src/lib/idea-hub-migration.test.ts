@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0072_idea_hub_module.sql'), 'utf8');
+const repairMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0080_sidebar_gm_operations_idea_schema_repair.sql'), 'utf8');
 
 describe('Idea Hub migration', () => {
   it('creates the required tables and unique support constraint', () => {
@@ -29,5 +30,13 @@ describe('Idea Hub migration', () => {
   it('uses private storage for attachments', () => {
     expect(migration).toContain("values('idea-attachments','idea-attachments',false)");
     expect(migration).toContain('idea attachment reads');
+  });
+
+  it('repairs production schema exposure for implemented Idea Hub tables', () => {
+    for (const table of ['idea_categories', 'ideas', 'idea_supports', 'idea_comments', 'idea_attachments', 'idea_status_history', 'idea_activity_logs']) {
+      expect(repairMigration).toContain(`public.${table}`);
+    }
+    expect(repairMigration).toContain("grant select, insert, update, delete on public.ideas to authenticated");
+    expect(repairMigration).toContain("notify pgrst, 'reload schema'");
   });
 });

@@ -1,8 +1,8 @@
 import { serverSupabase } from '@/lib/supabase-server';
-import { SignOutButton } from '@/components/sign-out-button';
 import { GlobalCommandCenter } from '@/components/global-command-center';
 import { redirect } from 'next/navigation';
-import { employeeNavigation, filterNavigation, isManagementRole, navigationPermissionCodes } from '@/lib/permission-access';
+import { filterNavigation, isManagementRole, navigationForProfile, navigationPermissionCodes } from '@/lib/permission-access';
+import { PermissionSidebar } from '@/components/permission-sidebar';
 
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
@@ -19,21 +19,13 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
   const name = profile?.full_name || user.email?.split('@')[0] || 'BSmile User';
   const permissionResults = await Promise.all(navigationPermissionCodes.map((permission) => db.rpc('has_permission', { permission_code: permission })));
   const allowed = new Set<string>(navigationPermissionCodes.filter((_, index) => permissionResults[index].data === true));
-  const visibleGroups = filterNavigation(employeeNavigation, allowed);
+  const visibleGroups = filterNavigation(navigationForProfile(profile.role), allowed);
 
   return <div className="app-shell employee-shell">
-    <aside className="app-sidebar">
-      <div className="brand"><img src="/images/bsmile-logo.png" alt="BSmile" /></div>
-      <nav>{visibleGroups.map((group) => <EmployeeNavGroup title={group.title} links={group.links} key={group.title} />)}</nav>
-      <div className="sidebar-footer"><a className="sidebar-user" href="/employee/profile"><b>{name}</b><small>{profile?.designation || profile?.role || 'Employee'}</small></a><SignOutButton /></div>
-    </aside>
+    <PermissionSidebar groups={visibleGroups} name={name} subtitle={profile?.designation || profile?.role || 'Employee'} profileHref="/employee/profile" />
     <main className="app-main">
       <header className="app-topbar"><div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div><div className="flex items-center gap-3"><GlobalCommandCenter mode="employee" userId={user.id} /><a className="topbar-user" href="/employee/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile?.designation || 'Employee'}</small></div></a></div></header>
       <div className="app-content">{children}</div>
     </main>
   </div>;
-}
-
-function EmployeeNavGroup({ title, links }: { title: string; links: readonly { label: string; href: string }[] }) {
-  return <div className="nav-group"><p>{title}</p>{links.map((link) => <a className="nav-link" href={link.href} key={link.href}>{link.label}</a>)}</div>;
 }

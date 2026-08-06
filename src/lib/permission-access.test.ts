@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, permissionAllows, workspaceLandingPath, workspaceTitle } from './permission-access';
+import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, permissionAllows, workspaceLandingPath, workspaceTitle } from './permission-access';
 
 describe('permission compatibility', () => {
   it('normalizes every management role into the management workspace', () => {
@@ -50,12 +50,15 @@ describe('permission compatibility', () => {
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/finance'))).toBe(false);
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/access'))).toBe(false);
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/leaves'))).toBe(false);
+    expect(navigationForProfile('staff')).toBe(employeeNavigation);
   });
 
-  it('shows the General Manager management navigation from granular grants', () => {
-    const granted = new Set(['dashboard.view', 'employees.view', 'leads.view', 'tasks.assign', 'documents.employee.manage', 'chat.use', 'announcements.manage', 'notifications.view', 'finance.dashboard.view', 'income.view', 'expenses.view', 'payroll.view', 'invoices.view', 'reports.finance.view']);
+  it('shows the General Manager operations navigation from granular grants', () => {
+    const granted = new Set(['dashboard.view', 'employees.view', 'patients.view', 'leads.view', 'tasks.assign', 'documents.employee.manage', 'chat.use', 'announcements.manage', 'notifications.view', 'finance.dashboard.view', 'income.view', 'expenses.view', 'payroll.view', 'invoices.view', 'reports.finance.view']);
     const labels = filterNavigation(adminNavigation, granted).flatMap(group => group.links.map(link => link.label));
-    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'Leads Management', 'Tasks', 'Documents', 'Finance Dashboard', 'Income', 'Expenses', 'Payroll', 'Invoices', 'Reports']));
+    expect(navigationForProfile('general_manager')).toBe(adminNavigation);
+    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'Patients', 'Operational Documents', 'Leads Management', 'Tasks', 'Finance Dashboard', 'Income', 'Expenses', 'Payroll', 'Invoices', 'Reports']));
+    expect(labels).not.toContain('Roles & Access');
   });
   it('accepts granular dashboard and finance permissions without legacy aliases', () => {
     expect(permissionAllows(new Set(['admin.access']), adminRouteRequirement('/admin'))).toBe(true);
