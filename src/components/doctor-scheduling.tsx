@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { currentProfile } from '@/lib/auth';
 import { doctorSchedulingRepository, type DoctorPayload } from '@/lib/doctor-scheduling-repository';
@@ -16,6 +16,7 @@ const addDays = (value: Date, daysToAdd: number) => { const next = new Date(valu
 const fmtDate = (value: string | Date) => new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
 const fmtTime = (value: string | Date) => new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(new Date(value));
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+const can = (permissions: Record<string, boolean>, ...codes: string[]) => codes.some(code => permissions[code]);
 
 export function DoctorSchedulingPage({ initialPatientId }: { initialPatientId?: string }) {
   const [profile, setProfile] = useState<any>();
@@ -82,9 +83,9 @@ export function DoctorSchedulingPage({ initialPatientId }: { initialPatientId?: 
   }, [appointmentForm.doctor_id, appointmentForm.date, reschedule?.id]);
 
   const canManageDoctors = permissions['doctor_scheduling.manage_doctors'];
-  const canCreate = permissions['doctor_scheduling.create_appointments'];
-  const canUpdate = permissions['doctor_scheduling.update_appointments'];
-  const canCancel = permissions['doctor_scheduling.cancel_appointments'];
+  const canCreate = can(permissions, 'doctor_scheduling.create_appointments', 'appointments.create');
+  const canUpdate = can(permissions, 'doctor_scheduling.update_appointments', 'appointments.update', 'appointments.update_status', 'appointments.reschedule');
+  const canCancel = can(permissions, 'doctor_scheduling.cancel_appointments', 'appointments.cancel');
   const filteredAppointments = useMemo(() => appointments.filter(item => (!doctorFilter || item.doctor_id === doctorFilter) && (!patientFilter || item.patient_id === patientFilter) && (!statusFilter || item.status === statusFilter)), [appointments, doctorFilter, patientFilter, statusFilter]);
   const visibleDays = useMemo(() => daysForView(cursor, view), [cursor, view]);
   const currentDoctor = doctors.find(item => item.id === appointmentForm.doctor_id);
@@ -235,29 +236,164 @@ export function DoctorSchedulingPage({ initialPatientId }: { initialPatientId?: 
 
 export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/admin/doctor-scheduling' }: { patientId: string; scheduleBasePath?: string }) {
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
   const [allowed, setAllowed] = useState(false);
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
+  const [formOpen, setFormOpen] = useState(false);
+  const [mode, setMode] = useState<'create' | 'edit' | 'reschedule'>('create');
+  const [editing, setEditing] = useState<any>();
+  const [form, setForm] = useState({ doctor_id: '', date: dateKey(new Date()), slot: '', consultation_type: 'in_person', status: 'scheduled', remarks: '' });
+  const [slots, setSlots] = useState<any[]>([]);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const loadPatientAppointments = useCallback(async () => {
+    try {
+      const nextPermissions = await doctorSchedulingRepository.permissions();
+      const viewAllowed = can(nextPermissions, 'doctor_scheduling.view', 'appointments.view');
+      setPermissions(nextPermissions);
+      setAllowed(viewAllowed);
+      if (viewAllowed) {
+        const [appointmentRows, doctorRows] = await Promise.all([
+          doctorSchedulingRepository.patientAppointments(patientId),
+          doctorSchedulingRepository.doctors(),
+        ]);
+        setAppointments(appointmentRows);
+        setDoctors(doctorRows);
+      }
+    } catch (caught: any) {
+      setError(caught.message || 'Unable to load appointments.');
+    } finally {
+      setLoading(false);
+    }
+  }, [patientId]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => void loadPatientAppointments(), 0);
+    return () => clearTimeout(timer);
+  }, [loadPatientAppointments]);
+
   useEffect(() => {
     const timer = setTimeout(async () => {
+      if (!form.doctor_id || !form.date) { setSlots([]); return; }
       try {
-        const permissions = await doctorSchedulingRepository.permissions();
-        setAllowed(permissions['doctor_scheduling.view']);
-        setAppointments(permissions['doctor_scheduling.view'] ? await doctorSchedulingRepository.patientAppointments(patientId) : []);
-      } finally {
-        setLoading(false);
+        setSlots(await doctorSchedulingRepository.slots(form.doctor_id, form.date, editing?.id));
+      } catch {
+        setSlots([]);
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [patientId]);
+  }, [form.doctor_id, form.date, editing?.id]);
+
+  const openForm = (nextMode: 'create' | 'edit' | 'reschedule', appointment?: any) => {
+    setMode(nextMode);
+    setEditing(appointment);
+    setForm({
+      doctor_id: appointment?.doctor_id || '',
+      date: appointment ? dateKey(new Date(appointment.start_at)) : dateKey(new Date()),
+      slot: appointment?.start_at ? new Date(appointment.start_at).toISOString() : '',
+      consultation_type: appointment?.consultation_type || 'in_person',
+      status: appointment?.status || 'scheduled',
+      remarks: appointment?.remarks || '',
+    });
+    setError('');
+    setNotice('');
+    setFormOpen(true);
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const slot = slots.find(item => item.startAt === form.slot);
+    if (!slot) { setError('Choose an available slot.'); return; }
+    setSaving('form'); setError(''); setNotice('');
+    try {
+      if (mode === 'create') {
+        const created = await doctorSchedulingRepository.createAppointment({ patientId, doctorId: form.doctor_id, startAt: slot.startAt, endAt: slot.endAt, consultationType: form.consultation_type as any, remarks: form.remarks });
+        if (form.status !== 'scheduled') await doctorSchedulingRepository.setAppointmentStatus(created, form.status as AppointmentStatus, form.remarks);
+        setNotice('Appointment scheduled.');
+      } else if (mode === 'reschedule') {
+        await doctorSchedulingRepository.rescheduleAppointment(editing.id, slot.startAt, slot.endAt, form.remarks);
+        setNotice('Appointment rescheduled.');
+      } else {
+        await doctorSchedulingRepository.updateAppointment({ id: editing.id, doctorId: form.doctor_id, startAt: slot.startAt, endAt: slot.endAt, consultationType: form.consultation_type as any, status: form.status as AppointmentStatus, remarks: form.remarks });
+        setNotice('Appointment updated.');
+      }
+      setFormOpen(false);
+      await loadPatientAppointments();
+    } catch (caught: any) {
+      setError(caught.message || 'Unable to save appointment.');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const changeStatus = async (appointment: any, status: AppointmentStatus) => {
+    setSaving(appointment.id); setError(''); setNotice('');
+    try {
+      await doctorSchedulingRepository.setAppointmentStatus(appointment.id, status);
+      setNotice(`Appointment marked ${statusLabels[status].toLowerCase()}.`);
+      await loadPatientAppointments();
+    } catch (caught: any) {
+      setError(caught.message || 'Unable to update appointment.');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const deleteAppointment = async (appointment: any) => {
+    if (!confirm('Delete this appointment from active scheduling? It will stay in appointment activity history.')) return;
+    setSaving(appointment.id); setError(''); setNotice('');
+    try {
+      await doctorSchedulingRepository.deleteAppointment(appointment.id);
+      setNotice('Appointment deleted.');
+      await loadPatientAppointments();
+    } catch (caught: any) {
+      setError(caught.message || 'Unable to delete appointment.');
+    } finally {
+      setSaving('');
+    }
+  };
+
   if (loading) return <p>Loading appointments...</p>;
-  if (!allowed) return null;
-  const upcoming = appointments.filter(item => new Date(item.start_at) >= new Date() && item.status !== 'cancelled');
-  const previous = appointments.filter(item => new Date(item.start_at) < new Date() || item.status === 'cancelled');
-  return <div className="space-y-4"><div className="flex justify-end"><Link className="btn btn-primary" href={`${scheduleBasePath}?patient=${patientId}`}>Schedule Appointment</Link></div><AppointmentMiniList title="Upcoming appointments" rows={upcoming} /><AppointmentMiniList title="Previous appointments" rows={previous} /></div>;
+  if (!allowed) return <EmployeeEmptyState title="Appointments unavailable" detail="You do not have access to this patient's appointments." />;
+
+  const canCreate = can(permissions, 'doctor_scheduling.create_appointments', 'appointments.create');
+  const canUpdate = can(permissions, 'doctor_scheduling.update_appointments', 'appointments.update');
+  const canReschedule = can(permissions, 'doctor_scheduling.update_appointments', 'appointments.reschedule');
+  const canCancel = can(permissions, 'doctor_scheduling.cancel_appointments', 'appointments.cancel');
+  const canUpdateStatus = can(permissions, 'doctor_scheduling.update_appointments', 'appointments.update_status');
+  const canDelete = can(permissions, 'appointments.delete');
+  const upcoming = appointments.filter(item => new Date(item.start_at) >= new Date() && !['cancelled', 'completed', 'no_show'].includes(item.status)).sort((a, b) => new Date(a.start_at).valueOf() - new Date(b.start_at).valueOf());
+  const previous = appointments.filter(item => new Date(item.start_at) < new Date() || ['cancelled', 'completed', 'no_show'].includes(item.status)).sort((a, b) => new Date(b.start_at).valueOf() - new Date(a.start_at).valueOf());
+  const selectedDoctor = doctors.find(doctor => doctor.id === form.doctor_id);
+
+  return <div className="patient-appointments space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">Appointments</h2>{canCreate && <button className="btn btn-primary" type="button" onClick={() => openForm('create')}>Schedule Appointment</button>}</div>
+    {error && <EmployeeBanner>{error}</EmployeeBanner>}{notice && <EmployeeBanner tone="success">{notice}</EmployeeBanner>}
+    {!appointments.length && <div className="patient-appointment-empty"><EmployeeEmptyState title="No appointments have been scheduled for this patient yet." detail="Create the first doctor appointment from this patient profile." />{canCreate && <button className="btn btn-primary" type="button" onClick={() => openForm('create')}>Schedule First Appointment</button>}</div>}
+    {formOpen && <div className="patient-appointment-drawer" role="dialog" aria-modal="true" aria-label={mode === 'create' ? 'Schedule appointment' : mode === 'edit' ? 'Edit appointment' : 'Reschedule appointment'}>
+      <form className="patient-appointment-form" onSubmit={submit}>
+        <header><div><h3>{mode === 'create' ? 'Schedule Appointment' : mode === 'edit' ? 'Edit Appointment' : 'Reschedule Appointment'}</h3><p>Patient is preselected from this profile.</p></div><button type="button" onClick={() => setFormOpen(false)}>Close</button></header>
+        <label>Patient<input className="input" value="Current patient" readOnly /></label>
+        <label>Doctor<select className="input" required value={form.doctor_id} onChange={event => setForm({ ...form, doctor_id: event.target.value, slot: '' })}><option value="">Select doctor</option>{doctors.filter(doctor => doctor.status === 'active' || doctor.id === form.doctor_id).map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.doctor_name} - {doctor.specialization}</option>)}</select></label>
+        <label>Appointment date<input className="input" required type="date" value={form.date} onChange={event => setForm({ ...form, date: event.target.value, slot: '' })} /></label>
+        <label>Consultation type<select className="input" value={form.consultation_type} onChange={event => setForm({ ...form, consultation_type: event.target.value })}>{consultationTypes.map(type => <option value={type} key={type}>{label(type)}</option>)}</select></label>
+        <label>Status<select className="input" value={form.status} disabled={mode === 'reschedule'} onChange={event => setForm({ ...form, status: event.target.value })}>{appointmentStatuses.map(status => <option value={status} key={status}>{statusLabels[status]}</option>)}</select></label>
+        <div><b className="text-sm">Available time slot</b><div className="slot-picker">{selectedDoctor ? slots.length ? slots.map(slot => <button type="button" className={form.slot === slot.startAt ? 'active' : ''} onClick={() => setForm({ ...form, slot: slot.startAt })} key={slot.startAt}>{slot.label}</button>) : <p>No available slots for this doctor and date.</p> : <p>Select a doctor to view slots.</p>}</div></div>
+        <label>Remarks<textarea className="input" value={form.remarks} onChange={event => setForm({ ...form, remarks: event.target.value })} placeholder="Optional short remarks" /></label>
+        <div className="form-actions"><button type="button" className="btn border" onClick={() => setFormOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={saving === 'form'}>{saving === 'form' ? 'Saving...' : 'Save'}</button></div>
+      </form>
+    </div>}
+    <AppointmentMiniList title="Upcoming appointments" rows={upcoming} actions={{ canUpdate, canReschedule, canCancel, canUpdateStatus, canDelete, saving, openForm, changeStatus, deleteAppointment }} />
+    <AppointmentMiniList title="Previous appointments" rows={previous} actions={{ canUpdate, canReschedule, canCancel, canUpdateStatus, canDelete, saving, openForm, changeStatus, deleteAppointment }} />
+    <Link className="text-sm font-semibold text-teal-700" href={`${scheduleBasePath}?patient=${patientId}`}>Open full doctor schedule</Link>
+  </div>;
 }
 
-function AppointmentMiniList({ title, rows }: { title: string; rows: any[] }) {
-  return <div className="card divide-y"><h3 className="p-4 text-sm font-bold">{title}</h3>{rows.length ? rows.map(item => <div className="p-4 text-sm" key={item.id}><b>{item.doctor?.doctor_name || 'Doctor'}</b><p>{fmtDate(item.start_at)} - {fmtTime(item.start_at)} to {fmtTime(item.end_at)}</p><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge></div>) : <p className="p-4 text-sm text-slate-500">No appointments.</p>}</div>;
+function AppointmentMiniList({ title, rows, actions }: { title: string; rows: any[]; actions?: any }) {
+  return <div className="card divide-y"><h3 className="p-4 text-sm font-bold">{title}</h3>{rows.length ? rows.map(item => <div className="patient-appointment-card p-4 text-sm" key={item.id}><div><b>{fmtDate(item.start_at)}</b><p>{fmtTime(item.start_at)} to {fmtTime(item.end_at)} - {item.doctor?.doctor_name || 'Doctor'}</p><small>{item.doctor?.specialization || 'Specialization'} - {label(item.consultation_type)}</small>{item.remarks && <small>{item.remarks}</small>}</div><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge>{actions && <div className="patient-appointment-actions">{actions.canUpdate && <button type="button" onClick={() => actions.openForm('edit', item)} disabled={actions.saving === item.id}>Edit</button>}{actions.canReschedule && <button type="button" onClick={() => actions.openForm('reschedule', item)} disabled={actions.saving === item.id}>Reschedule</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'confirmed')} disabled={actions.saving === item.id}>Confirm</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'completed')} disabled={actions.saving === item.id}>Complete</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'no_show')} disabled={actions.saving === item.id}>No Show</button>}{actions.canCancel && <button type="button" onClick={() => actions.changeStatus(item, 'cancelled')} disabled={actions.saving === item.id}>Cancel</button>}{actions.canDelete && <button type="button" className="danger" onClick={() => actions.deleteAppointment(item)} disabled={actions.saving === item.id}>Delete</button>}</div>}</div>) : <p className="p-4 text-sm text-slate-500">No appointments.</p>}</div>;
 }
 
 function Filters({ doctors, patients, doctorFilter, setDoctorFilter, patientFilter, setPatientFilter, statusFilter, setStatusFilter }: any) {

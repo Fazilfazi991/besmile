@@ -22,7 +22,20 @@ export type DoctorPayload = {
 
 export const doctorSchedulingRepository = {
   async permissions() {
-    const codes = ['doctor_scheduling.view', 'doctor_scheduling.manage_doctors', 'doctor_scheduling.create_appointments', 'doctor_scheduling.update_appointments', 'doctor_scheduling.cancel_appointments'];
+    const codes = [
+      'doctor_scheduling.view',
+      'doctor_scheduling.manage_doctors',
+      'doctor_scheduling.create_appointments',
+      'doctor_scheduling.update_appointments',
+      'doctor_scheduling.cancel_appointments',
+      'appointments.view',
+      'appointments.create',
+      'appointments.update',
+      'appointments.reschedule',
+      'appointments.cancel',
+      'appointments.delete',
+      'appointments.update_status',
+    ];
     const results = await Promise.all(codes.map(code => db().rpc('has_permission', { permission_code: code })));
     return Object.fromEntries(codes.map((code, index) => [code, results[index].data === true]));
   },
@@ -91,7 +104,7 @@ export const doctorSchedulingRepository = {
   },
 
   async appointments(filters: { from?: string; to?: string; doctorId?: string; patientId?: string; status?: string } = {}) {
-    let request = db().from('doctor_appointments').select('*,doctor:outsourced_doctors(*),patient:patients(id,full_name,patient_number,phone,slug),activity:doctor_appointment_activity(*)').order('start_at');
+    let request = db().from('doctor_appointments').select('*,doctor:outsourced_doctors(*),patient:patients(id,full_name,patient_number,phone,slug),activity:doctor_appointment_activity(*)').is('deleted_at', null).order('start_at');
     if (filters.from) request = request.gte('start_at', filters.from.includes('T') ? filters.from : dateStart(filters.from));
     if (filters.to) request = request.lte('start_at', filters.to.includes('T') ? filters.to : dateEnd(filters.to));
     if (filters.doctorId) request = request.eq('doctor_id', filters.doctorId);
@@ -153,6 +166,20 @@ export const doctorSchedulingRepository = {
     return data;
   },
 
+  async updateAppointment(payload: { id: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; status: AppointmentStatus; remarks?: string }) {
+    const { data, error } = await db().rpc('update_doctor_appointment', {
+      target_appointment: payload.id,
+      target_doctor: payload.doctorId,
+      appointment_start: payload.startAt,
+      appointment_end: payload.endAt,
+      appointment_consultation_type: payload.consultationType,
+      next_status: payload.status,
+      appointment_remarks: payload.remarks || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+
   async setAppointmentStatus(id: string, status: AppointmentStatus, remarks = '') {
     const { data, error } = await db().rpc('update_doctor_appointment_status', { target_appointment: id, next_status: status, status_remarks: remarks || null });
     if (error) throw error;
@@ -161,6 +188,12 @@ export const doctorSchedulingRepository = {
 
   async rescheduleAppointment(id: string, startAt: string, endAt: string, remarks = '') {
     const { data, error } = await db().rpc('reschedule_doctor_appointment', { target_appointment: id, appointment_start: startAt, appointment_end: endAt, status_remarks: remarks || null });
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteAppointment(id: string, remarks = '') {
+    const { data, error } = await db().rpc('delete_doctor_appointment', { target_appointment: id, delete_remarks: remarks || null });
     if (error) throw error;
     return data;
   },

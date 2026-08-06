@@ -1,4 +1,4 @@
-﻿export const permissionCatalogue = [
+export const permissionCatalogue = [
   'admin.access','admin.shell','employees.view','employees.manage','employees.create','employees.edit','employees.status.manage','attendance.view_self','attendance.view_team','attendance.manage',
   'leave.request','leave.review','tasks.view_self','tasks.view','tasks.create','tasks.manage','tasks.edit','tasks.complete','tasks.reassign','tasks.assign','tasks.manage_access','documents.view','documents.manage',
   'announcements.view','announcements.manage','notifications.view','chat.use','crm.view_assigned','crm.view_team',
@@ -11,7 +11,9 @@
   'patient_sessions.create','patient_sessions.edit','patient_sessions.cancel','patient_activity.view',
   'documents.employee.manage','documents.administration.manage','documents.operational_client.manage',
   'ideas.view','ideas.create','ideas.edit_own','ideas.comment','ideas.support',
+  'customer_feedback.view',
   'doctor_scheduling.view','doctor_scheduling.manage_doctors','doctor_scheduling.create_appointments','doctor_scheduling.update_appointments','doctor_scheduling.cancel_appointments',
+  'appointments.view','appointments.create','appointments.update','appointments.reschedule','appointments.cancel','appointments.delete','appointments.update_status',
 ] as const;
 
 export type PermissionCode = typeof permissionCatalogue[number];
