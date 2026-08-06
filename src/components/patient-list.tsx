@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 /* The async Supabase query updates state only after it resolves. */
 /* eslint-disable react-hooks/set-state-in-effect, @next/next/no-html-link-for-pages */
 import { useEffect, useState } from 'react';
@@ -17,6 +17,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
   const [query, setQuery] = useState('');
   const [source, setSource] = useState('');
   const [error, setError] = useState('');
+  const [canEdit, setCanEdit] = useState(false);
 
   const load = async (value = query) => {
     let request = db.from('patients').select('*,assigned:profiles!patients_assigned_psychologist_id_fkey(full_name)').is('deleted_at', null).order('created_at', { ascending: false }).limit(50);
@@ -37,6 +38,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
 
   useEffect(() => {
     void load('');
+    void db.rpc('has_permission', { permission_code: 'patients.edit' }).then(({ data }: { data: boolean }) => setCanEdit(!!data));
   }, []);
 
   return <section className="space-y-5">
@@ -62,7 +64,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
         <td className="p-3">{patientSourceLabel(patient.source) || '-'}</td>
         <td className="p-3">{patient.assigned?.full_name || 'Unassigned'}</td>
         <td className="p-3 capitalize">{patient.status}</td>
-        <td className="p-3"><a className="underline" href={patientPath(basePath, patient)}>Open</a></td>
+        <td className="p-3"><a className="underline" href={patientPath(basePath, patient)}>Open</a>{canEdit && <a className="ml-3 underline" href={`${patientPath(basePath, patient)}?edit=1`}>Edit</a>}</td>
       </tr>)}</tbody>
     </table></div>}
   </section>;

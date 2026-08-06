@@ -1,0 +1,4 @@
+import { NextResponse } from 'next/server';
+import { serverSupabase } from '@/lib/supabase-server';
+import { getCustomerFeedback } from '@/lib/customer-feedback-service';
+export async function GET() { try { const db = await serverSupabase(); const { data: { user } } = await db.auth.getUser(); if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); const allowed = await db.rpc('has_permission', { permission_code: 'customer_feedback.view' }); if (!allowed.data) return NextResponse.json({ error: 'Permission denied' }, { status: 403 }); return NextResponse.json(await getCustomerFeedback(), { headers: { 'Cache-Control': 'private, max-age=0' } }); } catch (error) { console.error('Customer feedback integration failed', { message: error instanceof Error ? error.message : 'unknown' }); return NextResponse.json({ error: 'Customer feedback is temporarily unavailable.' }, { status: 503 }); } }

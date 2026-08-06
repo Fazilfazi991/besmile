@@ -1,5 +1,6 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, permissionAllows, workspaceLandingPath, workspaceTitle } from './permission-access';
+import { permissionCatalogue } from './permission-catalogue';
 
 describe('permission compatibility', () => {
   it('normalizes every management role into the management workspace', () => {
@@ -86,6 +87,15 @@ describe('permission compatibility', () => {
     expect(permissionAllows(granted, adminRouteRequirement('/admin/finance'))).toBe(false);
   });
 
+  it('keeps customer feedback behind its dedicated permission in navigation and direct routes', () => {
+    expect(permissionCatalogue).toContain('customer_feedback.view');
+    expect(permissionAllows(new Set(['customer_feedback.view']), adminRouteRequirement('/admin/customer-feedback'))).toBe(true);
+    expect(permissionAllows(new Set(['dashboard.view']), adminRouteRequirement('/admin/customer-feedback'))).toBe(false);
+    const labels = filterNavigation(adminNavigation, new Set(['customer_feedback.view'])).flatMap((group) => group.links.map((link) => link.label));
+    expect(labels).toContain('Customer Feedback');
+    const employeeLabels = filterNavigation(employeeNavigation, new Set(['customer_feedback.view'])).flatMap((group) => group.links.map((link) => link.label));
+    expect(employeeLabels).not.toContain('Customer Feedback');
+  });
 
   it('shows interns only assigned-patient and universal employee links', () => {
     const groups = filterNavigation(employeeNavigation, new Set(['patients.view_assigned', 'patient_documents.view']));
