@@ -115,7 +115,8 @@ export function DoctorSchedulingPage({ initialPatientId }: { initialPatientId?: 
       setNotice('Doctor profile saved.');
       await load();
     } catch (caught: any) {
-      setError(caught.message || 'Unable to save doctor.');
+      const message = caught.message || 'Unable to save doctor.';
+      setError(message.includes('outsourced_doctors_email_format') ? 'Enter a valid email address or leave the email field blank.' : message);
     } finally {
       setSaving('');
     }
