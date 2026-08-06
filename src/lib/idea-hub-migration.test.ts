@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0072_idea_hub_module.sql'), 'utf8');
 const repairMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0080_sidebar_gm_operations_idea_schema_repair.sql'), 'utf8');
+const storageRepairMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260806121405_idea_hub_attachment_storage_repair.sql'), 'utf8');
 
 describe('Idea Hub migration', () => {
   it('creates the required tables and unique support constraint', () => {
@@ -38,5 +39,15 @@ describe('Idea Hub migration', () => {
     }
     expect(repairMigration).toContain("grant select, insert, update, delete on public.ideas to authenticated");
     expect(repairMigration).toContain("notify pgrst, 'reload schema'");
+  });
+
+  it('repairs the private attachment bucket with scoped object policies', () => {
+    expect(storageRepairMigration).toContain("'idea-attachments'");
+    expect(storageRepairMigration).toContain('file_size_limit');
+    expect(storageRepairMigration).toContain("'image/png'");
+    expect(storageRepairMigration).toContain('idea attachment uploads');
+    expect(storageRepairMigration).toContain('idea attachment reads');
+    expect(storageRepairMigration).toContain('idea attachment deletes');
+    expect(storageRepairMigration).not.toContain('using (true)');
   });
 });
