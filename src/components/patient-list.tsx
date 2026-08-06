@@ -1,17 +1,18 @@
-'use client';
+﻿'use client';
 /* The async Supabase query updates state only after it resolves. */
 /* eslint-disable react-hooks/set-state-in-effect, @next/next/no-html-link-for-pages */
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { currentProfile } from '@/lib/auth';
 import { isDemoPatient } from '@/lib/demo-patient';
 import { patientPath } from '@/lib/patient-slug';
 import { patientSourceLabel, patientSourceOptions } from '@/lib/patient-source';
 
 const db: any = supabase;
 
-type PatientListProps = { basePath?: string; canCreate?: boolean; title?: string; description?: string };
+type PatientListProps = { basePath?: string; canCreate?: boolean; title?: string; description?: string; assignedOnly?: boolean };
 
-export function PatientList({ basePath = '/admin/patients', canCreate = true, title = 'Patients', description = 'Patient records and administrative documents.' }: PatientListProps) {
+export function PatientList({ basePath = '/admin/patients', canCreate = true, title = 'Patients', description = 'Patient records and administrative documents.', assignedOnly = false }: PatientListProps) {
   const [patients, setPatients] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [source, setSource] = useState('');
@@ -19,6 +20,14 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
 
   const load = async (value = query) => {
     let request = db.from('patients').select('*,assigned:profiles!patients_assigned_psychologist_id_fkey(full_name)').is('deleted_at', null).order('created_at', { ascending: false }).limit(50);
+    if (assignedOnly) {
+      const profile = await currentProfile();
+      if (!profile) { setPatients([]); return; }
+      const assignmentResult = await db.from('patient_access_assignments').select('patient_id').eq('profile_id', profile.id).lte('starts_at', new Date().toISOString()).or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`);
+      const assignedIds = (assignmentResult.data || []).map((row: any) => row.patient_id);
+      const filters = [`assigned_psychologist_id.eq.${profile.id}`, ...assignedIds.map((id: string) => `id.eq.${id}`)];
+      request = request.or(filters.join(','));
+    }
     if (value) request = request.or(`full_name.ilike.%${value}%,patient_number.ilike.%${value}%,phone.ilike.%${value}%,email.ilike.%${value}%`);
     if (source) request = request.eq('source', source);
     const { data, error } = await request;
@@ -26,7 +35,9 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
     else { setPatients(data || []); setError(''); }
   };
 
-  useEffect(() => { void load(''); }, []);
+  useEffect(() => {
+    void load('');
+  }, []);
 
   return <section className="space-y-5">
     <div className="flex flex-wrap items-end justify-between gap-3">

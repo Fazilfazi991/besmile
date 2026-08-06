@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0082_doctor_scheduling_module.sql'), 'utf8');
 const patientActionsMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0084_patient_appointment_actions_and_access.sql'), 'utf8');
+const navigationAccessMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0085_patient_navigation_appointments_idea_permissions.sql'), 'utf8');
 
 describe('doctor scheduling migration', () => {
   it('creates scoped tables, permissions, RLS, and conflict prevention', () => {
@@ -31,5 +32,18 @@ describe('doctor scheduling migration', () => {
     expect(patientActionsMigration).toContain('log_doctor_appointment_patient_activity');
     expect(patientActionsMigration).toContain('appointment_deleted');
     expect(patientActionsMigration).toContain("notify pgrst, 'reload schema'");
+  });
+
+  it('corrects reusable patient navigation, appointment, and idea permissions', () => {
+    expect(navigationAccessMigration).toContain('Psychology Intern Psychologist');
+    expect(navigationAccessMigration).toContain('Social Work Social Worker');
+    expect(navigationAccessMigration).toContain("permission.code = 'patients.view_assigned'");
+    expect(navigationAccessMigration).toContain("lower(bundle.designation) = 'social worker'");
+    expect(navigationAccessMigration).toContain("'ideas.view','ideas.create','ideas.support','ideas.comment'");
+    expect(navigationAccessMigration).toContain('appointment_patient_access');
+    expect(navigationAccessMigration).toContain('public.patient_access(target_patient)');
+    expect(navigationAccessMigration).toContain('idea_supports');
+    expect(navigationAccessMigration).toContain('author_employee_id = auth.uid()');
+    expect(navigationAccessMigration).not.toContain('idea_support ');
   });
 });

@@ -1,5 +1,5 @@
 import { PatientList } from '@/components/patient-list';
 
-export default function AssignedPatientsPage() {
-  return <PatientList basePath="/employee/patients" canCreate={false} title="Assigned Patients" description="Only patient records explicitly available to you are shown." />;
+export default function EmployeePatientsPage() {
+  return <PatientList basePath="/employee/patients" canCreate={false} title="Patients" description="Patient records available through your role and assignments." />;
 }

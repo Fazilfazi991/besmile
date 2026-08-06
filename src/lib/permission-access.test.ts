@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, permissionAllows, workspaceLandingPath, workspaceTitle } from './permission-access';
 
 describe('permission compatibility', () => {
@@ -86,12 +86,33 @@ describe('permission compatibility', () => {
     expect(permissionAllows(granted, adminRouteRequirement('/admin/finance'))).toBe(false);
   });
 
+
   it('shows interns only assigned-patient and universal employee links', () => {
     const groups = filterNavigation(employeeNavigation, new Set(['patients.view_assigned', 'patient_documents.view']));
     const labels = groups.flatMap((group) => group.links.map((link) => link.label));
     expect(labels).toEqual(expect.arrayContaining(['Assigned Patients', 'Documents', 'Notifications', 'Profile']));
+    expect(labels).not.toContain('Patients');
     expect(labels).not.toContain('Dashboard');
+    expect(permissionAllows(new Set(['patients.view_assigned']), employeeRouteRequirement('/employee/patients'))).toBe(false);
     expect(permissionAllows(new Set(['patients.view_assigned']), employeeRouteRequirement('/employee/patients/example'))).toBe(true);
+    expect(permissionAllows(new Set(['patients.view_assigned']), employeeRouteRequirement('/employee/assigned-patients'))).toBe(true);
+  });
+
+  it('splits main Patients from Assigned Patients for patient-care roles', () => {
+    const psychologist = new Set(['patients.view', 'patients.view_assigned', 'ideas.view']);
+    const psychologistLabels = filterNavigation(employeeNavigation, psychologist).flatMap((group) => group.links.map((link) => link.label));
+    expect(psychologistLabels).toEqual(expect.arrayContaining(['Patients', 'Assigned Patients', 'Idea Hub']));
+
+    const socialWorker = new Set(['patients.view', 'ideas.view']);
+    const socialWorkerLabels = filterNavigation(employeeNavigation, socialWorker).flatMap((group) => group.links.map((link) => link.label));
+    expect(socialWorkerLabels).toEqual(expect.arrayContaining(['Patients', 'Idea Hub']));
+    expect(socialWorkerLabels).not.toContain('Assigned Patients');
+
+    const guestSales = new Set(['ideas.view', 'crm.view_assigned']);
+    const guestSalesLabels = filterNavigation(employeeNavigation, guestSales).flatMap((group) => group.links.map((link) => link.label));
+    expect(guestSalesLabels).toContain('Idea Hub');
+    expect(guestSalesLabels).not.toContain('Patients');
+    expect(guestSalesLabels).not.toContain('Assigned Patients');
   });
 
   it('keeps read-only announcements out of the employee sidebar', () => {
