@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest';
+import { generateAvailableSlots } from './doctor-scheduling-rules';
+
+describe('doctor scheduling rules', () => {
+  it('generates slots inside recurring availability and hides booked, blocked, and past slots', () => {
+    const slots = generateAvailableSlots({
+      date: '2026-08-10',
+      durationMinutes: 30,
+      now: new Date('2026-08-10T15:15:00'),
+      availability: [{ day_of_week: 1, start_time: '15:00', end_time: '17:00' }],
+      blockedPeriods: [{ blocked_date: '2026-08-10', start_time: '16:30', end_time: '17:00' }],
+      appointments: [{ id: 'a1', start_at: new Date('2026-08-10T16:00:00').toISOString(), end_at: new Date('2026-08-10T16:30:00').toISOString(), status: 'scheduled' }],
+    });
+
+    expect(slots.map(slot => slot.startAt)).toEqual([new Date('2026-08-10T15:30:00').toISOString()]);
+  });
+
+  it('returns no slots for a full-day block', () => {
+    const slots = generateAvailableSlots({
+      date: '2026-08-12',
+      durationMinutes: 30,
+      now: new Date('2026-08-11T09:00:00'),
+      availability: [{ day_of_week: 3, start_time: '10:00', end_time: '12:00' }],
+      blockedPeriods: [{ blocked_date: '2026-08-12' }],
+      appointments: [],
+    });
+
+    expect(slots).toEqual([]);
+  });
+});
