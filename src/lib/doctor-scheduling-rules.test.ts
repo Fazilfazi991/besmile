@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateAvailableSlots } from './doctor-scheduling-rules';
+import { generateAvailableSlots, validateAvailabilityRanges } from './doctor-scheduling-rules';
 
 describe('doctor scheduling rules', () => {
   it('generates slots inside recurring availability and hides booked, blocked, and past slots', () => {
@@ -26,5 +26,11 @@ describe('doctor scheduling rules', () => {
     });
 
     expect(slots).toEqual([]);
+  });
+
+  it('rejects overlapping, inverted, and too-short availability ranges', () => {
+    expect(validateAvailabilityRanges([{ day_of_week: 1, start_time: '10:00', end_time: '09:00' }], 30)).toMatch(/valid time/i);
+    expect(validateAvailabilityRanges([{ day_of_week: 1, start_time: '09:00', end_time: '09:15' }], 30)).toMatch(/fit/i);
+    expect(validateAvailabilityRanges([{ day_of_week: 1, start_time: '09:00', end_time: '11:00' }, { day_of_week: 1, start_time: '10:30', end_time: '12:00' }], 30)).toMatch(/overlap/i);
   });
 });

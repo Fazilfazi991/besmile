@@ -7,6 +7,21 @@ export type AvailabilityRange = { day_of_week: number; start_time: string; end_t
 export type BlockedPeriod = { blocked_date: string; start_time?: string | null; end_time?: string | null };
 export type AppointmentWindow = { id?: string; start_at: string; end_at: string; status: AppointmentStatus };
 
+export function validateAvailabilityRanges(ranges: AvailabilityRange[], consultationDurationMinutes: number) {
+  const byDay = new Map<number, AvailabilityRange[]>();
+  for (const range of ranges) byDay.set(range.day_of_week, [...(byDay.get(range.day_of_week) || []), range]);
+  for (const [day, dayRanges] of byDay) {
+    const sorted = [...dayRanges].sort((left, right) => left.start_time.localeCompare(right.start_time));
+    for (let index = 0; index < sorted.length; index += 1) {
+      const current = sorted[index];
+      if (!current.start_time || !current.end_time || minutesOfDay(current.end_time) <= minutesOfDay(current.start_time)) return `Choose a valid time range for ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]}.`;
+      if (minutesOfDay(current.end_time) - minutesOfDay(current.start_time) < consultationDurationMinutes) return 'Each availability range must fit at least one consultation.';
+      if (index > 0 && minutesOfDay(current.start_time) < minutesOfDay(sorted[index - 1].end_time)) return `Availability ranges overlap on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]}.`;
+    }
+  }
+  return null;
+}
+
 export const statusLabels: Record<AppointmentStatus, string> = {
   scheduled: 'Scheduled',
   confirmed: 'Confirmed',
@@ -74,11 +89,12 @@ export function generateAvailableSlots(input: {
   return slots;
 }
 
-export function validateDoctorPayload(payload: { doctor_name: string; specialization: string; qualification: string; phone: string; consultation_duration_minutes: number; notes?: string | null }) {
+export function validateDoctorPayload(payload: { doctor_name: string; specialization: string; qualification: string; phone: string; email?: string | null; consultation_duration_minutes: number; notes?: string | null }) {
   if (payload.doctor_name.trim().length < 2) return 'Doctor name is required.';
   if (payload.specialization.trim().length < 2) return 'Specialization is required.';
   if (payload.qualification.trim().length < 2) return 'Qualification is required.';
   if (payload.phone.trim().length < 6) return 'Phone number is required.';
+  if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email.trim())) return 'Enter a valid email address.';
   if (!Number.isFinite(payload.consultation_duration_minutes) || payload.consultation_duration_minutes < 5 || payload.consultation_duration_minutes > 240) return 'Consultation duration must be between 5 and 240 minutes.';
   if ((payload.notes || '').length > 500) return 'Notes must be 500 characters or fewer.';
   return null;

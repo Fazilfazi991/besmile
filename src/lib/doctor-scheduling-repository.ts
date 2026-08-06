@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { generateAvailableSlots, validateDoctorPayload, type AppointmentStatus, type ConsultationType } from './doctor-scheduling-rules';
+import { generateAvailableSlots, validateAvailabilityRanges, validateDoctorPayload, type AppointmentStatus, type ConsultationType } from './doctor-scheduling-rules';
 
 const db = () => {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -15,6 +15,7 @@ export type DoctorPayload = {
   specialization: string;
   qualification: string;
   phone: string;
+  email?: string | null;
   consultation_duration_minutes: number;
   status: 'active' | 'unavailable';
   notes?: string | null;
@@ -41,7 +42,7 @@ export const doctorSchedulingRepository = {
   },
 
   async doctors() {
-    const { data, error } = await db().from('outsourced_doctors').select('*,availability:doctor_weekly_availability(*),blocked:doctor_blocked_periods(*)').order('doctor_name');
+    const { data, error } = await db().from('outsourced_doctors').select('*,availability:doctor_weekly_availability(*),blocked:doctor_blocked_periods(*)').is('archived_at', null).order('doctor_name');
     if (error) throw error;
     return data || [];
   },
@@ -54,6 +55,7 @@ export const doctorSchedulingRepository = {
       specialization: clean(payload.specialization),
       qualification: clean(payload.qualification),
       phone: clean(payload.phone),
+      email: clean(payload.email) || null,
       consultation_duration_minutes: Number(payload.consultation_duration_minutes),
       status: payload.status,
       notes: clean(payload.notes) || null,
@@ -66,8 +68,10 @@ export const doctorSchedulingRepository = {
     return result.data;
   },
 
-  async replaceAvailability(doctorId: string, actorId: string, ranges: { day_of_week: number; start_time: string; end_time: string }[]) {
+  async replaceAvailability(doctorId: string, actorId: string, ranges: { day_of_week: number; start_time: string; end_time: string }[], consultationDurationMinutes = 5) {
     const r = db();
+    const message = validateAvailabilityRanges(ranges, consultationDurationMinutes);
+    if (message) throw new Error(message);
     const removed = await r.from('doctor_weekly_availability').delete().eq('doctor_id', doctorId);
     if (removed.error) throw removed.error;
     const valid = ranges.filter(range => range.start_time && range.end_time && range.start_time < range.end_time);
@@ -92,6 +96,11 @@ export const doctorSchedulingRepository = {
 
   async removeBlockedPeriod(id: string) {
     const { error } = await db().from('doctor_blocked_periods').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  async archiveDoctor(id: string, actorId: string) {
+    const { error } = await db().from('outsourced_doctors').update({ status: 'unavailable', archived_at: new Date().toISOString(), archived_by: actorId, updated_by: actorId }).eq('id', id).is('archived_at', null);
     if (error) throw error;
   },
 
