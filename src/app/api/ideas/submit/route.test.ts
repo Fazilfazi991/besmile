@@ -11,5 +11,6 @@ describe('Idea submission route', () => {
     expect(route).toContain("IDEA_ATTACHMENTS_BUCKET");
     expect(route).toContain("cleanup.from('ideas').delete().eq('id', ideaId)");
     expect(route).toContain("'The attachment could not be uploaded. Please try again or submit the idea without the attachment.'");
+    expect(route.indexOf('.storage.from(IDEA_ATTACHMENTS_BUCKET).upload')).toBeLessThan(route.indexOf("db.from('idea_attachments').insert"));
   });
 });

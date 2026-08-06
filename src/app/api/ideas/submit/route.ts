@@ -52,6 +52,11 @@ export async function POST(request: Request) {
       const attachmentId = crypto.randomUUID();
       const extension = extensionOf(file.name);
       attachmentKey = ideaAttachmentKey(idea.id, attachmentId, extension);
+      const { error: storageError } = await db.storage.from(IDEA_ATTACHMENTS_BUCKET).upload(attachmentKey, file, { contentType: file.type, upsert: false });
+      if (storageError) {
+        console.error('Idea attachment upload failed', { bucket: IDEA_ATTACHMENTS_BUCKET, storageKey: attachmentKey, code: storageError.name, status: (storageError as any).statusCode, message: storageError.message });
+        throw new Error('IDEA_ATTACHMENT_UPLOAD_FAILED');
+      }
       const { error: metadataError } = await db.from('idea_attachments').insert({
         id: attachmentId,
         idea_id: idea.id,
@@ -63,11 +68,6 @@ export async function POST(request: Request) {
         file_size: file.size,
       });
       if (metadataError) throw metadataError;
-      const { error: storageError } = await db.storage.from(IDEA_ATTACHMENTS_BUCKET).upload(attachmentKey, file, { contentType: file.type, upsert: false });
-      if (storageError) {
-        console.error('Idea attachment upload failed', { bucket: IDEA_ATTACHMENTS_BUCKET, storageKey: attachmentKey, code: storageError.name, status: (storageError as any).statusCode, message: storageError.message });
-        throw new Error('IDEA_ATTACHMENT_UPLOAD_FAILED');
-      }
     }
 
     return NextResponse.json({ id: idea.id }, { status: 201 });

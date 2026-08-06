@@ -94,6 +94,13 @@ describe('permission compatibility', () => {
     expect(permissionAllows(new Set(['patients.view_assigned']), employeeRouteRequirement('/employee/patients/example'))).toBe(true);
   });
 
+  it('keeps read-only announcements out of the employee sidebar', () => {
+    const labels = filterNavigation(employeeNavigation, new Set(['announcements.view', 'notifications.view', 'chat.use'])).flatMap((group) => group.links.map((link) => link.label));
+    expect(labels).toEqual(expect.arrayContaining(['Notifications', 'Chat', 'Profile']));
+    expect(labels).not.toContain('Announcements');
+    expect(permissionAllows(new Set(['announcements.view']), employeeRouteRequirement('/employee/announcements/example'))).toBe(true);
+  });
+
   it('limits guest sales navigation to CRM and universal employee links', () => {
     const groups = filterNavigation(employeeNavigation, new Set(['leads.view', 'leads.edit', 'sales.view', 'sales.edit']));
     const labels = groups.flatMap((group) => group.links.map((link) => link.label));

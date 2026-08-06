@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0072_idea_hub_module.sql'), 'utf8');
 const repairMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0080_sidebar_gm_operations_idea_schema_repair.sql'), 'utf8');
 const storageRepairMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260806121405_idea_hub_attachment_storage_repair.sql'), 'utf8');
+const employeeBaselineMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0081_employee_idea_announcement_baseline.sql'), 'utf8');
 
 describe('Idea Hub migration', () => {
   it('creates the required tables and unique support constraint', () => {
@@ -49,5 +50,14 @@ describe('Idea Hub migration', () => {
     expect(storageRepairMigration).toContain('idea attachment reads');
     expect(storageRepairMigration).toContain('idea attachment deletes');
     expect(storageRepairMigration).not.toContain('using (true)');
+  });
+
+  it('grants employee Idea Hub access without category management', () => {
+    expect(employeeBaselineMigration).toContain("'ideas.view'");
+    expect(employeeBaselineMigration).toContain("'ideas.create'");
+    expect(employeeBaselineMigration).toContain("'announcements.view'");
+    expect(employeeBaselineMigration).not.toContain("'ideas.manage_categories'");
+    expect(employeeBaselineMigration).toContain("'/employee/announcements/' || new.id::text");
+    expect(employeeBaselineMigration).toContain("notify pgrst, 'reload schema'");
   });
 });
