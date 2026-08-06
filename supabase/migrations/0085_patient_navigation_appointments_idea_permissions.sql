@@ -66,7 +66,7 @@ begin
         ('General Manager', administration_permissions),
         ('Psychologist', psychologist_permissions),
         ('Intern', idea_permissions),
-        ('Guest Sales', idea_permissions)
+        ('Guest – Sales', idea_permissions)
     ) as seed(role_name, codes)
     join public.permissions permission on permission.code = any(seed.codes)
     on conflict do nothing;
@@ -176,6 +176,30 @@ set search_path = public
 as $$
   select public.appointment_has_permission(action)
     and public.patient_access(target_patient)
+$$;
+
+create or replace function public.idea_is_visible(target uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists(
+    select 1
+    from public.ideas idea
+    where idea.id = target
+      and (
+        (
+          public.has_permission('ideas.view')
+          and (idea.archived_at is null or public.has_permission('ideas.archive'))
+        )
+        or (
+          idea.submitted_by = auth.uid()
+          and public.has_permission('ideas.view')
+        )
+      )
+  )
 $$;
 
 drop policy if exists "doctor scheduling appointments view" on public.doctor_appointments;
