@@ -52,4 +52,4 @@
 @media(max-width:620px){.doctor-scheduling .block-form,.doctor-scheduling .block-time-range{grid-template-columns:1fr}.doctor-scheduling .block-submit{width:100%}}
 
 /* Keep the desktop operational views comfortably dense. */
-@media(min-width:901px){.app-shell{zoom:.8}}
+@media(min-width:901px){.app-shell{zoom:.8;width:125%;min-height:125vh}.app-sidebar{height:125vh;min-height:125vh}}
