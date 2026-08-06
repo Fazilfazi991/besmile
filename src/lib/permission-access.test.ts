@@ -101,16 +101,16 @@ describe('permission compatibility', () => {
   it('splits main Patients from Assigned Patients for patient-care roles', () => {
     const psychologist = new Set(['patients.view', 'patients.view_assigned', 'ideas.view']);
     const psychologistLabels = filterNavigation(employeeNavigation, psychologist).flatMap((group) => group.links.map((link) => link.label));
-    expect(psychologistLabels).toEqual(expect.arrayContaining(['Patients', 'Assigned Patients', 'Idea Hub']));
+    expect(psychologistLabels).toEqual(expect.arrayContaining(['Patients', 'Assigned Patients', 'Innovation Hub']));
 
     const socialWorker = new Set(['patients.view', 'ideas.view']);
     const socialWorkerLabels = filterNavigation(employeeNavigation, socialWorker).flatMap((group) => group.links.map((link) => link.label));
-    expect(socialWorkerLabels).toEqual(expect.arrayContaining(['Patients', 'Idea Hub']));
+    expect(socialWorkerLabels).toEqual(expect.arrayContaining(['Patients', 'Innovation Hub']));
     expect(socialWorkerLabels).not.toContain('Assigned Patients');
 
     const guestSales = new Set(['ideas.view', 'crm.view_assigned']);
     const guestSalesLabels = filterNavigation(employeeNavigation, guestSales).flatMap((group) => group.links.map((link) => link.label));
-    expect(guestSalesLabels).toContain('Idea Hub');
+    expect(guestSalesLabels).toContain('Innovation Hub');
     expect(guestSalesLabels).not.toContain('Patients');
     expect(guestSalesLabels).not.toContain('Assigned Patients');
   });

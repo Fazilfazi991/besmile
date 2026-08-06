@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     if (profileError || !profile) throw profileError || new Error('Your profile could not be loaded.');
     const { data: category, error: categoryError } = await db.from('idea_categories').select('id').eq('id', payload.category_id).eq('is_active', true).is('deleted_at', null).maybeSingle();
     if (categoryError) throw categoryError;
-    if (!category) throw new Error('Choose an active Idea Hub category.');
+    if (!category) throw new Error('Choose an active Innovation Hub category.');
 
     const { data: idea, error: ideaError } = await db.from('ideas').insert({ ...payload, submitted_by: user.id, submitter_department_id: profile.department_id || null, status: 'Submitted' }).select('id').single();
     if (ideaError) throw ideaError;

@@ -9,7 +9,7 @@ const payload = {
   category_id: 'category-id',
 };
 
-describe('Idea Hub rules', () => {
+describe('Innovation Hub rules', () => {
   it('keeps the allowed status workflow narrow', () => {
     expect(ideaStatuses).toEqual(['Submitted', 'Under Consideration', 'Implemented', 'On Hold', 'Not Proceeding', 'Archived']);
     expect(ideaStatuses).not.toContain('Pending Approval');

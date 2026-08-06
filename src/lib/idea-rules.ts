@@ -48,7 +48,7 @@ export function validateIdeaComment(content: string) {
 }
 
 export function validateIdeaStatusChange(status: IdeaStatus, reason: string) {
-  if (!ideaStatuses.includes(status)) return 'Choose a valid Idea Hub status.';
+  if (!ideaStatuses.includes(status)) return 'Choose a valid Innovation Hub status.';
   if (status === 'Not Proceeding' && (reason.trim().length < 5 || reason.trim().length > 1000)) return 'Add a reason between 5 and 1,000 characters.';
   if (reason.trim().length > 1000) return 'Status note must be 1,000 characters or fewer.';
   return null;

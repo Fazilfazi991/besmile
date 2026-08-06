@@ -81,7 +81,7 @@ export const ideaRepository = {
     if (message) throw new Error(message);
     const { data: category, error: categoryError } = await db().from('idea_categories').select('id').eq('id', payload.category_id).eq('is_active', true).is('deleted_at', null).maybeSingle();
     if (categoryError) throw categoryError;
-    if (!category) throw new Error('Choose an active Idea Hub category.');
+    if (!category) throw new Error('Choose an active Innovation Hub category.');
     const { data, error } = await db().from('ideas').insert({
       title: clean(payload.title),
       problem_or_opportunity: clean(payload.problem_or_opportunity),
@@ -118,7 +118,7 @@ export const ideaRepository = {
       return false;
     }
     const { error } = await db().from('idea_supports').insert({ idea_id: idea.id, employee_id: profileId });
-    if (error) throw new Error(error.code === '23505' ? 'You already supported this idea.' : error.message);
+    if (error) throw new Error(error.code === '23505' ? 'You already liked this idea.' : error.message);
     return true;
   },
 
@@ -140,8 +140,8 @@ export const ideaRepository = {
     const recipients = (people || []).filter((person: any) => person.id !== profileId && person.full_name && mentionText.includes(`@${String(person.full_name).toLowerCase()}`));
     await Promise.all([...new Map(recipients.map((person: any) => [person.id, person])).values()].map((person: any) => db().rpc('notify_user', {
       target: person.id,
-      heading: 'You were mentioned in Idea Hub',
-      message: 'A colleague mentioned you in an Idea Hub comment.',
+      heading: 'You were mentioned in Innovation Hub',
+      message: 'A colleague mentioned you in an Innovation Hub comment.',
       kind: 'idea_mention',
       entity: ideaId,
       link: `/employee/ideas/${ideaId}`,
