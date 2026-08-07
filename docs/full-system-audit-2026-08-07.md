@@ -107,10 +107,14 @@ The current sidebar intentionally permission-filters pages. Implemented routes i
 
 ## 11. Remaining backlog
 
-**P0 — before client review:** email OTP 2FA; chatbot scope/content/handoff; full live role/RLS/security test; real responsive browser QA.
+**P0 — before client review:** full live role/RLS/security test; real responsive browser QA.
 
 **P1:** client/lead conversion, scheduler reminders, psychologist availability, feedback mapping/linking, document-expiry automation, report/export suite, finance lifecycle verification.
 
 **P2:** employee status/performance expansion, lint-warning cleanup, attachment malware scanning, report UX enhancements.
 
-**Client decision required:** chatbot knowledge base; feedback identifiers; reminder timing; scheduling/clinical workflow ownership; finance rules; final permissions matrix.
+**PENDING — DOMAIN / EMAIL INFRASTRUCTURE REQUIRED:** Email OTP 2FA. Do not implement a temporary flow. Required inputs are the production domain, transactional-email provider/configuration, approved sender domain/email, DNS verification where needed, OTP expiry/resend policy, and final session-timeout policy. The current password-based Supabase authentication, RBAC, and RLS remain unchanged; OTP is non-blocking for other CRM work and is not complete.
+
+**PENDING CLIENT DECISION:** Chatbot knowledge base/content, approved answers, escalation/handoff behaviour, and appointment-enquiry rules.
+
+**Client decision required:** feedback identifiers; reminder timing; scheduling/clinical workflow ownership; finance rules; final permissions matrix.
