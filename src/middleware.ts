@@ -22,12 +22,12 @@ export async function middleware(request: NextRequest) {
   );
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const protectedPath = path.startsWith('/employee') || path.startsWith('/admin');
+  const protectedPath = path.startsWith('/employee') || path.startsWith('/admin') || path.startsWith('/clinician');
 
   if (protectedPath && !user) return redirectWithCookies(request, response, '/sign-in');
 
   if (user) {
-    const { data: profile, error: profileError } = await supabase.from('profiles').select('role,status').eq('id', user.id).maybeSingle();
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('role,status,is_employee').eq('id', user.id).maybeSingle();
     if (profileError) {
       console.warn('Middleware profile lookup failed', { path, userId: user.id, code: profileError.code });
       return response;
@@ -36,6 +36,7 @@ export async function middleware(request: NextRequest) {
     if (profile.status === 'inactive' || profile.status === 'terminated') return redirectWithCookies(request, response, '/sign-in?inactive=1');
     const isSuperAdmin = profile.role === 'super_admin';
     const isManagement = isManagementRole(profile.role);
+    const isOutsourcedClinician = profile.is_employee === false;
     const hasAnyPermission = async (permissions: readonly string[]) => {
       const checks = await Promise.all(permissions.map((permission) => supabase.rpc('has_permission', { permission_code: permission })));
       return checks.some((check) => check.data === true);
@@ -47,7 +48,10 @@ export async function middleware(request: NextRequest) {
       }
       return '/employee/profile';
     };
-    if (path === '/') return redirectWithCookies(request, response, isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath());
+    if (path === '/') return redirectWithCookies(request, response, isOutsourcedClinician ? '/clinician/schedule' : isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath());
+    if (isOutsourcedClinician && (path.startsWith('/employee') || path.startsWith('/admin'))) return redirectWithCookies(request, response, '/clinician/schedule');
+    if (!isOutsourcedClinician && path.startsWith('/clinician')) return redirectWithCookies(request, response, isSuperAdmin || isManagement ? '/admin' : await employeeLandingPath());
+    if (path === '/clinician') return redirectWithCookies(request, response, '/clinician/schedule');
     if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return redirectWithCookies(request, response, '/admin');
     if (path === '/employee') return redirectWithCookies(request, response, await employeeLandingPath());
     if (path.startsWith('/admin')) {
@@ -66,4 +70,4 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/', '/employee/:path*', '/admin/:path*'] };
+export const config = { matcher: ['/', '/employee/:path*', '/admin/:path*', '/clinician/:path*'] };

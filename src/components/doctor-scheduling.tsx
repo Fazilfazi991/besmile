@@ -9,7 +9,7 @@ import { EmployeeBanner, EmployeeEmptyState, EmployeeLoading, EmployeeMetric, Em
 
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const emptyDoctor: DoctorPayload = { doctor_name: '', specialization: '', qualification: '', phone: '', email: '', consultation_duration_minutes: 30, status: 'active', notes: '' };
+const emptyDoctor: DoctorPayload = { doctor_name: '', specialization: '', qualification: '', phone: '', email: '', consultation_duration_minutes: 30, status: 'active', notes: '', clinician_type: 'outsourced', profile_id: null };
 
 const dateKey = (value: Date) => value.toISOString().slice(0, 10);
 const addDays = (value: Date, daysToAdd: number) => { const next = new Date(value); next.setDate(next.getDate() + daysToAdd); return next; };
@@ -18,7 +18,7 @@ const fmtTime = (value: string | Date) => new Intl.DateTimeFormat('en', { hour: 
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const can = (permissions: Record<string, boolean>, ...codes: string[]) => codes.some(code => permissions[code]);
 
-export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId }: { initialPatientId?: string; initialAppointmentId?: string }) {
+export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, workspace = 'employee' }: { initialPatientId?: string; initialAppointmentId?: string; workspace?: 'admin' | 'employee' | 'clinician' }) {
   const [profile, setProfile] = useState<any>();
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -94,6 +94,10 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId }:
   }, [appointmentForm.doctor_id, appointmentForm.date, reschedule?.id]);
 
   const canManageDoctors = permissions['doctor_scheduling.manage_doctors'];
+  const canManageOwnAvailability = permissions['clinician.availability.manage_own'];
+  const ownClinician = doctors.find(item => item.profile_id === profile?.id);
+  const manageableDoctors = canManageDoctors ? doctors : ownClinician ? [ownClinician] : [];
+  const canManageAvailability = canManageDoctors || Boolean(ownClinician && canManageOwnAvailability);
   const canCreate = can(permissions, 'doctor_scheduling.create_appointments', 'appointments.create');
   const canUpdate = can(permissions, 'doctor_scheduling.update_appointments', 'appointments.update', 'appointments.update_status', 'appointments.reschedule');
   const canCancel = can(permissions, 'doctor_scheduling.cancel_appointments', 'appointments.cancel');
@@ -102,7 +106,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId }:
   const currentDoctor = doctors.find(item => item.id === appointmentForm.doctor_id);
 
   const editDoctor = (doctor: any) => {
-    setDoctorForm({ id: doctor.id, doctor_name: doctor.doctor_name, specialization: doctor.specialization, qualification: doctor.qualification, phone: doctor.phone, email: doctor.email || '', consultation_duration_minutes: doctor.consultation_duration_minutes, status: doctor.status, notes: doctor.notes || '' });
+    setDoctorForm({ id: doctor.id, doctor_name: doctor.doctor_name, specialization: doctor.specialization, qualification: doctor.qualification, phone: doctor.phone, email: doctor.email || '', consultation_duration_minutes: doctor.consultation_duration_minutes, status: doctor.status, notes: doctor.notes || '', clinician_type: doctor.clinician_type || 'outsourced', profile_id: doctor.profile_id || null });
     const grouped: Record<number, { start_time: string; end_time: string }[]> = {};
     for (const range of doctor.availability || []) grouped[range.day_of_week] = [...(grouped[range.day_of_week] || []), { start_time: range.start_time.slice(0, 5), end_time: range.end_time.slice(0, 5) }];
     setAvailability(grouped);
@@ -116,13 +120,16 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId }:
     if (!profile) return;
     setSaving('doctor'); setError(''); setNotice('');
     try {
-      const doctor = await doctorSchedulingRepository.saveDoctor({ ...doctorForm, consultation_duration_minutes: Number(doctorForm.consultation_duration_minutes), actorId: profile.id });
+      const doctor = canManageDoctors
+        ? await doctorSchedulingRepository.saveDoctor({ ...doctorForm, consultation_duration_minutes: Number(doctorForm.consultation_duration_minutes), actorId: profile.id })
+        : ownClinician && doctorForm.id === ownClinician.id ? ownClinician : null;
+      if (!doctor) throw new Error('You can only update your own availability.');
       const ranges = Object.entries(availability).flatMap(([day, rows]) => rows.map(row => ({ day_of_week: Number(day), start_time: row.start_time, end_time: row.end_time })));
       await doctorSchedulingRepository.replaceAvailability(doctor.id, profile.id, ranges, Number(doctorForm.consultation_duration_minutes));
       setDoctorForm(emptyDoctor);
       setAvailability({});
       setDoctorFormOpen(false);
-      setNotice('Doctor profile saved.');
+      setNotice(canManageDoctors ? 'Clinician profile and availability saved.' : 'Your availability was saved.');
       await load();
     } catch (caught: any) {
       const message = caught.message || 'Unable to save doctor.';
@@ -206,13 +213,13 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId }:
     setSelected(undefined);
   };
 
-  if (loading) return <section><EmployeePageHeader title="Doctor Scheduling" subtitle="Outsourced doctor availability and appointments." /><EmployeeLoading cards={4} /></section>;
+  if (loading) return <section><EmployeePageHeader title="Clinician Scheduling" subtitle="Shared psychologist availability and appointments." /><EmployeeLoading cards={4} /></section>;
 
   return <section className="doctor-scheduling">
-    <EmployeePageHeader title="Doctor Scheduling" subtitle="Manage outsourced doctor availability, appointments, and scheduling." action={canCreate ? <button className="btn btn-primary" type="button" onClick={() => setTab('Appointments')}>Create Appointment</button> : undefined} />
+    <EmployeePageHeader title={workspace === 'clinician' ? 'My Schedule' : 'Clinician Scheduling'} subtitle={workspace === 'clinician' ? 'Manage your availability and view your assigned appointments.' : 'Manage staff and outsourced psychologist availability and appointments together.'} action={canCreate ? <button className="btn btn-primary" type="button" onClick={() => setTab('Appointments')}>Create Appointment</button> : undefined} />
     {error && <EmployeeBanner>{error}</EmployeeBanner>}{notice && <EmployeeBanner tone="success">{notice}</EmployeeBanner>}
     <EmployeeMetricGrid columns={4}><EmployeeMetric label="Appointments today" value={summary?.today || 0} /><EmployeeMetric label="Upcoming" value={summary?.upcoming || 0} tone="info" /><EmployeeMetric label="Available doctors today" value={summary?.availableDoctorsToday || 0} tone="success" /><EmployeeMetric label="Cancelled or rescheduled" value={summary?.changed || 0} tone="pending" /></EmployeeMetricGrid>
-    <div className="doctor-tabs">{(['Schedule', 'Doctors', 'Appointments'] as const).map(item => <button type="button" className={tab === item ? 'active' : ''} onClick={() => setTab(item)} key={item}>{item}</button>)}</div>
+    <div className="doctor-tabs">{(['Schedule', 'Doctors', 'Appointments'] as const).map(item => <button type="button" className={tab === item ? 'active' : ''} onClick={() => setTab(item)} key={item}>{item === 'Doctors' ? (workspace === 'clinician' ? 'My Availability' : 'Clinicians') : item}</button>)}</div>
 
     {tab === 'Schedule' && <EmployeeSection title="Schedule" description="Day, week, and month views collapse into an agenda on mobile.">
       <Filters doctors={doctors} patients={patients} doctorFilter={doctorFilter} setDoctorFilter={setDoctorFilter} patientFilter={patientFilter} setPatientFilter={setPatientFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
@@ -221,21 +228,21 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId }:
     </EmployeeSection>}
 
     {tab === 'Doctors' && <div className="doctor-two-column">
-      <EmployeeSection title="Doctors" description="Manage outsourced doctor details and availability." action={canManageDoctors ? <button className="btn btn-primary" type="button" onClick={startDoctor}>Add Doctor</button> : undefined}>
-        {doctors.length ? <div className="doctor-list">{doctors.map(doctor => <article key={doctor.id}><div><b>{doctor.doctor_name}</b><small>{doctor.specialization} - {doctor.qualification}</small><small>{doctor.phone}{doctor.email ? ` - ${doctor.email}` : ''} - {doctor.consultation_duration_minutes} min</small><small>{availabilitySummary(doctor.availability || [])}</small></div><EmployeeStatusBadge tone={doctor.status === 'active' ? 'success' : 'danger'}>{label(doctor.status)}</EmployeeStatusBadge>{canManageDoctors && <div className="doctor-actions"><button className="btn border" type="button" onClick={() => editDoctor(doctor)}>Edit</button><button className="btn border" type="button" disabled={saving === doctor.id} onClick={() => void archiveDoctor(doctor)}>Archive</button></div>}</article>)}</div> : <div className="doctor-empty"><EmployeeEmptyState title="No doctors added yet" detail="Add the first outsourced doctor and configure their weekly availability." />{canManageDoctors && <button className="btn btn-primary" type="button" onClick={startDoctor}>Add First Doctor</button>}</div>}
+      <EmployeeSection title={workspace === 'clinician' ? 'My Availability' : 'Clinicians'} description="Staff, interns, and outsourced psychologists share the same scheduling calendar." action={canManageDoctors ? <button className="btn btn-primary" type="button" onClick={startDoctor}>Add Clinician</button> : undefined}>
+        {doctors.length ? <div className="doctor-list">{doctors.map(doctor => { const canEdit = canManageDoctors || (canManageOwnAvailability && doctor.profile_id === profile?.id); return <article key={doctor.id}><div><b>{doctor.doctor_name}</b><small>{doctor.specialization} - {doctor.qualification}</small><small>{label(doctor.clinician_type || 'outsourced')} - {doctor.consultation_duration_minutes} min</small><small>{availabilitySummary(doctor.availability || [])}</small></div><EmployeeStatusBadge tone={doctor.status === 'active' ? 'success' : 'danger'}>{label(doctor.status)}</EmployeeStatusBadge>{canEdit && <div className="doctor-actions"><button className="btn border" type="button" onClick={() => editDoctor(doctor)}>{canManageDoctors ? 'Edit' : 'Edit availability'}</button>{canManageDoctors && <button className="btn border" type="button" disabled={saving === doctor.id} onClick={() => void archiveDoctor(doctor)}>Archive</button>}</div>}</article>; })}</div> : <div className="doctor-empty"><EmployeeEmptyState title="No clinicians available" detail="A scheduling manager must link this account to a clinician record before self-service is available." />{canManageDoctors && <button className="btn btn-primary" type="button" onClick={startDoctor}>Add First Clinician</button>}</div>}
       </EmployeeSection>
-      {canManageDoctors && <EmployeeSection title="Blocked Dates" description="Block a full date or a specific unavailable time range.">
+      {canManageAvailability && <EmployeeSection title="Blocked Dates" description="Block a future full date or a specific unavailable time range.">
         <form className="block-form" onSubmit={addBlock}>
-          <label className="block-field">Doctor<select aria-label="Doctor to block" className="input" required value={blockForm.doctor_id} onChange={e => setBlockForm({ ...blockForm, doctor_id: e.target.value })}><option value="">Select doctor</option>{doctors.map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.doctor_name}</option>)}</select></label>
+          <label className="block-field">Clinician<select aria-label="Clinician to block" className="input" required value={blockForm.doctor_id} onChange={e => setBlockForm({ ...blockForm, doctor_id: e.target.value })}><option value="">Select clinician</option>{manageableDoctors.map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.doctor_name}</option>)}</select></label>
           <label className="block-field">Date<input aria-label="Blocked date" className="input" required type="date" value={blockForm.blocked_date} onChange={e => setBlockForm({ ...blockForm, blocked_date: e.target.value })} /></label>
           <div className="block-time-range"><label className="block-field">Start time<input aria-label="Blocked start time" className="input" type="time" value={blockForm.start_time} onChange={e => setBlockForm({ ...blockForm, start_time: e.target.value })} /></label><label className="block-field">End time<input aria-label="Blocked end time" className="input" type="time" value={blockForm.end_time} onChange={e => setBlockForm({ ...blockForm, end_time: e.target.value })} /></label></div>
           <label className="block-field block-reason">Reason <span>(optional)</span><input className="input" placeholder="e.g. Leave or clinic closure" value={blockForm.reason} onChange={e => setBlockForm({ ...blockForm, reason: e.target.value })} /></label>
           <button className="btn btn-primary block-submit" disabled={saving === 'block'}>{saving === 'block' ? 'Blocking...' : 'Block date'}</button>
         </form>
-        <div className="blocked-list">{doctors.flatMap(doctor => (doctor.blocked || []).map((block: any) => ({ ...block, doctor }))).map(block => <article key={block.id}><div><b>{block.doctor.doctor_name}</b><small>{fmtDate(block.blocked_date)} · {block.start_time ? `${block.start_time.slice(0, 5)} to ${block.end_time.slice(0, 5)}` : 'Full day'}</small>{block.reason && <small>{block.reason}</small>}</div>{canManageDoctors && <button type="button" onClick={async () => { await doctorSchedulingRepository.removeBlockedPeriod(block.id); await load(); }}>Remove</button>}</article>)}{!doctors.some(doctor => doctor.blocked?.length) && <p className="blocked-empty">No blocked dates yet.</p>}</div>
+        <div className="blocked-list">{manageableDoctors.flatMap(doctor => (doctor.blocked || []).map((block: any) => ({ ...block, doctor }))).map(block => <article key={block.id}><div><b>{block.doctor.doctor_name}</b><small>{fmtDate(block.blocked_date)} · {block.start_time ? `${block.start_time.slice(0, 5)} to ${block.end_time.slice(0, 5)}` : 'Full day'}</small>{block.reason && <small>{block.reason}</small>}</div>{(canManageDoctors || block.doctor.profile_id === profile?.id) && <button type="button" onClick={async () => { await doctorSchedulingRepository.removeBlockedPeriod(block.id); await load(); }}>Remove</button>}</article>)}{!manageableDoctors.some(doctor => doctor.blocked?.length) && <p className="blocked-empty">No blocked dates yet.</p>}</div>
       </EmployeeSection>}
     </div>}
-    {tab === 'Doctors' && canManageDoctors && doctorFormOpen && <DoctorEditor form={doctorForm} availability={availability} saving={saving === 'doctor'} onChange={setDoctorForm} onAvailabilityChange={setAvailability} onClose={() => setDoctorFormOpen(false)} onSubmit={saveDoctor} />}
+    {tab === 'Doctors' && canManageAvailability && doctorFormOpen && <DoctorEditor form={doctorForm} availability={availability} saving={saving === 'doctor'} readOnlyIdentity={!canManageDoctors} onChange={setDoctorForm} onAvailabilityChange={setAvailability} onClose={() => setDoctorFormOpen(false)} onSubmit={saveDoctor} />}
 
     {tab === 'Appointments' && <div className="doctor-two-column">
       <EmployeeSection title={reschedule ? 'Reschedule Appointment' : 'Create Appointment'} description="Select patient, doctor, date, then an available slot.">
@@ -421,20 +428,21 @@ function AppointmentMiniList({ title, rows, actions }: { title: string; rows: an
   return <div className="card divide-y"><h3 className="p-4 text-sm font-bold">{title}</h3>{rows.length ? rows.map(item => <div className="patient-appointment-card p-4 text-sm" key={item.id}><div><b>{fmtDate(item.start_at)}</b><p>{fmtTime(item.start_at)} to {fmtTime(item.end_at)} - {item.doctor?.doctor_name || 'Doctor'}</p><small>{item.doctor?.specialization || 'Specialization'} - {label(item.consultation_type)}</small>{item.remarks && <small>{item.remarks}</small>}</div><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge>{actions && <div className="patient-appointment-actions">{actions.canUpdate && <button type="button" onClick={() => actions.openForm('edit', item)} disabled={actions.saving === item.id}>Edit</button>}{actions.canReschedule && <button type="button" onClick={() => actions.openForm('reschedule', item)} disabled={actions.saving === item.id}>Reschedule</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'confirmed')} disabled={actions.saving === item.id}>Confirm</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'completed')} disabled={actions.saving === item.id}>Complete</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'no_show')} disabled={actions.saving === item.id}>No Show</button>}{actions.canCancel && <button type="button" onClick={() => actions.changeStatus(item, 'cancelled')} disabled={actions.saving === item.id}>Cancel</button>}{actions.canDelete && <button type="button" className="danger" onClick={() => actions.deleteAppointment(item)} disabled={actions.saving === item.id}>Delete</button>}</div>}</div>) : <p className="p-4 text-sm text-slate-500">No appointments.</p>}</div>;
 }
 
-function DoctorEditor({ form, availability, saving, onChange, onAvailabilityChange, onClose, onSubmit }: any) {
+function DoctorEditor({ form, availability, saving, readOnlyIdentity, onChange, onAvailabilityChange, onClose, onSubmit }: any) {
   return <div className="doctor-editor-backdrop" role="dialog" aria-modal="true" aria-label={form.id ? 'Edit doctor' : 'Add doctor'}>
     <form className="doctor-editor" onSubmit={onSubmit}>
       <header><div><h2>{form.id ? 'Edit Doctor' : 'Add Doctor'}</h2><p>Configure only scheduling details and weekly availability.</p></div><button type="button" onClick={onClose}>Close</button></header>
-      <label>Doctor name<input className="input" required value={form.doctor_name} onChange={event => onChange({ ...form, doctor_name: event.target.value })} /></label>
-      <label>Specialization<input className="input" required value={form.specialization} onChange={event => onChange({ ...form, specialization: event.target.value })} /></label>
-      <label>Qualification<input className="input" required value={form.qualification} onChange={event => onChange({ ...form, qualification: event.target.value })} /></label>
-      <label>Phone number<input className="input" required type="tel" value={form.phone} onChange={event => onChange({ ...form, phone: event.target.value })} /></label>
-      <label>Email<input className="input" type="email" value={form.email || ''} onChange={event => onChange({ ...form, email: event.target.value })} /></label>
-      <label>Consultation duration (minutes)<input className="input" required type="number" min="5" max="240" value={form.consultation_duration_minutes} onChange={event => onChange({ ...form, consultation_duration_minutes: Number(event.target.value) })} /></label>
-      <label>Status<select className="input" value={form.status} onChange={event => onChange({ ...form, status: event.target.value })}><option value="active">Active</option><option value="unavailable">Unavailable</option></select></label>
-      <label>Short notes<textarea className="input" value={form.notes || ''} onChange={event => onChange({ ...form, notes: event.target.value })} /></label>
+      <label>Clinician name<input className="input" disabled={readOnlyIdentity} required value={form.doctor_name} onChange={event => onChange({ ...form, doctor_name: event.target.value })} /></label>
+      <label>Clinician type<select className="input" disabled={readOnlyIdentity} value={form.clinician_type || 'outsourced'} onChange={event => onChange({ ...form, clinician_type: event.target.value })}><option value="staff_psychologist">Staff psychologist</option><option value="psychology_intern">Psychology intern</option><option value="outsourced">Outsourced</option></select></label>
+      <label>Specialization<input className="input" disabled={readOnlyIdentity} required value={form.specialization} onChange={event => onChange({ ...form, specialization: event.target.value })} /></label>
+      <label>Qualification<input className="input" disabled={readOnlyIdentity} required value={form.qualification} onChange={event => onChange({ ...form, qualification: event.target.value })} /></label>
+      <label>Phone number<input className="input" disabled={readOnlyIdentity} required type="tel" value={form.phone} onChange={event => onChange({ ...form, phone: event.target.value })} /></label>
+      <label>Email<input className="input" disabled={readOnlyIdentity} type="email" value={form.email || ''} onChange={event => onChange({ ...form, email: event.target.value })} /></label>
+      <label>Consultation duration (minutes)<input className="input" disabled={readOnlyIdentity} required type="number" min="5" max="240" value={form.consultation_duration_minutes} onChange={event => onChange({ ...form, consultation_duration_minutes: Number(event.target.value) })} /></label>
+      <label>Status<select className="input" disabled={readOnlyIdentity} value={form.status} onChange={event => onChange({ ...form, status: event.target.value })}><option value="active">Active</option><option value="unavailable">Unavailable</option></select></label>
+      <label>Short notes<textarea className="input" disabled={readOnlyIdentity} value={form.notes || ''} onChange={event => onChange({ ...form, notes: event.target.value })} /></label>
       <section className="availability-editor"><h3>Weekly availability</h3>{days.map((day, index) => <div key={day}><b>{day}</b><span>{(availability[index] || []).map((range: any, rangeIndex: number) => <span key={`${day}-${rangeIndex}`}><input aria-label={`${day} start time`} type="time" value={range.start_time} onChange={event => onAvailabilityChange(updateAvailability(availability, index, rangeIndex, 'start_time', event.target.value))} /><input aria-label={`${day} end time`} type="time" value={range.end_time} onChange={event => onAvailabilityChange(updateAvailability(availability, index, rangeIndex, 'end_time', event.target.value))} /><button type="button" onClick={() => onAvailabilityChange(removeAvailability(availability, index, rangeIndex))}>Remove</button></span>)}</span><button type="button" onClick={() => onAvailabilityChange(addAvailability(availability, index))}>Add range</button></div>)}</section>
-      <footer><button className="btn border" type="button" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Doctor'}</button></footer>
+      <footer><button className="btn border" type="button" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : readOnlyIdentity ? 'Save availability' : 'Save clinician'}</button></footer>
     </form>
   </div>;
 }

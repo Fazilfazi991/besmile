@@ -19,6 +19,8 @@ export type DoctorPayload = {
   consultation_duration_minutes: number;
   status: 'active' | 'unavailable';
   notes?: string | null;
+  clinician_type?: 'staff_psychologist' | 'psychology_intern' | 'outsourced';
+  profile_id?: string | null;
 };
 
 export const doctorSchedulingRepository = {
@@ -36,9 +38,21 @@ export const doctorSchedulingRepository = {
       'appointments.cancel',
       'appointments.delete',
       'appointments.update_status',
+      'clinician.schedule.view_own',
+      'clinician.availability.manage_own',
+      'clinician.appointments.view_own',
     ];
-    const results = await Promise.all(codes.map(code => db().rpc('has_permission', { permission_code: code })));
-    return Object.fromEntries(codes.map((code, index) => [code, results[index].data === true]));
+    const [results, clinician] = await Promise.all([
+      Promise.all(codes.map(code => db().rpc('has_permission', { permission_code: code }))),
+      db().rpc('current_clinician_id'),
+    ]);
+    const permissions = Object.fromEntries(codes.map((code, index) => [code, results[index].data === true]));
+    if (clinician.data) {
+      permissions['clinician.schedule.view_own'] = true;
+      permissions['clinician.availability.manage_own'] = true;
+      permissions['clinician.appointments.view_own'] = true;
+    }
+    return permissions;
   },
 
   async doctors() {
@@ -59,6 +73,8 @@ export const doctorSchedulingRepository = {
       consultation_duration_minutes: Number(payload.consultation_duration_minutes),
       status: payload.status,
       notes: clean(payload.notes) || null,
+      clinician_type: payload.clinician_type || 'outsourced',
+      profile_id: payload.profile_id || null,
       updated_by: payload.actorId,
     };
     const result = payload.id
@@ -69,14 +85,10 @@ export const doctorSchedulingRepository = {
   },
 
   async replaceAvailability(doctorId: string, actorId: string, ranges: { day_of_week: number; start_time: string; end_time: string }[], consultationDurationMinutes = 5) {
-    const r = db();
     const message = validateAvailabilityRanges(ranges, consultationDurationMinutes);
     if (message) throw new Error(message);
-    const removed = await r.from('doctor_weekly_availability').delete().eq('doctor_id', doctorId);
-    if (removed.error) throw removed.error;
     const valid = ranges.filter(range => range.start_time && range.end_time && range.start_time < range.end_time);
-    if (!valid.length) return [];
-    const { data, error } = await r.from('doctor_weekly_availability').insert(valid.map(range => ({ ...range, doctor_id: doctorId, created_by: actorId }))).select();
+    const { data, error } = await db().rpc('replace_clinician_availability', { target_doctor: doctorId, ranges: valid });
     if (error) throw error;
     return data || [];
   },

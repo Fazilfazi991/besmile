@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { employeeRepository } from '@/lib/employee-repository';
 
-const categories = ['chat', 'tasks', 'leave', 'attendance', 'crm', 'finance', 'documents', 'announcements', 'security'];
+const categories = ['chat', 'tasks', 'leave', 'attendance', 'crm', 'finance', 'documents', 'announcements', 'appointments', 'security'];
 const title = (value: string) => value === 'crm' ? 'CRM' : value[0].toUpperCase() + value.slice(1);
-const defaults = { notifications_enabled: true, sounds_enabled: false, desktop_enabled: false, muted: false, volume: 'medium', quiet_hours_enabled: false, quiet_hours_start: '22:00', quiet_hours_end: '08:00', critical_bypasses_quiet_hours: true, category_settings: Object.fromEntries(categories.map(category => [category, { in_app: true, sound: ['chat', 'tasks', 'leave', 'crm', 'finance', 'announcements', 'security'].includes(category), desktop: false }])) };
+const defaults = { notifications_enabled: true, sounds_enabled: false, desktop_enabled: false, muted: false, volume: 'medium', quiet_hours_enabled: false, quiet_hours_start: '22:00', quiet_hours_end: '08:00', critical_bypasses_quiet_hours: true, category_settings: Object.fromEntries(categories.map(category => [category, { in_app: true, sound: ['chat', 'tasks', 'leave', 'crm', 'finance', 'announcements', 'appointments', 'security'].includes(category), desktop: false }])) };
 let activeTestAudio: HTMLAudioElement | null = null;
 
 export function NotificationPreferences({ userId }: { userId: string }) {

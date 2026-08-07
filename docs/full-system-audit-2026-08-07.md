@@ -117,4 +117,6 @@ The current sidebar intentionally permission-filters pages. Implemented routes i
 
 **PENDING CLIENT DECISION:** Chatbot knowledge base/content, approved answers, escalation/handoff behaviour, and appointment-enquiry rules.
 
+**PENDING CLIENT DECISION — FINAL APPOINTMENT REMINDER TIMING:** The unified clinician reminder pipeline is configurable and uses a two-hour default until the client approves the final lead time. Delivery is deduplicated by appointment, recipient, scheduled start, and configured reminder window; rescheduling creates a new eligible reminder without replaying the old schedule.
+
 **Client decision required:** feedback identifiers; reminder timing; scheduling/clinical workflow ownership; finance rules; final permissions matrix.
