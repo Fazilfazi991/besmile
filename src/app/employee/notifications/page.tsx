@@ -6,7 +6,11 @@ import { employeeRepository } from '@/lib/employee-repository';
 import { NotificationPreferences } from '@/components/notification-preferences';
 
 const labels: Record<string, string> = { task_assigned: 'Task assigned', task_updated: 'Task updated', leave_approved: 'Leave approved', leave_rejected: 'Leave rejected', document_requested: 'Document requested', document_approved: 'Document approved', document_rejected: 'Document rejected', new_announcement: 'Announcement', chat_message: 'Message' };
-const safeLink = (link?: string | null) => link?.startsWith('/employee/') ? link : '/employee/notifications';
+const safeLink = (link?: string | null) => {
+  if (link?.startsWith('/employee/')) return link;
+  if (link?.startsWith('/admin/doctor-scheduling')) return link.replace('/admin/doctor-scheduling', '/employee/doctor-scheduling');
+  return '/employee/notifications';
+};
 
 export default function NotificationsPage() {
   const [profile, setProfile] = useState<any>(); const [items, setItems] = useState<any[]>([]); const [query, setQuery] = useState(''); const [type, setType] = useState(''); const [detail, setDetail] = useState<any>(); const [error, setError] = useState(''); const [loading, setLoading] = useState(true); const [preferencesOpen, setPreferencesOpen] = useState(false);

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { currentProfile } from '@/lib/auth';
 import { doctorSchedulingRepository, type DoctorPayload } from '@/lib/doctor-scheduling-repository';
@@ -18,7 +18,7 @@ const fmtTime = (value: string | Date) => new Intl.DateTimeFormat('en', { hour: 
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const can = (permissions: Record<string, boolean>, ...codes: string[]) => codes.some(code => permissions[code]);
 
-export function DoctorSchedulingPage({ initialPatientId }: { initialPatientId?: string }) {
+export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId }: { initialPatientId?: string; initialAppointmentId?: string }) {
   const [profile, setProfile] = useState<any>();
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -43,6 +43,7 @@ export function DoctorSchedulingPage({ initialPatientId }: { initialPatientId?: 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState('');
+  const handledInitialAppointment = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -61,6 +62,15 @@ export function DoctorSchedulingPage({ initialPatientId }: { initialPatientId?: 
       setPatients(patientRows);
       setAppointments(appointmentRows);
       setSummary(counts);
+      if (!handledInitialAppointment.current && initialAppointmentId) {
+        handledInitialAppointment.current = true;
+        const appointment = appointmentRows.find((item: any) => item.id === initialAppointmentId);
+        if (appointment) {
+          setSelected(appointment);
+          setTab('Schedule');
+          setCursor(dateKey(new Date(appointment.start_at)));
+        }
+      }
       setError('');
     } catch (caught: any) {
       setError(caught.message || 'Unable to load Doctor Scheduling.');
