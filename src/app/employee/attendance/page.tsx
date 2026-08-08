@@ -45,12 +45,15 @@ export default function AttendancePage() {
 
   const today = data ? dateKey(new Date(), data.settings.timezone) : '';
   const activeToday = data?.days?.find((day: any) => day.key === today);
-  const attendanceAction = async (action: 'clockIn' | 'clockOut') => {
+  const activeBreak = activeToday?.row?.attendance_breaks?.find((item: any) => !item.ended_at);
+  const attendanceAction = async (action: 'clockIn' | 'clockOut' | 'startBreak' | 'endBreak') => {
     if (!profile) return;
     setActing(true); setError(''); setNotice('');
     try {
       if (action === 'clockIn') await employeeRepository.clockIn(profile.id);
       if (action === 'clockOut' && activeToday?.row) await employeeRepository.clockOut(activeToday.row.id);
+      if (action === 'startBreak' && activeToday?.row) await employeeRepository.startBreak(activeToday.row.id);
+      if (action === 'endBreak' && activeBreak) await employeeRepository.endBreak(activeBreak.id);
       setNotice('Attendance updated.');
       await load();
     } catch (caught: any) { setError(caught.message || 'Attendance could not be updated.'); }
@@ -77,8 +80,8 @@ export default function AttendancePage() {
     <EmployeePageHeader title="Attendance" subtitle="View your monthly attendance and working time." action={<div className="flex flex-wrap items-center justify-end gap-2"><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1))}>Previous</button><div className="min-w-36 text-center text-sm font-bold">{month.toLocaleString('en', { month: 'long', year: 'numeric' })}</div><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1))}>Next</button><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date())}>Today</button></div>} />
     <EmployeeSection title="Today's attendance" description={activeToday?.row?.clock_in ? 'Your current attendance and working time.' : 'Start your day when you are ready.'} className="border-teal-100">
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Detail label="Current status" value={todayStatus} /><Detail label="Clock in" value={time(activeToday?.row?.clock_in)} /><Detail label="Clock out" value={time(activeToday?.row?.clock_out)} /><Detail label="Working hours" value={activeToday?.row?.clock_in ? duration(minutes(activeToday.row)) : '—'} /></div>
-        <div className="flex flex-wrap gap-2 lg:justify-end">{!activeToday?.row && <button className="btn btn-primary" disabled={acting || !clockInAllowed} title={clockInAllowed ? undefined : `Clock-in is unavailable on ${activeToday?.status || 'this day'}.`} onClick={() => void attendanceAction('clockIn')}>{acting ? 'Clocking in...' : 'Clock in'}</button>}{activeToday?.row && !activeToday.row.clock_out && <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>{acting ? 'Clocking out...' : 'Clock out'}</button>}</div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><Detail label="Current status" value={activeBreak ? 'On break' : todayStatus} /><Detail label="Clock in" value={time(activeToday?.row?.clock_in)} /><Detail label="Break" value={activeBreak ? `Since ${time(activeBreak.started_at)}` : activeToday?.row?.break_minutes ? `${activeToday.row.break_minutes} min` : '—'} /><Detail label="Clock out" value={time(activeToday?.row?.clock_out)} /><Detail label="Working hours" value={activeToday?.row?.clock_in ? duration(minutes(activeToday.row)) : '—'} /></div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">{!activeToday?.row && <button className="btn btn-primary" disabled={acting || !clockInAllowed} title={clockInAllowed ? undefined : `Clock-in is unavailable on ${activeToday?.status || 'this day'}.`} onClick={() => void attendanceAction('clockIn')}>{acting ? 'Clocking in...' : 'Clock in'}</button>}{activeToday?.row && !activeToday.row.clock_out && !activeBreak && <><button className="btn border" disabled={acting} onClick={() => void attendanceAction('startBreak')}>{acting ? 'Updating...' : 'Start break'}</button><button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>{acting ? 'Clocking out...' : 'Clock out'}</button></>}{activeBreak && <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('endBreak')}>{acting ? 'Updating...' : 'End break'}</button>}</div>
       </div>
     </EmployeeSection>
     <EmployeeMetricGrid columns={4}><EmployeeMetric label="Present" value={summary.present} tone="success" /><EmployeeMetric label="Absent" value={summary.absent} tone="danger" /><EmployeeMetric label="Leave" value={summary.leave} tone="info" /><EmployeeMetric label="Working hours" value={duration(summary.work)} /></EmployeeMetricGrid>

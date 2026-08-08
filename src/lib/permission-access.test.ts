@@ -74,6 +74,15 @@ describe('permission compatibility', () => {
     expect(permissionAllows(new Set(['employees.view']), adminRouteRequirement('/admin/employees/example'))).toBe(true);
   });
 
+  it('keeps a personal attendance route available to GM self-service only', () => {
+    expect(permissionAllows(new Set(['attendance.self']), adminRouteRequirement('/admin/my-attendance'))).toBe(true);
+    expect(permissionAllows(new Set(['attendance.view']), adminRouteRequirement('/admin/my-attendance'))).toBe(false);
+    expect(permissionAllows(new Set(['employees.view']), adminRouteRequirement('/admin/my-attendance'))).toBe(false);
+    const labels = filterNavigation(adminNavigation, new Set(['attendance.self'])).flatMap(group => group.links.map(link => link.label));
+    expect(labels).toContain('My Attendance');
+    expect(labels).not.toContain('Attendance');
+  });
+
   it('exposes leave approvals only to reviewers', () => {
     expect(permissionAllows(new Set(['leave.approve']), adminRouteRequirement('/admin/leaves'))).toBe(true);
     expect(permissionAllows(new Set(['leave.self']), adminRouteRequirement('/admin/leaves'))).toBe(false);

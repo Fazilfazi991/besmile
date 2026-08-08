@@ -33,4 +33,12 @@ describe('General Manager attendance', () => {
     expect(migration).toContain("'attendance.view'");
     expect(migration).not.toContain("'attendance.manage'");
   });
+
+  it('reuses the personal attendance page for GM while scoping every history query to the signed-in profile', () => {
+    const route = readFileSync(new URL('../app/admin/my-attendance/page.tsx', import.meta.url), 'utf8');
+    const employeeRepository = readFileSync(new URL('./employee-repository.ts', import.meta.url), 'utf8');
+    expect(route).toContain("export { default } from '@/app/employee/attendance/page'");
+    expect(employeeRepository).toContain(".eq('profile_id',userId).order('work_date'");
+    expect(employeeRepository).toContain(".eq('profile_id',userId).eq('work_date',workDate)");
+  });
 });
