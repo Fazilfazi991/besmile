@@ -1,0 +1,2 @@
+import { redirect } from 'next/navigation'; import { serverSupabase } from '@/lib/supabase-server'; import { OperationalReports } from '@/components/operational-reports';
+export default async function Page(){const db=await serverSupabase();const {data:{user}}=await db.auth.getUser();if(!user)redirect('/sign-in');const checks=await Promise.all(['reports.view','reports.finance.view'].map(permission_code=>db.rpc('has_permission',{permission_code})));if(!checks.some(x=>x.data))redirect('/unauthorized');return <OperationalReports/>;}

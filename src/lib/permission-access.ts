@@ -75,6 +75,7 @@ export function adminRouteRequirement(path: string): PermissionRequirement {
   if (path === '/admin/finance/payroll/settings') return anyOf('payroll.manage');
   if (path.startsWith('/admin/finance/payroll')) return anyOf('payroll.view', 'payroll.manage');
   if (path.startsWith('/admin/finance/reports')) return anyOf('reports.finance.view', 'reports.view');
+  if (path.startsWith('/admin/reports')) return anyOf('reports.finance.view', 'reports.view');
   if (path.startsWith('/admin/finance/income')) return anyOf('income.view', 'income.manage');
   if (path.startsWith('/admin/finance/expenses')) return anyOf('expenses.view', 'expenses.manage');
   if (path.startsWith('/admin/finance')) return anyOf('finance.dashboard.view', 'finance.view');
@@ -108,7 +109,7 @@ export function employeeRouteRequirement(path: string): PermissionRequirement | 
 }
 
 export const adminNavigation: readonly NavigationGroup[] = [
-  { title: 'OVERVIEW', links: [{ label: 'Dashboard', href: '/admin', requirement: anyOf('admin.access', 'dashboard.view') }] },
+  { title: 'OVERVIEW', links: [{ label: 'Dashboard', href: '/admin', requirement: anyOf('admin.access', 'dashboard.view') }, { label: 'Reports', href: '/admin/reports', requirement: anyOf('reports.finance.view', 'reports.view') }] },
   { title: 'OPERATIONS', links: [{ label: 'Employees', href: '/admin/employees', requirement: anyOf('employees.view') }, { label: 'Patients', href: '/admin/patients', requirement: anyOf('patients.view', 'patients.view_assigned', 'patients.view_all') }, { label: 'Operational Documents', href: '/admin/documents', requirement: anyOf('documents.manage', 'documents.employee.manage', 'documents.administration.manage') }] },
   { title: 'WORK MANAGEMENT', links: [{ label: 'Leave approvals', href: '/admin/leaves', requirement: anyOf('leave.approve', 'leave.manage', 'leave.review') }, { label: 'Tasks', href: '/admin/tasks', requirement: anyOf('tasks.manage', 'tasks.assign') }, { label: 'Task Access', href: '/admin/task-access', requirement: anyOf('tasks.manage_access') }, { label: 'Doctor Scheduling', href: '/admin/doctor-scheduling', requirement: anyOf('doctor_scheduling.view') }, { label: 'Innovation Hub', href: '/admin/ideas', requirement: anyOf('ideas.view', 'ideas.manage_status', 'ideas.view_reports') }, { label: 'Customer Feedback', href: '/admin/customer-feedback', requirement: anyOf('customer_feedback.view') }, { label: 'Innovation Categories', href: '/admin/ideas/categories', requirement: anyOf('ideas.manage_categories') }] },
   { title: 'COMMUNICATION', links: [{ label: 'Chat', href: '/admin/chat', requirement: anyOf('chat.use') }, { label: 'Announcements', href: '/admin/announcements', requirement: anyOf('announcements.manage') }, { label: 'Notifications', href: '/admin/notifications', requirement: anyOf('notifications.view') }, { label: 'Profile', href: '/admin/profile', requirement: anyOf('admin.access', 'dashboard.view') }] },
