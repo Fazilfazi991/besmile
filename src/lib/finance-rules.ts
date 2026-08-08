@@ -3,6 +3,8 @@ export const financeAccountBalance=(openingBalance:number|string|null|undefined,
 export const invoiceTotal=(items:{quantity:number;rate:number}[],discount=0,tax=0)=>Math.max(0,items.reduce((n,item)=>n+item.quantity*item.rate,0)-discount+tax);
 export const invoiceValidationMessage=(items:{description:string;quantity:number;rate:number}[],discount=0,tax=0)=>!items.length?'Add at least one line item.':!Number.isFinite(discount)||!Number.isFinite(tax)||discount<0||tax<0?'Tax and discount must be zero or greater.':items.some(item=>!item.description.trim()||!Number.isFinite(item.quantity)||!Number.isFinite(item.rate)||item.quantity<=0||item.rate<0)?'Each line item needs a description, positive quantity, and non-negative rate.':null;
 export const outstandingInvoice=(total:number,paid:number)=>Math.max(0,total-paid);
+export type InvoiceLifecycleStatus='draft'|'sent'|'partially_paid'|'paid'|'overdue'|'cancelled';
+export const effectiveInvoiceStatus=(invoice:{status:InvoiceLifecycleStatus|string;due_date?:string|null},today:string):InvoiceLifecycleStatus|string=>invoice.status!=='paid'&&invoice.status!=='cancelled'&&invoice.due_date&&invoice.due_date<today?'overdue':invoice.status;
 export const canRecordInvoicePayment=(total:number,paid:number,amount:number)=>amount>0&&amount<=outstandingInvoice(total,paid);
 export const payrollNet=(basic:number,allowances:number,deductions:number)=>Math.max(0,basic+allowances-deductions);
 export const canPayPayrollEntry=(status:string,ledgerId?:string|null)=>status==='approved'&&!ledgerId;
