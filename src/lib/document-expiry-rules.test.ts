@@ -3,7 +3,8 @@ import { businessDateKey, documentExpiryLabel, documentExpiryState } from './doc
 
 describe('document expiry rules', () => {
   it('uses the company business day rather than the browser UTC day', () => {
-    expect(businessDateKey(new Date('2026-08-07T21:30:00.000Z'))).toBe('2026-08-08');
+    expect(businessDateKey(new Date('2026-08-07T18:45:00.000Z'))).toBe('2026-08-08');
+    expect(businessDateKey(new Date('2026-08-08T18:15:00.000Z'))).toBe('2026-08-08');
   });
   it('labels valid, imminent, today and expired documents consistently', () => {
     expect(documentExpiryState('2026-09-08', '2026-08-08')).toBe('valid');

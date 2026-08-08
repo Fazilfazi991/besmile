@@ -1,12 +1,7 @@
 export type DocumentExpiryState = 'valid' | 'expiring_soon' | 'expires_today' | 'expired';
 
-export const BUSINESS_TIME_ZONE = 'Asia/Dubai';
-
-export function businessDateKey(value = new Date(), timeZone = BUSINESS_TIME_ZONE) {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(value);
-  const part = (type: string) => parts.find(item => item.type === type)?.value || '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
-}
+export { BUSINESS_TIME_ZONE, businessDateKey } from './business-time';
+import { businessDateKey } from './business-time';
 
 export function documentExpiryState(expiryDate?: string | null, today = businessDateKey(), soonDays = 30): DocumentExpiryState | null {
   if (!expiryDate) return null;
