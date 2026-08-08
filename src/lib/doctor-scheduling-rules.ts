@@ -14,7 +14,8 @@ export function validateAvailabilityRanges(ranges: AvailabilityRange[], consulta
     const sorted = [...dayRanges].sort((left, right) => left.start_time.localeCompare(right.start_time));
     for (let index = 0; index < sorted.length; index += 1) {
       const current = sorted[index];
-      if (!current.start_time || !current.end_time || minutesOfDay(current.end_time) <= minutesOfDay(current.start_time)) return `Choose a valid time range for ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]}.`;
+      if (!current.start_time || !current.end_time) return `Choose a valid time range for ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]}.`;
+      if (minutesOfDay(current.end_time) <= minutesOfDay(current.start_time)) return 'End time must be later than start time.';
       if (minutesOfDay(current.end_time) - minutesOfDay(current.start_time) < consultationDurationMinutes) return 'Each availability range must fit at least one consultation.';
       if (index > 0 && minutesOfDay(current.start_time) < minutesOfDay(sorted[index - 1].end_time)) return `Availability ranges overlap on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]}.`;
     }

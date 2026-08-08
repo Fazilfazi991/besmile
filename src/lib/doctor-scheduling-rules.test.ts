@@ -28,15 +28,24 @@ describe('doctor scheduling rules', () => {
     expect(slots).toEqual([]);
   });
 
-  it('rejects overlapping, inverted, and too-short availability ranges', () => {
+  it('accepts same-day availability ranges that end after they start', () => {
+    expect(validateAvailabilityRanges([{ day_of_week: 0, start_time: '09:00', end_time: '17:00' }], 30)).toBeNull();
+    expect(validateAvailabilityRanges([{ day_of_week: 0, start_time: '17:53', end_time: '18:00' }], 5)).toBeNull();
+    expect(validateAvailabilityRanges([
+      { day_of_week: 0, start_time: '09:00', end_time: '12:00' },
+      { day_of_week: 1, start_time: '14:00', end_time: '18:00' },
+    ], 30)).toBeNull();
+  });
+
+  it('rejects incomplete, inverted, overlapping, and too-short availability ranges', () => {
     expect(validateAvailabilityRanges([{ day_of_week: 0, start_time: '', end_time: '' }], 30)).toMatch(/valid time/i);
     expect(validateAvailabilityRanges([{ day_of_week: 0, start_time: '09:00', end_time: '' }], 30)).toMatch(/valid time/i);
     expect(validateAvailabilityRanges([{ day_of_week: 0, start_time: '', end_time: '12:00' }], 30)).toMatch(/valid time/i);
-    expect(validateAvailabilityRanges([{ day_of_week: 0, start_time: '09:00', end_time: '09:00' }], 30)).toMatch(/valid time/i);
-    expect(validateAvailabilityRanges([{ day_of_week: 1, start_time: '10:00', end_time: '09:00' }], 30)).toMatch(/valid time/i);
+    expect(validateAvailabilityRanges([{ day_of_week: 0, start_time: '09:00', end_time: '09:00' }], 30)).toBe('End time must be later than start time.');
+    expect(validateAvailabilityRanges([{ day_of_week: 1, start_time: '17:53', end_time: '16:55' }], 30)).toBe('End time must be later than start time.');
+    expect(validateAvailabilityRanges([{ day_of_week: 1, start_time: '23:00', end_time: '01:00' }], 30)).toBe('End time must be later than start time.');
     expect(validateAvailabilityRanges([{ day_of_week: 1, start_time: '09:00', end_time: '09:15' }], 30)).toMatch(/fit/i);
     expect(validateAvailabilityRanges([{ day_of_week: 1, start_time: '09:00', end_time: '11:00' }, { day_of_week: 1, start_time: '10:30', end_time: '12:00' }], 30)).toMatch(/overlap/i);
-    expect(validateAvailabilityRanges([{ day_of_week: 0, start_time: '09:00', end_time: '12:00' }], 30)).toBeNull();
   });
 
   it('allows an empty email but rejects an invalid email', () => {

@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import Link from 'next/link';
 import { currentProfile } from '@/lib/auth';
 import { doctorSchedulingRepository, type DoctorPayload } from '@/lib/doctor-scheduling-repository';
-import { appointmentStatuses, consultationTypes, statusLabels, statusTones, type AppointmentStatus, validateAvailabilityRanges } from '@/lib/doctor-scheduling-rules';
+import { appointmentStatuses, consultationTypes, statusLabels, statusTones, type AppointmentStatus, validateAvailabilityRanges, validateDoctorPayload } from '@/lib/doctor-scheduling-rules';
 import { EmployeeBanner, EmployeeEmptyState, EmployeeLoading, EmployeeMetric, EmployeeMetricGrid, EmployeePageHeader, EmployeeSection, EmployeeStatusBadge } from '@/components/employee-ui';
 import { BUSINESS_TIME_ZONE } from '@/lib/business-time';
 
@@ -40,6 +40,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const [doctorForm, setDoctorForm] = useState<any>(emptyDoctor);
   const [doctorFormOpen, setDoctorFormOpen] = useState(false);
   const [availability, setAvailability] = useState<Record<number, { start_time: string; end_time: string }[]>>({});
+  const [doctorFormErrors, setDoctorFormErrors] = useState<Record<string, string>>({});
   const [blockForm, setBlockForm] = useState({ doctor_id: '', blocked_date: dateKey(new Date()), start_time: '', end_time: '', reason: '' });
   const [appointmentForm, setAppointmentForm] = useState({ patient_id: initialPatientId || '', doctor_id: '', date: dateKey(new Date()), slot: '', consultation_type: 'in_person', remarks: '' });
   const [slots, setSlots] = useState<any[]>([]);
@@ -115,19 +116,50 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     const grouped: Record<number, { start_time: string; end_time: string }[]> = {};
     for (const range of doctor.availability || []) grouped[range.day_of_week] = [...(grouped[range.day_of_week] || []), { start_time: range.start_time.slice(0, 5), end_time: range.end_time.slice(0, 5) }];
     setAvailability(grouped);
+    setDoctorFormErrors({});
     setDoctorFormOpen(true);
   };
 
-  const startDoctor = () => { setDoctorForm(emptyDoctor); setAvailability({}); setError(''); setNotice(''); setDoctorFormOpen(true); };
+  const startDoctor = () => { setDoctorForm(emptyDoctor); setAvailability({}); setDoctorFormErrors({}); setError(''); setNotice(''); setDoctorFormOpen(true); };
+
+  const clearDoctorFormError = (field: string) => setDoctorFormErrors(current => {
+    if (!current[field] && !current._form) return current;
+    const next = { ...current };
+    delete next[field];
+    delete next._form;
+    return next;
+  });
+
+  const doctorErrorFields = (message: string): Record<string, string> => {
+    if (message === 'Doctor name is required.') return { doctor_name: 'Clinician name is required.' };
+    if (message === 'Specialization is required.') return { specialization: message };
+    if (message === 'Qualification is required.') return { qualification: message };
+    if (message === 'Phone number is required.') return { phone: message };
+    if (message === 'Enter a valid email address.' || message.includes('outsourced_doctors_email_format')) return { email: 'Enter a valid email address.' };
+    if (message.includes('Consultation duration')) return { consultation_duration_minutes: message };
+    if (message.includes('Notes must')) return { notes: message };
+    if (message.includes('availability') || message.includes('time') || message.includes('range') || message.includes('overlap')) return { availability: message };
+    if (/duplicate|unique|already exists/i.test(message)) return { email: 'A clinician with this email already exists.' };
+    return { _form: "We couldn't add this clinician. Please review the details and try again." };
+  };
 
   const saveDoctor = async (event: FormEvent) => {
     event.preventDefault();
     if (!profile) return;
-    setSaving('doctor'); setError(''); setNotice('');
+    setError(''); setNotice(''); setDoctorFormErrors({});
+    const formError = canManageDoctors ? validateDoctorPayload(doctorForm) : null;
+    if (formError) {
+      setDoctorFormErrors(doctorErrorFields(formError));
+      return;
+    }
+    const ranges = Object.entries(availability).flatMap(([day, rows]) => rows.map(row => ({ day_of_week: Number(day), start_time: row.start_time, end_time: row.end_time })));
+    const availabilityError = validateAvailabilityRanges(ranges, Number(doctorForm.consultation_duration_minutes));
+    if (availabilityError) {
+      setDoctorFormErrors({ availability: availabilityError });
+      return;
+    }
+    setSaving('doctor');
     try {
-      const ranges = Object.entries(availability).flatMap(([day, rows]) => rows.map(row => ({ day_of_week: Number(day), start_time: row.start_time, end_time: row.end_time })));
-      const availabilityError = validateAvailabilityRanges(ranges, Number(doctorForm.consultation_duration_minutes));
-      if (availabilityError) throw new Error(availabilityError);
       const doctor = canManageDoctors
         ? await doctorSchedulingRepository.saveDoctor({ ...doctorForm, consultation_duration_minutes: Number(doctorForm.consultation_duration_minutes), actorId: profile.id })
         : ownClinician && doctorForm.id === ownClinician.id ? ownClinician : null;
@@ -140,7 +172,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       await load();
     } catch (caught: any) {
       const message = caught.message || 'Unable to save doctor.';
-      setError(message.includes('outsourced_doctors_email_format') ? 'Enter a valid email address or leave the email field blank.' : message);
+      setDoctorFormErrors(doctorErrorFields(message));
     } finally {
       setSaving('');
     }
@@ -249,7 +281,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         <div className="blocked-list">{manageableDoctors.flatMap(doctor => (doctor.blocked || []).map((block: any) => ({ ...block, doctor }))).map(block => <article key={block.id}><div><b>{block.doctor.doctor_name}</b><small>{fmtDate(block.blocked_date)} · {block.start_time ? `${block.start_time.slice(0, 5)} to ${block.end_time.slice(0, 5)}` : 'Full day'}</small>{block.reason && <small>{block.reason}</small>}</div>{(canManageDoctors || block.doctor.profile_id === profile?.id) && <button type="button" onClick={async () => { await doctorSchedulingRepository.removeBlockedPeriod(block.id); await load(); }}>Remove</button>}</article>)}{!manageableDoctors.some(doctor => doctor.blocked?.length) && <p className="blocked-empty">No blocked dates yet.</p>}</div>
       </EmployeeSection>}
     </div>}
-    {tab === 'Doctors' && canManageAvailability && doctorFormOpen && <DoctorEditor form={doctorForm} availability={availability} saving={saving === 'doctor'} readOnlyIdentity={!canManageDoctors} onChange={setDoctorForm} onAvailabilityChange={setAvailability} onClose={() => setDoctorFormOpen(false)} onSubmit={saveDoctor} />}
+    {tab === 'Doctors' && canManageAvailability && doctorFormOpen && <DoctorEditor form={doctorForm} availability={availability} errors={doctorFormErrors} saving={saving === 'doctor'} readOnlyIdentity={!canManageDoctors} onChange={setDoctorForm} onClearError={clearDoctorFormError} onAvailabilityChange={setAvailability} onClose={() => { setDoctorFormErrors({}); setDoctorFormOpen(false); }} onSubmit={saveDoctor} />}
 
     {tab === 'Appointments' && <div className="doctor-two-column">
       <EmployeeSection title={reschedule ? 'Reschedule Appointment' : 'Create Appointment'} description="Select patient, doctor, date, then an available slot.">
@@ -435,20 +467,55 @@ function AppointmentMiniList({ title, rows, actions }: { title: string; rows: an
   return <div className="card divide-y"><h3 className="p-4 text-sm font-bold">{title}</h3>{rows.length ? rows.map(item => <div className="patient-appointment-card p-4 text-sm" key={item.id}><div><b>{fmtDate(item.start_at)}</b><p>{fmtTime(item.start_at)} to {fmtTime(item.end_at)} - {item.doctor?.doctor_name || 'Doctor'}</p><small>{item.doctor?.specialization || 'Specialization'} - {label(item.consultation_type)}</small>{item.remarks && <small>{item.remarks}</small>}</div><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge>{actions && <div className="patient-appointment-actions">{actions.canUpdate && <button type="button" onClick={() => actions.openForm('edit', item)} disabled={actions.saving === item.id}>Edit</button>}{actions.canReschedule && <button type="button" onClick={() => actions.openForm('reschedule', item)} disabled={actions.saving === item.id}>Reschedule</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'confirmed')} disabled={actions.saving === item.id}>Confirm</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'completed')} disabled={actions.saving === item.id}>Complete</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'no_show')} disabled={actions.saving === item.id}>No Show</button>}{actions.canCancel && <button type="button" onClick={() => actions.changeStatus(item, 'cancelled')} disabled={actions.saving === item.id}>Cancel</button>}{actions.canDelete && <button type="button" className="danger" onClick={() => actions.deleteAppointment(item)} disabled={actions.saving === item.id}>Delete</button>}</div>}</div>) : <p className="p-4 text-sm text-slate-500">No appointments.</p>}</div>;
 }
 
-function DoctorEditor({ form, availability, saving, readOnlyIdentity, onChange, onAvailabilityChange, onClose, onSubmit }: any) {
+function DoctorFieldError({ errors, name }: { errors: Record<string, string>; name: string }) {
+  return errors?.[name] ? <small className="field-error" id={`doctor-${name}-error`}>{errors[name]}</small> : null;
+}
+
+function DoctorEditor({ form, availability, errors, saving, readOnlyIdentity, onChange, onClearError, onAvailabilityChange, onClose, onSubmit }: any) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const errorKeys = Object.keys(errors || {});
+
+  useEffect(() => {
+    if (!errorKeys.length) return;
+    const timer = window.setTimeout(() => {
+      const target = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+      target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      target?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [errors, errorKeys.length]);
+
+  const field = (key: string, value: any) => {
+    onChange({ ...form, [key]: value });
+    onClearError(key);
+  };
+  const errorProps = (key: string) => ({
+    'aria-describedby': errors?.[key] ? `doctor-${key}-error` : undefined,
+    'aria-invalid': errors?.[key] ? true : undefined,
+    className: `input${errors?.[key] ? ' input-error' : ''}`,
+  });
+
   return <div className="doctor-editor-backdrop" role="dialog" aria-modal="true" aria-label={form.id ? 'Edit doctor' : 'Add doctor'}>
-    <form className="doctor-editor" onSubmit={onSubmit}>
+    <form className="doctor-editor" noValidate onSubmit={onSubmit} ref={formRef}>
       <header><div><h2>{form.id ? 'Edit Doctor' : 'Add Doctor'}</h2><p>Configure only scheduling details and weekly availability.</p></div><button type="button" onClick={onClose}>Close</button></header>
-      <label>Clinician name<input className="input" disabled={readOnlyIdentity} required value={form.doctor_name} onChange={event => onChange({ ...form, doctor_name: event.target.value })} /></label>
-      <label>Clinician type<select className="input" disabled={readOnlyIdentity} value={form.clinician_type || 'outsourced'} onChange={event => onChange({ ...form, clinician_type: event.target.value })}><option value="staff_psychologist">Staff psychologist</option><option value="psychology_intern">Psychology intern</option><option value="outsourced">Outsourced</option></select></label>
-      <label>Specialization<input className="input" disabled={readOnlyIdentity} required value={form.specialization} onChange={event => onChange({ ...form, specialization: event.target.value })} /></label>
-      <label>Qualification<input className="input" disabled={readOnlyIdentity} required value={form.qualification} onChange={event => onChange({ ...form, qualification: event.target.value })} /></label>
-      <label>Phone number<input className="input" disabled={readOnlyIdentity} required type="tel" value={form.phone} onChange={event => onChange({ ...form, phone: event.target.value })} /></label>
-      <label>Email<input className="input" disabled={readOnlyIdentity} type="email" value={form.email || ''} onChange={event => onChange({ ...form, email: event.target.value })} /></label>
-      <label>Consultation duration (minutes)<input className="input" disabled={readOnlyIdentity} required type="number" min="5" max="240" value={form.consultation_duration_minutes} onChange={event => onChange({ ...form, consultation_duration_minutes: Number(event.target.value) })} /></label>
-      <label>Status<select className="input" disabled={readOnlyIdentity} value={form.status} onChange={event => onChange({ ...form, status: event.target.value })}><option value="active">Active</option><option value="unavailable">Unavailable</option></select></label>
-      <label>Short notes<textarea className="input" disabled={readOnlyIdentity} value={form.notes || ''} onChange={event => onChange({ ...form, notes: event.target.value })} /></label>
-      <section className="availability-editor"><h3>Weekly availability</h3>{days.map((day, index) => <div key={day}><b>{day}</b><span>{(availability[index] || []).map((range: any, rangeIndex: number) => <span key={`${day}-${rangeIndex}`}><input aria-label={`${day} start time`} type="time" value={range.start_time} onChange={event => onAvailabilityChange(updateAvailability(availability, index, rangeIndex, 'start_time', event.target.value))} /><input aria-label={`${day} end time`} type="time" value={range.end_time} onChange={event => onAvailabilityChange(updateAvailability(availability, index, rangeIndex, 'end_time', event.target.value))} /><button type="button" onClick={() => onAvailabilityChange(removeAvailability(availability, index, rangeIndex))}>Remove</button></span>)}</span><button type="button" onClick={() => onAvailabilityChange(addAvailability(availability, index))}>Add range</button></div>)}</section>
+      {errorKeys.length > 0 && <div className="doctor-form-summary" role="alert">{errors._form || 'Please fix the highlighted fields below.'}</div>}
+      <label>Clinician name<input {...errorProps('doctor_name')} disabled={readOnlyIdentity} value={form.doctor_name} onChange={event => field('doctor_name', event.target.value)} /><DoctorFieldError errors={errors} name="doctor_name" /></label>
+      <label>Clinician type<select {...errorProps('clinician_type')} disabled={readOnlyIdentity} value={form.clinician_type || 'outsourced'} onChange={event => field('clinician_type', event.target.value)}><option value="staff_psychologist">Staff psychologist</option><option value="psychology_intern">Psychology intern</option><option value="outsourced">Outsourced</option></select><DoctorFieldError errors={errors} name="clinician_type" /></label>
+      <label>Specialization<input {...errorProps('specialization')} disabled={readOnlyIdentity} value={form.specialization} onChange={event => field('specialization', event.target.value)} /><DoctorFieldError errors={errors} name="specialization" /></label>
+      <label>Qualification<input {...errorProps('qualification')} disabled={readOnlyIdentity} value={form.qualification} onChange={event => field('qualification', event.target.value)} /><DoctorFieldError errors={errors} name="qualification" /></label>
+      <label>Phone number<input {...errorProps('phone')} disabled={readOnlyIdentity} type="tel" value={form.phone} onChange={event => field('phone', event.target.value)} /><DoctorFieldError errors={errors} name="phone" /></label>
+      <label>Email<input {...errorProps('email')} disabled={readOnlyIdentity} type="email" value={form.email || ''} onChange={event => field('email', event.target.value)} /><DoctorFieldError errors={errors} name="email" /></label>
+      <label>Consultation duration (minutes)<input {...errorProps('consultation_duration_minutes')} disabled={readOnlyIdentity} type="number" min="5" max="240" value={form.consultation_duration_minutes} onChange={event => field('consultation_duration_minutes', Number(event.target.value))} /><DoctorFieldError errors={errors} name="consultation_duration_minutes" /></label>
+      <label>Status<select {...errorProps('status')} disabled={readOnlyIdentity} value={form.status} onChange={event => field('status', event.target.value)}><option value="active">Active</option><option value="unavailable">Unavailable</option></select><DoctorFieldError errors={errors} name="status" /></label>
+      <label>Short notes<textarea {...errorProps('notes')} disabled={readOnlyIdentity} value={form.notes || ''} onChange={event => field('notes', event.target.value)} /><DoctorFieldError errors={errors} name="notes" /></label>
+      <section className={`availability-editor${errors?.availability ? ' availability-error' : ''}`} aria-describedby={errors?.availability ? 'doctor-availability-error' : undefined}>
+        <h3>Weekly availability</h3>{errors?.availability && <small className="field-error" id="doctor-availability-error">{errors.availability}</small>}
+        {days.map((day, index) => <div key={day}><b>{day}</b><span>{(availability[index] || []).map((range: any, rangeIndex: number) => {
+          const invalid = !!range.start_time && !!range.end_time && range.end_time <= range.start_time;
+          const updateRange = (name: 'start_time' | 'end_time', value: string) => { onAvailabilityChange(updateAvailability(availability, index, rangeIndex, name, value)); onClearError('availability'); };
+          return <span key={`${day}-${rangeIndex}`}><input aria-label={`${day} start time`} type="time" value={range.start_time} onChange={event => updateRange('start_time', event.target.value)} /><input aria-label={`${day} end time`} aria-invalid={invalid || undefined} aria-describedby={invalid ? `doctor-availability-${index}-${rangeIndex}-error` : undefined} className={invalid ? 'input-error' : undefined} min={range.start_time || undefined} type="time" value={range.end_time} onChange={event => updateRange('end_time', event.target.value)} />{invalid && <small className="field-error" id={`doctor-availability-${index}-${rangeIndex}-error`}>End time must be later than start time.</small>}<button type="button" onClick={() => { onAvailabilityChange(removeAvailability(availability, index, rangeIndex)); onClearError('availability'); }}>Remove</button></span>;
+        })}</span><button type="button" onClick={() => { onAvailabilityChange(addAvailability(availability, index)); onClearError('availability'); }}>Add range</button></div>)}
+      </section>
       <footer><button className="btn border" type="button" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : readOnlyIdentity ? 'Save availability' : 'Save clinician'}</button></footer>
     </form>
   </div>;
@@ -485,7 +552,7 @@ function daysForView(cursor: string, view: 'day' | 'week' | 'month') {
 }
 
 function addAvailability(current: Record<number, { start_time: string; end_time: string }[]>, day: number) {
-  return { ...current, [day]: [...(current[day] || []), { start_time: '', end_time: '' }] };
+  return { ...current, [day]: [...(current[day] || []), { start_time: '09:00', end_time: '17:00' }] };
 }
 function updateAvailability(current: Record<number, { start_time: string; end_time: string }[]>, day: number, index: number, field: 'start_time' | 'end_time', value: string) {
   return { ...current, [day]: (current[day] || []).map((range, rangeIndex) => rangeIndex === index ? { ...range, [field]: value } : range) };
