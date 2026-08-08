@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { canChangeEmployeeStatus, canManageEmployee, isProtectedEmployeeRole, statusChangeValidation } from './employee-management-rules';
+import { employeeStatuses, isOperationalEmployeeStatus, isPayrollEligibleEmployeeStatus } from './employee-status';
 
 describe('employee management rules', () => {
   const gm = { id: 'gm', role: 'general_manager' };
@@ -16,6 +17,20 @@ describe('employee management rules', () => {
     expect(canChangeEmployeeStatus(gm, { id: 'staff', role: 'staff' })).toBe(true);
     expect(statusChangeValidation('inactive', '')).toContain('Provide a reason');
     expect(statusChangeValidation('on_leave', '')).toBe('');
+    expect(statusChangeValidation('resigned', '')).toContain('Provide a reason');
     expect(statusChangeValidation('unknown', '')).toContain('valid employee status');
+  });
+
+  it('uses canonical lifecycle and explicit eligibility rules', () => {
+    expect(employeeStatuses).toEqual(['active', 'inactive', 'on_leave', 'intern', 'probation', 'resigned', 'terminated']);
+    expect(isOperationalEmployeeStatus('active')).toBe(true);
+    expect(isOperationalEmployeeStatus('intern')).toBe(true);
+    expect(isOperationalEmployeeStatus('probation')).toBe(true);
+    expect(isOperationalEmployeeStatus('on_leave')).toBe(false);
+    expect(isOperationalEmployeeStatus('resigned')).toBe(false);
+    expect(isPayrollEligibleEmployeeStatus('active')).toBe(true);
+    expect(isPayrollEligibleEmployeeStatus('intern')).toBe(false);
+    expect(isPayrollEligibleEmployeeStatus('probation')).toBe(false);
+    expect(isPayrollEligibleEmployeeStatus('resigned')).toBe(false);
   });
 });

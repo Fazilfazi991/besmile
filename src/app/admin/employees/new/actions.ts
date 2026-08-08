@@ -6,6 +6,7 @@ import { serverSupabase } from '@/lib/supabase-server';
 import { isSecurityAdministratorRole, normalizeRole } from '@/lib/permission-access';
 import { normalizeDateOnly } from '@/lib/employee-edit-rules';
 import { normalizeGender } from '@/lib/gender';
+import { employeeStatuses } from '@/lib/employee-status';
 
 const operationalRoles = new Set(['chairman', 'director', 'general_manager', 'psychologist', 'intern', 'guest_sales', 'staff']);
 const protectedManagementRoles = new Set(['chairman', 'director', 'general_manager', 'super_admin']);
@@ -31,12 +32,14 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   const gender = normalizeGender(String(form.get('gender') || ''));
   const designation = String(form.get('designation') || '').trim();
   const role = normalizeRole(String(form.get('role') || 'staff'));
+  const status = String(form.get('status') || 'active');
   const departmentId = String(form.get('department_id') || '') || null;
   const managerId = String(form.get('manager_id') || '') || null;
   const rawJoiningDate = String(form.get('joining_date') || '');
   let joiningDate: string | null = null;
   try { joiningDate = rawJoiningDate ? normalizeDateOnly(rawJoiningDate) : null; } catch { return { error: 'Joining date must be a valid calendar date.', fields }; }
   if (!fullName || !email || !employeeCode || !gender || !departmentId || !designation || !operationalRoles.has(role)) return { error: 'Full name, email, gender, employee code, department, designation, and a valid operational role are required.', fields };
+  if (!employeeStatuses.includes(status as typeof employeeStatuses[number])) return { error: 'Choose a valid employee status.', fields };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: 'Enter a valid work email address.', fields };
   if (!isSecurityAdministratorRole(profileResult.data.role) && protectedManagementRoles.has(role)) return { error: 'Only a Super Admin can assign protected management roles.', fields };
 
@@ -53,7 +56,7 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
     id: invitation.user.id, full_name: fullName, email, employee_code: employeeCode, phone: String(form.get('phone') || '').trim() || null, gender,
     department_id: departmentId, designation, role, manager_id: managerId,
     joining_date: joiningDate, employment_type: String(form.get('employment_type') || '').trim() || null,
-    status: form.get('status') === 'inactive' ? 'inactive' : 'active',
+    status,
   });
   if (profileError) {
     await admin.auth.admin.deleteUser(invitation.user.id);

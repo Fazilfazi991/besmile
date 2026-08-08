@@ -9,6 +9,7 @@ import { genderLabel, genderOptions, normalizeGender } from '@/lib/gender';
 import { patientPath } from '@/lib/patient-slug';
 import { normalizePatientSource, patientSourceLabel, patientSourceOptions } from '@/lib/patient-source';
 import { documentExpiryLabel, documentExpiryState } from '@/lib/document-expiry-rules';
+import { operationalEmployeeStatuses } from '@/lib/employee-status';
 
 const db: any = supabase;
 const fmt = (value?: string | null) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value)) : '-';
@@ -49,7 +50,7 @@ export function PatientForm() {
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { db.from('profiles').select('id,full_name').eq('status', 'active').then(({ data }: any) => setStaff(data || [])); }, []);
+  useEffect(() => { db.from('profiles').select('id,full_name').in('status', operationalEmployeeStatuses).then(({ data }: any) => setStaff(data || [])); }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

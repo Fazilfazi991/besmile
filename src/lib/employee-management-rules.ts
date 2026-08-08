@@ -1,7 +1,7 @@
 import { normalizeRole } from './permission-access';
+import { employeeStatuses, type EmployeeStatus } from './employee-status';
 
-export const employeeStatuses = ['active', 'inactive', 'on_leave', 'terminated'] as const;
-export type EmployeeStatus = typeof employeeStatuses[number];
+export { employeeStatuses, type EmployeeStatus } from './employee-status';
 
 const protectedRoles = new Set(['chairman', 'director', 'super_admin']);
 
@@ -20,7 +20,7 @@ export function canChangeEmployeeStatus(viewer: { role?: string | null; id?: str
 
 export function statusChangeValidation(status: string, reason: string) {
   if (!employeeStatuses.includes(status as EmployeeStatus)) return 'Choose a valid employee status.';
-  if (['inactive', 'terminated'].includes(status) && reason.trim().length < 3) return 'Provide a reason for this status change.';
+  if (['inactive', 'resigned', 'terminated'].includes(status) && reason.trim().length < 3) return 'Provide a reason for this status change.';
   if (reason.trim().length > 1000) return 'Status reason must be 1,000 characters or fewer.';
   return '';
 }

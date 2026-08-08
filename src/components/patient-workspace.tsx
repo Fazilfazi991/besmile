@@ -8,6 +8,7 @@ import { isUuid } from '@/lib/patient-slug';
 import { isLegacyPatientSource, normalizePatientSource, patientSourceLabel, patientSourceOptions } from '@/lib/patient-source';
 import { PatientAppointmentsSection } from '@/components/doctor-scheduling';
 import { documentExpiryLabel, documentExpiryState } from '@/lib/document-expiry-rules';
+import { operationalEmployeeStatuses } from '@/lib/employee-status';
 
 const db: any = supabase;
 const types = ['Initial consultation', 'Individual session', 'Couple session', 'Family session', 'Child session', 'Online session', 'Follow-up', 'Assessment', 'Other'];
@@ -56,7 +57,7 @@ export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: 
     const results = await Promise.all(codes.map(code => db.rpc('has_permission', { permission_code: code })));
     setPerms(Object.fromEntries(codes.map((code, i) => [code, !!results[i].data])));
     if (results[1].data) {
-      const { data } = await db.from('profiles').select('id,full_name').eq('status', 'active').order('full_name');
+      const { data } = await db.from('profiles').select('id,full_name').in('status', operationalEmployeeStatuses).order('full_name');
       setStaff(data || []);
     }
     if (params.get('edit') === '1' && results[0].data) setForm('patient');

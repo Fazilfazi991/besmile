@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { serverSupabase } from '@/lib/supabase-server';
+import { isOperationalEmployeeStatus } from '@/lib/employee-status';
 
 async function activeUser() {
   const db = await serverSupabase(); const { data: { user } } = await db.auth.getUser();
   if (!user) return { db, user: null };
   const { data: profile } = await db.from('profiles').select('id,status').eq('id', user.id).maybeSingle();
-  return { db, user: profile?.status === 'active' ? user : null };
+  return { db, user: isOperationalEmployeeStatus(profile?.status) ? user : null };
 }
 
 export async function GET() { const { db, user } = await activeUser(); if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 }); const { data, error } = await db.from('push_subscriptions').select('id,device_name,browser_name,platform,created_at,is_active').eq('user_id', user.id).order('created_at', { ascending: false }); return error ? NextResponse.json({ error: 'Unable to load devices.' }, { status: 500 }) : NextResponse.json({ devices: data || [] }); }

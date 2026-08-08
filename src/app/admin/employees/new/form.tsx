@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useActionState, useMemo } from 'react';
 import { createEmployee, type CreateEmployeeState } from './actions';
 import { genderOptions } from '@/lib/gender';
+import { employeeStatuses, employeeStatusLabel } from '@/lib/employee-status';
 
 const initial: CreateEmployeeState = {};
 type DepartmentOption = { id: string; name: string };
@@ -143,8 +144,7 @@ export function EmployeeCreateForm({
         </Field>
         <Field label="Status">
           <select name="status" className="input" defaultValue={values.status || 'active'}>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            {employeeStatuses.map((status) => <option value={status} key={status}>{employeeStatusLabel(status)}</option>)}
           </select>
         </Field>
         <div className="flex items-end">

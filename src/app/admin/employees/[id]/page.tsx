@@ -26,6 +26,7 @@ import {
   statusChangeValidation,
   type EmployeeStatus,
 } from "@/lib/employee-management-rules";
+import { employeeStatusLabel, isOperationalEmployeeStatus } from "@/lib/employee-status";
 
 const dash = (value: any) =>
   value === null || value === undefined || value === "" ? "—" : value;
@@ -183,7 +184,7 @@ export default function AdminEmployeeProfile() {
           (person: any) =>
             ["super_admin", "chairman", "director", "general_manager"].includes(
               person.role,
-            ) && person.status === "active",
+            ) && isOperationalEmployeeStatus(person.status),
         ),
       });
       setEdit({
@@ -520,10 +521,10 @@ export default function AdminEmployeeProfile() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
           <div className="card w-full max-w-md p-6">
             <h2 className="text-lg font-bold">Change employee status</h2>
-            <p className="mt-2 text-sm text-slate-600">Change {profile.full_name}&apos;s employment status. Inactive and terminated employees cannot access protected CRM routes.</p>
+            <p className="mt-2 text-sm text-slate-600">Change {profile.full_name}&apos;s employment status. Inactive and terminated employees cannot access protected CRM routes; employment status does not change role permissions.</p>
             <div className="mt-5 grid gap-3">
-              <label className="text-sm font-medium">New status<select className="input mt-1" value={nextStatus} onChange={(event) => setNextStatus(event.target.value as EmployeeStatus)}>{employeeStatuses.map((status) => <option value={status} key={status}>{status.replace('_', ' ')}</option>)}</select></label>
-              <label className="text-sm font-medium">Reason{['inactive', 'terminated'].includes(nextStatus) ? ' (required)' : ' (optional)'}<textarea className="input mt-1 min-h-20" value={statusReason} onChange={(event) => setStatusReason(event.target.value)} /></label>
+              <label className="text-sm font-medium">New status<select className="input mt-1" value={nextStatus} onChange={(event) => setNextStatus(event.target.value as EmployeeStatus)}>{employeeStatuses.map((status) => <option value={status} key={status}>{employeeStatusLabel(status)}</option>)}</select></label>
+              <label className="text-sm font-medium">Reason{['inactive', 'resigned', 'terminated'].includes(nextStatus) ? ' (required)' : ' (optional)'}<textarea className="input mt-1 min-h-20" value={statusReason} onChange={(event) => setStatusReason(event.target.value)} /></label>
               <button className="btn btn-primary" disabled={busy || nextStatus === profile.status} onClick={() => void updateStatus()}>{busy ? 'Saving…' : 'Confirm status change'}</button>
             </div>
             <button
