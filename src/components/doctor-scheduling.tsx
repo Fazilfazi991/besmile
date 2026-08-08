@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import Link from 'next/link';
 import { currentProfile } from '@/lib/auth';
 import { doctorSchedulingRepository, type DoctorPayload } from '@/lib/doctor-scheduling-repository';
-import { appointmentStatuses, consultationTypes, statusLabels, statusTones, type AppointmentStatus } from '@/lib/doctor-scheduling-rules';
+import { appointmentStatuses, consultationTypes, statusLabels, statusTones, type AppointmentStatus, validateAvailabilityRanges } from '@/lib/doctor-scheduling-rules';
 import { EmployeeBanner, EmployeeEmptyState, EmployeeLoading, EmployeeMetric, EmployeeMetricGrid, EmployeePageHeader, EmployeeSection, EmployeeStatusBadge } from '@/components/employee-ui';
 import { BUSINESS_TIME_ZONE } from '@/lib/business-time';
 
@@ -125,11 +125,13 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     if (!profile) return;
     setSaving('doctor'); setError(''); setNotice('');
     try {
+      const ranges = Object.entries(availability).flatMap(([day, rows]) => rows.map(row => ({ day_of_week: Number(day), start_time: row.start_time, end_time: row.end_time })));
+      const availabilityError = validateAvailabilityRanges(ranges, Number(doctorForm.consultation_duration_minutes));
+      if (availabilityError) throw new Error(availabilityError);
       const doctor = canManageDoctors
         ? await doctorSchedulingRepository.saveDoctor({ ...doctorForm, consultation_duration_minutes: Number(doctorForm.consultation_duration_minutes), actorId: profile.id })
         : ownClinician && doctorForm.id === ownClinician.id ? ownClinician : null;
       if (!doctor) throw new Error('You can only update your own availability.');
-      const ranges = Object.entries(availability).flatMap(([day, rows]) => rows.map(row => ({ day_of_week: Number(day), start_time: row.start_time, end_time: row.end_time })));
       await doctorSchedulingRepository.replaceAvailability(doctor.id, profile.id, ranges, Number(doctorForm.consultation_duration_minutes));
       setDoctorForm(emptyDoctor);
       setAvailability({});
@@ -483,7 +485,7 @@ function daysForView(cursor: string, view: 'day' | 'week' | 'month') {
 }
 
 function addAvailability(current: Record<number, { start_time: string; end_time: string }[]>, day: number) {
-  return { ...current, [day]: [...(current[day] || []), { start_time: '09:00', end_time: '12:00' }] };
+  return { ...current, [day]: [...(current[day] || []), { start_time: '', end_time: '' }] };
 }
 function updateAvailability(current: Record<number, { start_time: string; end_time: string }[]>, day: number, index: number, field: 'start_time' | 'end_time', value: string) {
   return { ...current, [day]: (current[day] || []).map((range, rangeIndex) => rangeIndex === index ? { ...range, [field]: value } : range) };
