@@ -58,7 +58,7 @@ export function CustomerFeedbackPage() {
   const staffOptions = useMemo(() => [...new Set(items.map((item) => item.staffMember).filter(Boolean))] as string[], [items]);
   const serviceOptions = useMemo(() => [...new Set(items.map((item) => item.service).filter(Boolean))] as string[], [items]);
   const shown = useMemo(() => items.filter((item) => {
-    const text = Object.values(item.fields).join(' ').toLowerCase();
+    const text = [item.customerName, item.staffMember, item.service, item.message, ...Object.values(item.fields)].filter(Boolean).join(' ').toLowerCase();
     return (!query || text.includes(query.toLowerCase())) && (!rating || String(item.rating) === rating) && (!staffMember || item.staffMember === staffMember) && (!service || item.service === service);
   }).sort((left, right) => (dateValue(right.submittedAt)?.valueOf() || 0) - (dateValue(left.submittedAt)?.valueOf() || 0)), [items, query, rating, staffMember, service]);
   const totalPages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
