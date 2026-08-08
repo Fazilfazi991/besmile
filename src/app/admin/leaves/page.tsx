@@ -14,7 +14,7 @@ export default function LeaveApprovalsPage() {
   const [profile, setProfile] = useState<any>();
   const [requests, setRequests] = useState<any[]>([]);
   const [comments, setComments] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState<'pending' | 'all'>('pending');
+  const [filter, setFilter] = useState<'pending' | 'all'>(() => requestId ? 'all' : 'pending');
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState('');
 

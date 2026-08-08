@@ -29,4 +29,8 @@ describe('notification navigation freshness', () => {
       expect(source).toContain('This request is no longer available.');
     }
   });
+
+  it('opens all leave states when following a request-specific admin notification link', () => {
+    expect(adminLeaves).toContain("useState<'pending' | 'all'>(() => requestId ? 'all' : 'pending')");
+  });
 });
