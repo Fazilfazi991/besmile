@@ -3,6 +3,7 @@
 import {FormEvent,useEffect,useState} from 'react';
 import {currentProfile} from '@/lib/auth';
 import {employeeRepository} from '@/lib/employee-repository';
+import {resolveEmployeeAvatar} from '@/lib/employee-avatar';
 import {profileCompletion,validateProfile} from '@/lib/profile-rules';
 import {BrowserPushSettings} from '@/components/browser-push-settings';
 
@@ -12,7 +13,7 @@ const normalized=(data:any)=>({...data,address:{line1:addressText(data.address)}
 
 export default function ProfilePage(){
   const [profile,setProfile]=useState<any>();const [form,setForm]=useState<any>({});const [photo,setPhoto]=useState('');const [editing,setEditing]=useState(false);const [showAccount,setShowAccount]=useState(false);const [notice,setNotice]=useState('');const [error,setError]=useState('');const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);
-  const load=async()=>{setLoading(true);try{const session=await currentProfile() as any;if(!session)throw Error('Your session has expired.');const data=await employeeRepository.profile(session.id);setProfile(data);setForm(normalized(data));setPhoto(data.avatar_url?await employeeRepository.signedProfilePhoto(data.avatar_url):'');setError('')}catch(e:any){setError(e.message||'Unable to load your profile.')}finally{setLoading(false)}};
+  const load=async()=>{setLoading(true);try{const session=await currentProfile() as any;if(!session)throw Error('Your session has expired.');const data=await employeeRepository.profile(session.id);setProfile(data);setForm(normalized(data));const uploadedPhoto=data.avatar_url?await employeeRepository.signedProfilePhoto(data.avatar_url):'';setPhoto(resolveEmployeeAvatar(data.full_name,uploadedPhoto)||'');setError('')}catch(e:any){setError(e.message||'Unable to load your profile.')}finally{setLoading(false)}};
   useEffect(()=>{const timer=setTimeout(()=>void load(),0);return()=>clearTimeout(timer)},[]);
   const set=(key:string,value:any)=>setForm((current:any)=>({...current,[key]:value}));
   const nested=(group:string,key:string,value:string)=>setForm((current:any)=>({...current,[group]:{...current[group],[key]:value}}));
