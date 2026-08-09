@@ -3,18 +3,20 @@
 import Link from 'next/link';
 import { teamAttendanceState } from '@/lib/team-attendance-state';
 
-export type TeamMember = { id: string; full_name: string; designation?: string | null; photo_url?: string | null; attendance?: any; on_leave?: boolean };
-const demoPhotos: Record<string, string> = { fayiz: '/demo/employees/fayiz.jpg', 'diya anthikat': '/demo/employees/diya-anthikat.jpg', 'aiswarya p': '/demo/employees/aiswarya-p.jpg', 'anushma vk': '/demo/employees/anushma-vk.jpg' };
+export type TeamMember = { id: string; full_name: string; designation?: string | null; department?: { name?: string | null } | null; photo_url?: string | null; attendance?: any; on_leave?: boolean };
 
 export function TeamAttendanceStrip({ employees, loading = false, canOpenEmployees }: { employees?: TeamMember[]; loading?: boolean; canOpenEmployees: boolean }) {
   if (loading) return <TeamAttendanceSkeleton />;
   if (!employees?.length) return <section className="team-today"><div className="team-today-heading"><div><h2>Team Today</h2><p>Live attendance overview</p></div></div><p className="team-today-empty">No active team members to display.</p></section>;
-  return <section className="team-today" aria-labelledby="team-today-title"><div className="team-today-heading"><div><h2 id="team-today-title">Team Today</h2><p>Live attendance overview</p></div>{canOpenEmployees && <Link href="/admin/employees" className="team-today-link">View all</Link>}</div><div className="team-today-scroll" aria-label="Active employee attendance"><div className="team-today-list">{employees.map((employee) => <TeamAttendanceCard employee={employee} canOpenEmployees={canOpenEmployees} key={employee.id} />)}</div></div></section>;
+  const uniqueEmployees = [...new Map(employees.map((employee) => [employee.id, employee])).values()];
+  const photoUseCount = new Map<string, number>();
+  uniqueEmployees.forEach((employee) => { if (employee.photo_url) photoUseCount.set(employee.photo_url, (photoUseCount.get(employee.photo_url) || 0) + 1); });
+  return <section className="team-today" aria-labelledby="team-today-title"><div className="team-today-heading"><div><h2 id="team-today-title">Team Today</h2><p>Live attendance overview</p></div>{canOpenEmployees && <Link href="/admin/employees" className="team-today-link">View all</Link>}</div><div className="team-today-scroll" aria-label="Active employee attendance"><div className="team-today-list">{uniqueEmployees.map((employee) => <TeamAttendanceCard employee={employee} canOpenEmployees={canOpenEmployees} duplicatePhoto={photoUseCount.get(employee.photo_url || '')! > 1} key={employee.id} />)}</div></div></section>;
 }
 
-function TeamAttendanceCard({ employee, canOpenEmployees }: { employee: TeamMember; canOpenEmployees: boolean }) {
-  const state = teamAttendanceState(employee.attendance, employee.on_leave); const photo = employee.photo_url || demoPhotos[employee.full_name.trim().toLowerCase()];
-  const content = <><Avatar name={employee.full_name} src={photo} /><div className="team-member-copy"><b title={employee.full_name}>{employee.full_name}</b><span title={employee.designation || 'Employee'}>{employee.designation || 'Employee'}</span></div><div className={`team-member-status ${state.tone}`}><span aria-hidden="true" /><div><strong>{state.label}</strong>{state.detail && <small>{state.detail}</small>}</div></div></>;
+function TeamAttendanceCard({ employee, canOpenEmployees, duplicatePhoto }: { employee: TeamMember; canOpenEmployees: boolean; duplicatePhoto: boolean }) {
+  const state = teamAttendanceState(employee.attendance, employee.on_leave); const photo = employee.photo_url; const designation = !employee.designation || /^(staff|employee)$/i.test(employee.designation.trim()) ? employee.department?.name || 'Designation not set' : employee.designation;
+  const content = <><Avatar name={employee.full_name} src={duplicatePhoto ? undefined : photo} /><div className="team-member-copy"><b title={employee.full_name}>{employee.full_name}</b><span title={designation}>{designation}</span></div><div className={`team-member-status ${state.tone}`}><span aria-hidden="true" /><div><strong>{state.label}</strong>{state.detail && <small>{state.detail}</small>}</div></div></>;
   return canOpenEmployees ? <Link href={`/admin/employees/${employee.id}`} className="team-member-card">{content}</Link> : <article className="team-member-card">{content}</article>;
 }
 

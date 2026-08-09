@@ -3,6 +3,7 @@ import { filterNavigation, isManagementRole, isSecurityAdministratorRole, naviga
 import { GlobalCommandCenter } from '@/components/global-command-center';
 import { redirect } from 'next/navigation';
 import { PermissionSidebar } from '@/components/permission-sidebar';
+import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
@@ -28,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return <div className="app-shell employee-shell">
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={subtitle} profileHref={profileHref} />
     <main className="app-main">
-      <header className="app-topbar"><div><p className="eyebrow">{isEmployeeShell ? 'BSMILE EMPLOYEE WORKSPACE' : 'BSMILE CONTROL CENTER'}</p><h1>{isEmployeeShell ? 'My Workspace' : workspaceTitle(profile.role)}</h1></div><div className="flex items-center gap-3"><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><a className="topbar-user" href={profileHref}><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{subtitle}</small></div></a></div></header>
+      <header className="app-topbar"><div><p className="eyebrow">{isEmployeeShell ? 'BSMILE EMPLOYEE WORKSPACE' : 'BSMILE CONTROL CENTER'}</p><h1>{isEmployeeShell ? 'My Workspace' : workspaceTitle(profile.role)}</h1></div><div className="topbar-actions"><ThemeModeSwitcher /><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><a className="topbar-user" href={profileHref}><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{subtitle}</small></div></a></div></header>
       <div className="app-content">{children}</div>
     </main>
   </div>;

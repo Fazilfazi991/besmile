@@ -3,6 +3,7 @@ import { GlobalCommandCenter } from '@/components/global-command-center';
 import { redirect } from 'next/navigation';
 import { filterNavigation, isManagementRole, navigationForProfile, navigationPermissionCodes } from '@/lib/permission-access';
 import { PermissionSidebar } from '@/components/permission-sidebar';
+import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
@@ -24,7 +25,7 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
   return <div className="app-shell employee-shell">
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={profile?.designation || profile?.role || 'Employee'} profileHref="/employee/profile" />
     <main className="app-main">
-      <header className="app-topbar"><div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div><div className="flex items-center gap-3"><GlobalCommandCenter mode="employee" userId={user.id} /><a className="topbar-user" href="/employee/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile?.designation || 'Employee'}</small></div></a></div></header>
+      <header className="app-topbar"><div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div><div className="topbar-actions"><ThemeModeSwitcher /><GlobalCommandCenter mode="employee" userId={user.id} /><a className="topbar-user" href="/employee/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile?.designation || 'Employee'}</small></div></a></div></header>
       <div className="app-content">{children}</div>
     </main>
   </div>;

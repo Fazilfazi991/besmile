@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
 import { currentProfile } from '@/lib/auth';
@@ -31,6 +31,7 @@ export default function AdminTasksPage() {
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const hasBootstrapped = useRef(false);
 
   const loadTasks = async () => {
     try { setTasks(await adminRepository.tasks(filter)); setError(''); }
@@ -39,8 +40,7 @@ export default function AdminTasksPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const p = await currentProfile() as any;
-      const canManage = await Promise.all(['tasks.manage', 'tasks.assign'].map(permission => employeeRepository.hasPermission(permission)));
+      const [p, canManage] = await Promise.all([currentProfile() as Promise<any>, Promise.all(['tasks.manage', 'tasks.assign'].map(permission => employeeRepository.hasPermission(permission)))]);
       if (!p || !canManage.some(Boolean)) throw Error('You do not have permission to manage tasks.');
       setProfile(p);
       const [employees, allTasks] = await Promise.allSettled([adminRepository.employees('', 0, 100), adminRepository.tasks(filter)]);
@@ -52,6 +52,8 @@ export default function AdminTasksPage() {
     finally { setLoading(false); }
   };
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { if (!hasBootstrapped.current) { hasBootstrapped.current = true; return; } const timer = window.setTimeout(() => void loadTasks(), 180); return () => window.clearTimeout(timer); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter.employee, filter.status, filter.priority, filter.dueDate]);
   useEffect(() => { const refreshOnFocus = () => void loadTasks(); window.addEventListener('focus', refreshOnFocus); return () => window.removeEventListener('focus', refreshOnFocus); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter.employee, filter.status, filter.priority, filter.dueDate]);

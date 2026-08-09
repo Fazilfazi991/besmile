@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase-server';
 import { GlobalCommandCenter } from '@/components/global-command-center';
 import { PermissionSidebar } from '@/components/permission-sidebar';
+import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 
 const groups = [
   { title: 'CLINICIAN WORKSPACE', links: [{ label: 'My Schedule', href: '/clinician/schedule' }, { label: 'Notifications', href: '/clinician/notifications' }, { label: 'Profile', href: '/clinician/profile' }] },
@@ -22,7 +23,7 @@ export default async function ClinicianLayout({ children }: { children: React.Re
   return <div className="app-shell employee-shell">
     <PermissionSidebar groups={groups} name={name} subtitle={profile.designation || 'Outsourced psychologist'} profileHref="/clinician/profile" />
     <main className="app-main">
-      <header className="app-topbar"><div><p className="eyebrow">BSMILE CLINICIAN WORKSPACE</p><h1>My Clinical Schedule</h1></div><div className="flex items-center gap-3"><GlobalCommandCenter mode="employee" userId={user.id} /><a className="topbar-user" href="/clinician/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile.designation || 'Clinician'}</small></div></a></div></header>
+      <header className="app-topbar"><div><p className="eyebrow">BSMILE CLINICIAN WORKSPACE</p><h1>My Clinical Schedule</h1></div><div className="topbar-actions"><ThemeModeSwitcher /><GlobalCommandCenter mode="employee" userId={user.id} /><a className="topbar-user" href="/clinician/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile.designation || 'Clinician'}</small></div></a></div></header>
       <div className="app-content">{children}</div>
     </main>
   </div>;

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SignOutButton } from '@/components/sign-out-button';
+import { ModuleIcon } from '@/components/module-icon';
 import type { NavigationGroup, NavigationLink } from '@/lib/permission-access';
 
 function isActive(pathname: string, link: NavigationLink) {
@@ -32,7 +33,7 @@ export function PermissionSidebar({ groups, name, subtitle, profileHref }: { gro
 
   const renderSidebar = (drawer = false) => <aside className="app-sidebar">
     <div className="brand"><img src="/images/bsmile-logo.png" alt="BSmile" /></div>
-    <nav ref={drawer ? undefined : navRef}>{groups.map((group) => <div className="nav-group" key={group.title}><p>{group.title}</p>{group.links.map((link) => <Link className={`nav-link${isActive(pathname, link) ? ' active' : ''}`} aria-current={isActive(pathname, link) ? 'page' : undefined} href={link.href} key={link.href} onClick={() => setMobileOpen(false)}>{link.label}</Link>)}</div>)}</nav>
+    <nav ref={drawer ? undefined : navRef}>{groups.map((group) => <div className="nav-group" key={group.title}><p>{group.title}</p>{group.links.map((link) => <Link className={`nav-link${isActive(pathname, link) ? ' active' : ''}`} aria-current={isActive(pathname, link) ? 'page' : undefined} href={link.href} key={link.href} onClick={() => setMobileOpen(false)}><ModuleIcon label={link.label} />{link.label}</Link>)}</div>)}</nav>
     <div className="sidebar-footer"><Link className="sidebar-user" href={profileHref}><b>{name}</b><small>{subtitle}</small></Link><SignOutButton /></div>
   </aside>;
 
