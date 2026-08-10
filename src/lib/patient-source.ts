@@ -6,7 +6,7 @@ export const patientSourceOptions = [
   { value: 'social_media', label: 'Social Media' },
   { value: 'referral', label: 'Referral' },
   { value: 'campaign', label: 'Campaign' },
-  { value: 'existing_patient', label: 'Existing Patient' },
+  { value: 'existing_patient', label: 'Existing Client' },
   { value: 'other', label: 'Other' },
 ] as const;
 

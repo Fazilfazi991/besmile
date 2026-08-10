@@ -142,7 +142,7 @@ export default function LeadDetail() {
   const convertPatient = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!patientNumber.trim()) {
-      setError("Patient ID is required.");
+      setError("Client ID is required.");
       return;
     }
     setBusy(true);
@@ -154,20 +154,20 @@ export default function LeadDetail() {
       );
       setPatientConversionOpen(false);
       setMessage(
-        `Lead converted to patient ${patient.patient_number || patientNumber.trim()}.`,
+        `Lead converted to client ${patient.patient_number || patientNumber.trim()}.`,
       );
       await load();
     } catch (caught: any) {
       const text = String(
-        caught.message || "Patient conversion could not be completed.",
+        caught.message || "Client conversion could not be completed.",
       );
       setError(
         /already in use|duplicate|23505/i.test(text)
-          ? "That Patient ID is already in use. Choose a different ID."
+          ? "That Client ID is already in use. Choose a different ID."
           : /already been converted/i.test(text)
-            ? "This lead has already been converted to a patient."
+            ? "This lead has already been converted to a client."
             : /permission/i.test(text)
-              ? "You do not have permission to convert this lead to a patient."
+              ? "You do not have permission to convert this lead to a client."
               : text,
       );
     } finally {
@@ -201,8 +201,8 @@ export default function LeadDetail() {
             {lead.phone} {lead.location ? `· ${lead.location}` : ""}
           </p>
         </div>
-        {!convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setPatientConversionOpen(true); }}>Convert to patient</button>}
-        {convertedPatient && <Link className="btn border" href={`/admin/patients/${convertedPatient.slug || convertedPatient.id}`}>Open patient</Link>}
+        {!convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setPatientConversionOpen(true); }}>Convert to client</button>}
+        {convertedPatient && <Link className="btn border" href={`/admin/patients/${convertedPatient.slug || convertedPatient.id}`}>Open client</Link>}
         <button
           className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-700"
           disabled={busy}
@@ -215,7 +215,7 @@ export default function LeadDetail() {
       {message && (
         <p className="rounded bg-emerald-50 p-3 text-emerald-800">{message}</p>
       )}
-      {convertedPatient && <div className="rounded border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><b>Converted to Patient</b><p className="mt-1 text-sm">Patient ID: {convertedPatient.patient_number}</p></div>}
+      {convertedPatient && <div className="rounded border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><b>Converted to Client</b><p className="mt-1 text-sm">Client ID: {convertedPatient.patient_number}</p></div>}
       <form onSubmit={saveLead} className="card grid gap-3 p-5 md:grid-cols-2">
         <h2 className="font-bold md:col-span-2">Lead details</h2>
         <input
@@ -444,7 +444,7 @@ export default function LeadDetail() {
           )}
         </section>
       </div>
-      {patientConversionOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><form className="card w-full max-w-lg p-6" onSubmit={convertPatient}><h2 className="text-lg font-bold">Convert to Patient</h2><p className="mt-1 text-sm text-slate-600">The lead remains in CRM. Matching contact and context fields will be copied to the new patient record.</p><label className="mt-4 block text-sm font-semibold">Patient ID <span className="text-rose-700">*</span><input autoFocus className="input mt-1" required value={patientNumber} onChange={event => setPatientNumber(event.target.value)} placeholder="Enter unique Patient ID" /></label><p className="mt-2 text-xs text-slate-500">The Patient ID must be unique. Validation errors keep your entered value.</p><div className="mt-5 flex justify-end gap-2"><button className="btn border" type="button" disabled={busy} onClick={() => setPatientConversionOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Converting...' : 'Convert to patient'}</button></div></form></div>}
+      {patientConversionOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><form className="card w-full max-w-lg p-6" onSubmit={convertPatient}><h2 className="text-lg font-bold">Convert to Client</h2><p className="mt-1 text-sm text-slate-600">The lead remains in CRM. Matching contact and context fields will be copied to the new client record.</p><label className="mt-4 block text-sm font-semibold">Client ID <span className="text-rose-700">*</span><input autoFocus className="input mt-1" required value={patientNumber} onChange={event => setPatientNumber(event.target.value)} placeholder="Enter unique Client ID" /></label><p className="mt-2 text-xs text-slate-500">The Client ID must be unique. Validation errors keep your entered value.</p><div className="mt-5 flex justify-end gap-2"><button className="btn border" type="button" disabled={busy} onClick={() => setPatientConversionOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Converting...' : 'Convert to client'}</button></div></form></div>}
     </section>
   );
 }

@@ -9,7 +9,7 @@ describe('patient appointment profile UI', () => {
     for (const text of ['Schedule Appointment', 'Schedule First Appointment', 'Edit', 'Reschedule', 'Confirm', 'Complete', 'No Show', 'Cancel', 'Delete']) {
       expect(component).toContain(text);
     }
-    expect(component).toContain('No appointments have been scheduled for this patient yet.');
+    expect(component).toContain('No appointments have been scheduled for this client yet.');
     expect(component).toContain('doctorSchedulingRepository.createAppointment');
     expect(component).toContain('doctorSchedulingRepository.updateAppointment');
     expect(component).toContain('doctorSchedulingRepository.deleteAppointment');

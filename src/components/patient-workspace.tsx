@@ -24,7 +24,7 @@ export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: 
   const [activity, setActivity] = useState<any[]>([]);
   const [tab, setTab] = useState('Overview');
   const [form, setForm] = useState('');
-  const [message, setMessage] = useState(params.get('created') === '1' ? 'Patient created successfully.' : '');
+  const [message, setMessage] = useState(params.get('created') === '1' ? 'Client created successfully.' : '');
   const [saving, setSaving] = useState('');
   const [perms, setPerms] = useState<Record<string, boolean>>({});
   const [unavailable, setUnavailable] = useState(false);
@@ -79,14 +79,14 @@ export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: 
       if (!payload.source) { setMessage('Select a valid source.'); return; }
     }
     setSaving(kind);
-    setMessage(kind === 'patient' ? 'Saving patient details...' : 'Saving...');
+    setMessage(kind === 'patient' ? 'Saving client details...' : 'Saving...');
     try {
       const response = await fetch(`/api/patients/${p.id}/manage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, payload }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to save.');
       setForm('');
       setHasUnsavedChanges(false);
-      setMessage(kind === 'patient' ? 'Patient details updated successfully.' : 'Saved successfully.');
+      setMessage(kind === 'patient' ? 'Client details updated successfully.' : 'Saved successfully.');
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to save changes.');
@@ -114,8 +114,8 @@ export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: 
     }
   };
 
-  if (unavailable) return <p className="rounded bg-rose-50 p-4 text-rose-700">Patient is unavailable or you do not have access.</p>;
-  if (!p) return <p>Loading patient...</p>;
+  if (unavailable) return <p className="rounded bg-rose-50 p-4 text-rose-700">Client is unavailable or you do not have access.</p>;
+  if (!p) return <p>Loading client...</p>;
 
   const closeForm = () => {
     if (!hasUnsavedChanges || window.confirm('Discard unsaved changes?')) {
@@ -128,7 +128,7 @@ export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: 
   const editFields = [['full_name', 'Full name'], ['phone', 'Phone'], ['email', 'Email'], ['date_of_birth', 'Date of birth'], ['nationality', 'Nationality'], ['preferred_language', 'Preferred language'], ['emergency_contact_name', 'Emergency contact name'], ['emergency_contact_phone', 'Emergency phone']];
 
   return <section className="space-y-5">
-    <div className="card flex flex-wrap justify-between gap-4 p-5"><div><h1 className="text-2xl font-bold">{p.full_name} {p.is_demo && <span className="rounded bg-amber-100 px-2 py-1 text-xs text-amber-800">Demo</span>}</h1><p className="text-slate-600">{p.patient_number} - {p.status}</p></div><div className="flex gap-2">{action('patients.edit', 'Edit Patient', 'patient')}<button className="rounded border px-3 py-2 text-sm" type="button" onClick={() => setForm('more')}>More actions</button></div></div>
+    <div className="card flex flex-wrap justify-between gap-4 p-5"><div><h1 className="text-2xl font-bold">{p.full_name} {p.is_demo && <span className="rounded bg-amber-100 px-2 py-1 text-xs text-amber-800">Demo</span>}</h1><p className="text-slate-600">{p.patient_number} - {p.status}</p></div><div className="flex gap-2">{action('patients.edit', 'Edit Client', 'patient')}<button className="rounded border px-3 py-2 text-sm" type="button" onClick={() => setForm('more')}>More actions</button></div></div>
     {message && <p role="status" aria-live="polite" className="rounded bg-slate-100 p-3 text-sm">{message}</p>}
     <div className="flex gap-2 overflow-x-auto border-b">{['Overview', 'Appointments', 'Sessions', 'Documents', 'Notes', 'Activity'].map(x => <button key={x} type="button" onClick={() => { setTab(x); setForm(''); }} className={`px-3 py-2 ${tab === x ? 'border-b-2 border-slate-900 font-bold' : ''}`}>{x}</button>)}</div>
     {tab === 'Overview' && <><div className="flex justify-end">{action('patients.edit', 'Edit patient', 'patient')}</div>{form === 'patient' && <form className="card grid gap-3 p-4 md:grid-cols-2" onChange={() => setHasUnsavedChanges(true)} onSubmit={event => save('patient', event)}>

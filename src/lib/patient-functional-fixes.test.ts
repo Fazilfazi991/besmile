@@ -21,7 +21,7 @@ describe('patient functional fixes', () => {
 
   it('saves patient edits through the internal UUID route with loading and success feedback', () => {
     expect(workspace).toContain('fetch(`/api/patients/${p.id}/manage`');
-    expect(workspace).toContain('Patient details updated successfully.');
+    expect(workspace).toContain('Client details updated successfully.');
     expect(workspace).toContain("saving === 'patient' ? 'Saving...'");
     expect(manageApi).toContain(".eq('id',patientId)");
     expect(manageApi).toContain('normalizePatientSource(payload.source)');
@@ -39,6 +39,6 @@ describe('patient functional fixes', () => {
   it('redirects created patients to their canonical slug with success state', () => {
     expect(patientUi).toContain(".select('id,slug').single()");
     expect(patientUi).toContain("location.href = `/admin/patients/${data.slug || data.id}?created=1`");
-    expect(workspace).toContain("params.get('created') === '1' ? 'Patient created successfully.'");
+    expect(workspace).toContain("params.get('created') === '1' ? 'Client created successfully.'");
   });
 });

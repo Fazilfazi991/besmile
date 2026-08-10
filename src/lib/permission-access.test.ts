@@ -46,7 +46,7 @@ describe('permission compatibility', () => {
       'chat.use', 'ideas.view',
     ]);
     const labels = filterNavigation(employeeNavigation, administrationAdmin).flatMap(group => group.links.map(link => link.label));
-    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'CRM Dashboard', 'Leads', 'Follow-ups', 'Clients', 'Employees', 'Patients', 'Operational Documents', 'Attendance', 'Leave', 'Chat', 'Profile']));
+    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'CRM Dashboard', 'Leads', 'Follow-ups', 'Clients', 'Employees', 'Operational Documents', 'Attendance', 'Leave', 'Chat', 'Profile']));
     expect(labels).not.toEqual(expect.arrayContaining(['Finance Dashboard', 'Payroll', 'Roles & Access', 'Task Assignment Access']));
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/finance'))).toBe(false);
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/access'))).toBe(false);
@@ -58,7 +58,7 @@ describe('permission compatibility', () => {
     const granted = new Set(['dashboard.view', 'employees.view', 'patients.view', 'leads.view', 'tasks.assign', 'documents.employee.manage', 'chat.use', 'announcements.manage', 'notifications.view', 'finance.dashboard.view', 'income.view', 'expenses.view', 'payroll.view', 'invoices.view', 'reports.finance.view']);
     const labels = filterNavigation(adminNavigation, granted).flatMap(group => group.links.map(link => link.label));
     expect(navigationForProfile('general_manager')).toBe(adminNavigation);
-    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'Patients', 'Operational Documents', 'Leads Management', 'Tasks', 'Finance Dashboard', 'Income', 'Expenses', 'Payroll', 'Invoices', 'Reports']));
+    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'Clients', 'Operational Documents', 'Leads Management', 'Tasks', 'Finance Dashboard', 'Income', 'Expenses', 'Payroll', 'Invoices', 'Reports']));
     expect(labels).not.toContain('Roles & Access');
   });
   it('accepts granular dashboard and finance permissions without legacy aliases', () => {
@@ -109,8 +109,8 @@ describe('permission compatibility', () => {
   it('shows interns only assigned-patient and universal employee links', () => {
     const groups = filterNavigation(employeeNavigation, new Set(['patients.view_assigned', 'patient_documents.view']));
     const labels = groups.flatMap((group) => group.links.map((link) => link.label));
-    expect(labels).toEqual(expect.arrayContaining(['Assigned Patients', 'Documents', 'Notifications', 'Profile']));
-    expect(labels).not.toContain('Patients');
+    expect(labels).toEqual(expect.arrayContaining(['Assigned Clients', 'Documents', 'Notifications', 'Profile']));
+    expect(labels).not.toContain('Clients');
     expect(labels).not.toContain('Dashboard');
     expect(permissionAllows(new Set(['patients.view_assigned']), employeeRouteRequirement('/employee/patients'))).toBe(false);
     expect(permissionAllows(new Set(['patients.view_assigned']), employeeRouteRequirement('/employee/patients/example'))).toBe(true);
@@ -120,18 +120,18 @@ describe('permission compatibility', () => {
   it('splits main Patients from Assigned Patients for patient-care roles', () => {
     const psychologist = new Set(['patients.view', 'patients.view_assigned', 'ideas.view']);
     const psychologistLabels = filterNavigation(employeeNavigation, psychologist).flatMap((group) => group.links.map((link) => link.label));
-    expect(psychologistLabels).toEqual(expect.arrayContaining(['Patients', 'Assigned Patients', 'Innovation Hub']));
+    expect(psychologistLabels).toEqual(expect.arrayContaining(['Clients', 'Assigned Clients', 'Innovation Hub']));
 
     const socialWorker = new Set(['patients.view', 'ideas.view']);
     const socialWorkerLabels = filterNavigation(employeeNavigation, socialWorker).flatMap((group) => group.links.map((link) => link.label));
-    expect(socialWorkerLabels).toEqual(expect.arrayContaining(['Patients', 'Innovation Hub']));
-    expect(socialWorkerLabels).not.toContain('Assigned Patients');
+    expect(socialWorkerLabels).toEqual(expect.arrayContaining(['Clients', 'Innovation Hub']));
+    expect(socialWorkerLabels).not.toContain('Assigned Clients');
 
     const guestSales = new Set(['ideas.view', 'crm.view_assigned']);
     const guestSalesLabels = filterNavigation(employeeNavigation, guestSales).flatMap((group) => group.links.map((link) => link.label));
     expect(guestSalesLabels).toContain('Innovation Hub');
-    expect(guestSalesLabels).not.toContain('Patients');
-    expect(guestSalesLabels).not.toContain('Assigned Patients');
+    expect(guestSalesLabels).not.toContain('Clients');
+    expect(guestSalesLabels).not.toContain('Assigned Clients');
   });
 
   it('keeps read-only announcements out of the employee sidebar', () => {

@@ -12,7 +12,7 @@ const db: any = supabase;
 
 type PatientListProps = { basePath?: string; canCreate?: boolean; title?: string; description?: string; assignedOnly?: boolean };
 
-export function PatientList({ basePath = '/admin/patients', canCreate = true, title = 'Patients', description = 'Patient records and administrative documents.', assignedOnly = false }: PatientListProps) {
+export function PatientList({ basePath = '/admin/patients', canCreate = true, title = 'Clients', description = 'Client records and administrative documents.', assignedOnly = false }: PatientListProps) {
   const [patients, setPatients] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [source, setSource] = useState('');
@@ -32,7 +32,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
     if (value) request = request.or(`full_name.ilike.%${value}%,patient_number.ilike.%${value}%,phone.ilike.%${value}%,email.ilike.%${value}%`);
     if (source) request = request.eq('source', source);
     const { data, error } = await request;
-    if (error) setError('Unable to load patients.');
+    if (error) setError('Unable to load clients.');
     else { setPatients(data || []); setError(''); }
   };
 
@@ -44,18 +44,18 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
   return <section className="space-y-5">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div><h1 className="text-2xl font-bold">{title}</h1><p className="text-slate-600">{description}</p></div>
-      {canCreate && <a className="rounded bg-slate-900 px-4 py-2 text-white" href="/admin/patients/new">Add patient</a>}
+      {canCreate && <a className="rounded bg-slate-900 px-4 py-2 text-white" href="/admin/patients/new">Add client</a>}
     </div>
     <form className="card flex gap-3 p-4" onSubmit={event => { event.preventDefault(); void load(); }}>
-      <input aria-label="Search patients" className="rounded border p-2" placeholder="Name, ID, phone or email" value={query} onChange={event => setQuery(event.target.value)} />
+      <input aria-label="Search clients" className="rounded border p-2" placeholder="Name, ID, phone or email" value={query} onChange={event => setQuery(event.target.value)} />
       <select aria-label="Source" className="rounded border p-2" value={source} onChange={event => setSource(event.target.value)}>
         <option value="">All sources</option>
         {patientSourceOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}
       </select>
       <button className="rounded border px-3">Search</button>
     </form>
-    {error ? <div className="card p-5 text-rose-700">{error}</div> : !patients.length ? <div className="card p-8 text-center text-slate-600">No patients match these filters.</div> : <div className="card overflow-x-auto"><table className="min-w-full text-sm">
-      <thead className="border-b text-left text-slate-500"><tr>{['Patient ID', 'Patient', 'Phone', 'Email', 'Source', 'Assigned clinician', 'Status', 'Actions'].map(label => <th className="p-3" key={label}>{label}</th>)}</tr></thead>
+    {error ? <div className="card p-5 text-rose-700">{error}</div> : !patients.length ? <div className="card p-8 text-center text-slate-600">No clients match these filters.</div> : <div className="card overflow-x-auto"><table className="min-w-full text-sm">
+      <thead className="border-b text-left text-slate-500"><tr>{['Client ID', 'Client', 'Phone', 'Email', 'Source', 'Assigned clinician', 'Status', 'Actions'].map(label => <th className="p-3" key={label}>{label}</th>)}</tr></thead>
       <tbody>{patients.map(patient => <tr className="border-b" key={patient.id}>
         <td className="p-3">{patient.patient_number}{isDemoPatient(patient) && <span className="ml-2 rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Demo</span>}</td>
         <td className="p-3 font-medium">{patient.full_name}</td>
