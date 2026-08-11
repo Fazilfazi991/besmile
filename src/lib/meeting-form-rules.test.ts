@@ -1,0 +1,3 @@
+import {describe,it,expect} from 'vitest';import {meetingPayload} from './meeting-form-rules';
+const form={title:'Planning',agenda:'',date:'2026-08-11',start:'15:00',end:'16:00',type:'office',venue:'Room',url:'',notes:'',invitees:['a','a','b']};
+describe('meeting form rules',()=>{it('keeps Kolkata times and de-duplicates invitees',()=>expect(meetingPayload(form)).toMatchObject({meeting_start:'2026-08-11T09:30:00.000Z',participant_ids:['a','b']}));it('rejects invalid intervals',()=>expect(()=>meetingPayload({...form,end:'15:00'})).toThrow('End time'));it('rejects unsafe meeting links',()=>expect(()=>meetingPayload({...form,url:'javascript:x'})).toThrow('Meeting link'));});
