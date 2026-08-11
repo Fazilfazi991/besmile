@@ -19,3 +19,7 @@ export function meetingFieldsFromRecord(meeting: EditableMeetingRecord): Meeting
 export function canEditMeeting(permissions: Record<string, boolean>, meeting: Pick<EditableMeetingRecord, 'organizer_id'>, currentProfileId: string | undefined) {
   return permissions['meetings.manage'] === true || meeting.organizer_id === currentProfileId;
 }
+
+export function availabilityIgnoreMeetingId(mode: MeetingFormMode, meetingId: string | undefined) {
+  return mode === 'edit' ? meetingId : undefined;
+}
