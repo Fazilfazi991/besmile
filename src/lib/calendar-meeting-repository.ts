@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 export type AvailabilityConflict={type:'blocked'|'meeting';start_at:string;end_at:string}; export type InviteeAvailability={employee_id:string;available:boolean;conflicts:AvailabilityConflict[]};
+/** Shape selected by myMeetings for meeting_participants(employee_id, profiles(...)). */
+export type MeetingParticipantRecord={employee_id:unknown;profiles?:{full_name?:string|null;designation?:string|null;department?:{name?:string|null}|null}|null};
 export type CalendarBlockPayload={start_at:string;end_at:string;all_day:boolean;title:string|null};
 const db=()=>{if(!supabase)throw new Error('Supabase is not configured.');return supabase as any};
 export const calendarMeetingRepository={
