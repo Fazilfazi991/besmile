@@ -83,6 +83,17 @@ describe('permission compatibility', () => {
     expect(labels).not.toContain('Attendance');
   });
 
+  it('keeps company staff attendance behind the existing company-view permission', () => {
+    const generalManager = new Set(['attendance.self', 'attendance.view']);
+    const staff = new Set(['attendance.self']);
+    expect(permissionAllows(generalManager, adminRouteRequirement('/admin/attendance'))).toBe(true);
+    expect(permissionAllows(staff, adminRouteRequirement('/admin/attendance'))).toBe(false);
+    const gmLabels = filterNavigation(adminNavigation, generalManager).flatMap(group => group.links.map(link => link.label));
+    const staffLabels = filterNavigation(adminNavigation, staff).flatMap(group => group.links.map(link => link.label));
+    expect(gmLabels).toEqual(expect.arrayContaining(['My Attendance', 'Staff Attendance']));
+    expect(staffLabels).not.toContain('Staff Attendance');
+  });
+
   it('exposes leave approvals only to reviewers', () => {
     expect(permissionAllows(new Set(['leave.approve']), adminRouteRequirement('/admin/leaves'))).toBe(true);
     expect(permissionAllows(new Set(['leave.self']), adminRouteRequirement('/admin/leaves'))).toBe(false);

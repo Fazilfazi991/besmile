@@ -3,14 +3,15 @@ import { describe, expect, it } from 'vitest';
 
 const dashboard = readFileSync(new URL('../app/admin/page.tsx', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../../supabase/migrations/20260807231500_general_manager_self_attendance.sql', import.meta.url), 'utf8');
+const attendanceFoundation = readFileSync(new URL('../../supabase/migrations/0001_bsmile_auth_foundation.sql', import.meta.url), 'utf8');
 
 describe('General Manager attendance', () => {
   it('uses the shared employee attendance actions in the management dashboard', () => {
     expect(dashboard).toContain('employeeRepository.attendanceToday(signedInProfile.id)');
-    expect(dashboard).toContain('employeeRepository.clockIn(profile.id)');
+    expect(dashboard).toContain('employeeRepository.clockIn(profile.id, await freshLocation())');
     expect(dashboard).toContain('employeeRepository.startBreak(todayAttendance.id)');
     expect(dashboard).toContain('employeeRepository.endBreak(activeBreak.id)');
-    expect(dashboard).toContain('employeeRepository.clockOut(todayAttendance.id)');
+    expect(dashboard).toContain('employeeRepository.clockOut(todayAttendance.id, await freshLocation())');
     expect(dashboard).toContain('Attendance update could not be confirmed.');
   });
 
@@ -22,9 +23,10 @@ describe('General Manager attendance', () => {
     expect(adminRepository).toContain("const today=dateKey(new Date(),settings.timezone)");
   });
 
-  it('uses an insert instead of an upsert so duplicate clock-ins cannot overwrite the first timestamp', () => {
+  it('uses the geofenced RPC insert so duplicate clock-ins cannot overwrite the first timestamp', () => {
     const employeeRepository = readFileSync(new URL('./employee-repository.ts', import.meta.url), 'utf8');
-    expect(employeeRepository).toContain(".insert({profile_id:userId,work_date:dateKey(new Date(),settings.timezone)");
+    expect(employeeRepository).toContain("rpc('record_self_attendance_location'");
+    expect(attendanceFoundation).toContain('unique(profile_id,work_date)');
     expect(employeeRepository).toContain('You have already clocked in today.');
   });
 
