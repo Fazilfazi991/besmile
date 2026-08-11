@@ -1,0 +1,10 @@
+import { supabase } from './supabase';
+export type AvailabilityConflict={type:'blocked'|'meeting';start_at:string;end_at:string}; export type InviteeAvailability={employee_id:string;available:boolean;conflicts:AvailabilityConflict[]};
+const db=()=>{if(!supabase)throw new Error('Supabase is not configured.');return supabase as any};
+export const calendarMeetingRepository={
+ async myBlocks(userId:string){const r=await db().from('calendar_blocks').select('*').eq('employee_id',userId).order('start_at');if(r.error)throw r.error;return r.data||[]},
+ async myMeetings(userId:string){const r=await db().from('meetings').select('*,meeting_participants(employee_id,profiles(full_name,designation,department:departments(name)))').or(`organizer_id.eq.${userId},meeting_participants.employee_id.eq.${userId}`).order('start_at');if(r.error)throw r.error;return r.data||[]},
+ async myCalendar(userId:string){const [blocks,meetings]=await Promise.all([this.myBlocks(userId),this.myMeetings(userId)]);return [...blocks.map((x:any)=>({...x,kind:'blocked' as const})),...meetings.filter((x:any)=>x.status==='scheduled').map((x:any)=>({...x,kind:'meeting' as const}))].sort((a:any,b:any)=>a.start_at.localeCompare(b.start_at))},
+ async availability(start_at:string,end_at:string,employee_ids:string[],ignore?:string){const r=await db().rpc('meeting_conflicts',{proposed_start:start_at,proposed_end:end_at,participant_ids:employee_ids,ignored_meeting:ignore||null});if(r.error)throw r.error;const by=new Map<string,AvailabilityConflict[]>();for(const x of r.data||[]){const list=by.get(x.employee_id)||[];list.push({type:x.conflict_kind,start_at:x.conflict_start,end_at:x.conflict_end});by.set(x.employee_id,list)}return employee_ids.map(employee_id=>({employee_id,available:!(by.get(employee_id)?.length),conflicts:by.get(employee_id)||[]})) as InviteeAvailability[]},
+ async save(payload:any){const r=await db().rpc('save_meeting',payload);if(r.error)throw r.error;return r.data}, async cancel(id:string){const r=await db().rpc('cancel_meeting',{target_meeting:id});if(r.error)throw r.error;return r.data}
+};
