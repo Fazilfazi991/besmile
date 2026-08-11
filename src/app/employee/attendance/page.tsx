@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
 import { canClockIn, dateKey, minutes, monthlyDays, weekday } from '@/lib/attendance-rules';
 import { awarenessEventsForMonth } from '@/lib/calendar-events';
-import { freshLocation } from '@/lib/attendance-geofence';
+import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { EmployeeBanner, EmployeeLoading, EmployeeMetric, EmployeeMetricGrid, EmployeePageHeader, EmployeeSection, EmployeeStatusBadge } from '@/components/employee-ui';
 
 const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -27,6 +27,8 @@ export default function AttendancePage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [acting, setActing] = useState(false);
+  const [attendanceStatus, setAttendanceStatus] = useState('');
+  const attendanceRequest = useRef(false);
 
   const load = async () => {
     setError('');
@@ -52,17 +54,19 @@ export default function AttendancePage() {
   const activeToday = data?.days?.find((day: any) => day.key === today);
   const activeBreak = activeToday?.row?.attendance_breaks?.find((item: any) => !item.ended_at);
   const attendanceAction = async (action: 'clockIn' | 'clockOut' | 'startBreak' | 'endBreak') => {
-    if (!profile) return;
+    if (!profile || attendanceRequest.current) return;
+    attendanceRequest.current = true;
     setActing(true); setError(''); setNotice('');
     try {
-      if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation());
-      if (action === 'clockOut' && activeToday?.row) await employeeRepository.clockOut(activeToday.row.id, await freshLocation());
+      if (action === 'clockIn' || action === 'clockOut') setAttendanceStatus(locationCheckingMessage);
+      if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation('Clock In'));
+      if (action === 'clockOut' && activeToday?.row) await employeeRepository.clockOut(activeToday.row.id, await freshLocation('Clock Out'));
       if (action === 'startBreak' && activeToday?.row) await employeeRepository.startBreak(activeToday.row.id);
       if (action === 'endBreak' && activeBreak) await employeeRepository.endBreak(activeBreak.id);
       setNotice('Attendance updated.');
       await load();
     } catch (caught: any) { setError(caught.message || 'Attendance could not be updated.'); }
-    finally { setActing(false); }
+    finally { attendanceRequest.current = false; setAttendanceStatus(''); setActing(false); }
   };
 
   const summary = useMemo(() => {
@@ -86,11 +90,11 @@ export default function AttendancePage() {
     <EmployeeSection title="Today's attendance" description={activeToday?.row?.clock_in ? 'Your current attendance and working time.' : 'Start your day when you are ready.'} className="border-teal-100">
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><Detail label="Current status" value={activeBreak ? 'On break' : todayStatus} /><Detail label="Clock in" value={time(activeToday?.row?.clock_in)} /><Detail label="Break" value={activeBreak ? `Since ${time(activeBreak.started_at)}` : activeToday?.row?.break_minutes ? `${activeToday.row.break_minutes} min` : '—'} /><Detail label="Clock out" value={time(activeToday?.row?.clock_out)} /><Detail label="Working hours" value={activeToday?.row?.clock_in ? duration(minutes(activeToday.row)) : '—'} /></div>
-        <div className="flex flex-wrap gap-2 lg:justify-end">{!activeToday?.row && <button className="btn btn-primary" disabled={acting || !clockInAllowed} title={clockInAllowed ? undefined : `Clock-in is unavailable on ${activeToday?.status || 'this day'}.`} onClick={() => void attendanceAction('clockIn')}>{acting ? 'Clocking in...' : 'Clock in'}</button>}{activeToday?.row && !activeToday.row.clock_out && !activeBreak && <><button className="btn border" disabled={acting} onClick={() => void attendanceAction('startBreak')}>{acting ? 'Updating...' : 'Start break'}</button><button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>{acting ? 'Clocking out...' : 'Clock out'}</button></>}{activeBreak && <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('endBreak')}>{acting ? 'Updating...' : 'End break'}</button>}</div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">{!activeToday?.row && <button className="btn btn-primary" disabled={acting || !clockInAllowed} title={clockInAllowed ? undefined : `Clock-in is unavailable on ${activeToday?.status || 'this day'}.`} onClick={() => void attendanceAction('clockIn')}>{attendanceStatus ? 'Checking location...' : error === locationBlockedMessage ? 'Try again' : 'Clock in'}</button>}{activeToday?.row && !activeToday.row.clock_out && !activeBreak && <><button className="btn border" disabled={acting} onClick={() => void attendanceAction('startBreak')}>{acting ? 'Updating...' : 'Start break'}</button><button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>{attendanceStatus ? 'Checking location...' : error === locationBlockedMessage ? 'Try again' : 'Clock out'}</button></>}{activeBreak && <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('endBreak')}>{acting ? 'Updating...' : 'End break'}</button>}</div>
       </div>
     </EmployeeSection>
     <EmployeeMetricGrid columns={4}><EmployeeMetric label="Present" value={summary.present} tone="success" /><EmployeeMetric label="Absent" value={summary.absent} tone="danger" /><EmployeeMetric label="Leave" value={summary.leave} tone="info" /><EmployeeMetric label="Working hours" value={duration(summary.work)} /></EmployeeMetricGrid>
-    {notice && <EmployeeBanner tone="success">{notice}</EmployeeBanner>}{error && <EmployeeBanner>{error}</EmployeeBanner>}
+    {attendanceStatus && <EmployeeBanner tone="info">{attendanceStatus}</EmployeeBanner>}{notice && <EmployeeBanner tone="success">{notice}</EmployeeBanner>}{error && <EmployeeBanner>{error}</EmployeeBanner>}
     <div className="flex flex-wrap gap-2">{['present', 'late', 'absent', 'leave', 'holiday', 'weekend'].map(status => <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600" key={status}><span className={`h-2 w-2 rounded-full ${status === 'present' ? 'bg-emerald-500' : status === 'late' ? 'bg-amber-500' : status === 'leave' ? 'bg-sky-500' : status === 'holiday' ? 'bg-violet-500' : 'bg-slate-400'}`} />{label(status)}</span>)}<span className="flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs text-teal-800"><span className="h-2 w-2 rounded-full bg-teal-500" />Awareness day</span></div>
     <EmployeeSection title="Monthly calendar" description="Public holidays and awareness events appear alongside attendance. Select a day for details.">{data.awarenessPeriods.length > 0 && <div className="mx-3 mt-3 flex flex-wrap gap-2 sm:mx-4">{data.awarenessPeriods.map((event: any) => <span className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800" title={event.notes || undefined} key={event.name}>{event.name}{event.notes ? ' · dates to be confirmed' : ''}</span>)}</div>}<div className="mx-auto grid max-w-6xl grid-cols-7 gap-1.5 p-3 sm:gap-2 md:p-4">{weekdayNames.map(name => <div className="pb-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-xs" key={name}>{name}</div>)}{Array.from({ length: firstOffset }).map((_, index) => <div aria-hidden="true" key={`empty-${index}`} />)}{data.days.map((day: any) => { const isToday = day.key === today; const selectedDay = selected?.key === day.key; const worked = minutes(day.row); const statusText = day.status === 'future' ? '' : label(day.status); const events = [...(data.holidayEvents.get(day.key) || []), ...(data.awarenessByDay.get(day.key) || [])]; return <button onClick={() => setSelected(day)} className={`relative min-h-[72px] overflow-hidden rounded-lg border p-1.5 text-left transition hover:brightness-[.98] sm:min-h-[86px] sm:p-2 ${statusStyle[day.status] || statusStyle.future} ${isToday ? 'ring-2 ring-teal-500 ring-offset-1' : ''} ${selectedDay ? 'shadow-sm' : ''}`} key={day.key}><span className="block text-sm font-extrabold">{day.key.slice(-2)}</span>{isToday && <span className="mt-1 inline-flex rounded bg-teal-700 px-1.5 py-0.5 text-[9px] font-bold text-white">Today</span>}{statusText && <span className="mt-1 block text-[10px] font-semibold sm:text-xs">{statusText}</span>}{events.slice(0, 2).map((event: any) => <span className={`mt-1 block truncate rounded px-1 text-[8px] font-bold leading-4 sm:text-[9px] ${event.category === 'holiday' ? 'bg-violet-100 text-violet-800' : 'bg-teal-100 text-teal-800'}`} title={event.name} key={`${event.category}-${event.name}`}>{event.name}</span>)}{events.length > 2 && <span className="block text-[9px] font-bold text-slate-600">+{events.length - 2} more</span>}{(day.status === 'present' || day.status === 'late') && <span className="mt-0.5 block text-[9px] sm:text-[10px]">{duration(worked)}</span>}</button>; })}</div></EmployeeSection>
     {selected && <div className="grid gap-4 lg:grid-cols-2"><EmployeeSection title="Selected day" action={<EmployeeStatusBadge tone={statusTone[selected.status]}>{label(selected.status)}</EmployeeStatusBadge>}><div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3"><Detail label="Selected date" value={new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${selected.key}T12:00:00`))} /><Detail label="Status" value={label(selected.status)} /><Detail label="Clock in" value={time(selected.row?.clock_in)} /><Detail label="Clock out" value={time(selected.row?.clock_out)} /><Detail label="Working hours" value={selected.row?.clock_in ? duration(minutes(selected.row)) : '—'} /></div>{!selected.row && <p className="border-t border-slate-100 px-4 py-3 text-sm text-slate-500">No attendance recorded.</p>}</EmployeeSection>{selected.row && <EmployeeSection title="Attendance timeline" description="Clock-in and clock-out activity."><div className="divide-y divide-slate-100 px-4">{[{ at: selected.row.clock_in, title: 'Clock in' }, { at: selected.row.clock_out, title: 'Clock out' }].filter(event => event.at).map((event, index) => <div className="flex items-center gap-3 py-3" key={`${event.title}-${index}`}><time className="w-20 text-sm font-bold text-teal-800">{time(event.at)}</time><span className="h-2.5 w-2.5 rounded-full bg-teal-500" /><span className="text-sm font-medium text-slate-800">{event.title}</span></div>)}</div></EmployeeSection>}</div>}

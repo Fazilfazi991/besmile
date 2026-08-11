@@ -14,14 +14,14 @@ describe('staff attendance access', () => {
   });
 
   it('reads company attendance without adding an attendance-management mutation', () => {
-    expect(repository).toContain('async companyAttendance(workDate:string)');
-    expect(repository).toContain("r.from('attendance').select('id,profile_id,work_date,clock_in,clock_out,status,break_minutes");
-    expect(repository).not.toContain('async companyAttendance(workDate:string){const r=required();return r.from(\'attendance\').update');
+    expect(repository).toMatch(/async companyAttendance\(workDate:\s*string\)/);
+    expect(repository).toMatch(/\.from\(["']attendance["']\)[\s\S]*?\.select\(\s*["']id,profile_id,work_date,clock_in,clock_out,status,break_minutes/);
+    expect(repository).not.toMatch(/async companyAttendance[\s\S]{0,300}\.from\(["']attendance["']\)\.update/);
   });
 
   it('keeps staff attendance viewing separate from geofenced self-attendance', () => {
     expect(route).not.toContain('freshLocation');
-    expect(geofence).toContain('radiusMetres:100');
-    expect(geofence).toContain('maxAccuracyMetres:50');
+    expect(geofence).toMatch(/radiusMetres:\s*100/);
+    expect(geofence).toMatch(/maxAccuracyMetres:\s*50/);
   });
 });

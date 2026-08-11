@@ -16,8 +16,8 @@ describe('attendance geofence production correction', () => {
   });
 
   it('keeps the one shared management-dashboard attendance flow before Team Today', () => {
-    expect(dashboard).toContain("employeeRepository.clockIn(profile.id, await freshLocation())");
-    expect(dashboard).toContain("employeeRepository.clockOut(todayAttendance.id, await freshLocation())");
+    expect(dashboard).toContain("employeeRepository.clockIn(profile.id, await freshLocation('Clock In'))");
+    expect(dashboard).toContain("employeeRepository.clockOut(todayAttendance.id, await freshLocation('Clock Out'))");
     expect(dashboard.indexOf('my-attendance-card')).toBeLessThan(dashboard.indexOf('{canViewTeam && <TeamAttendanceStrip'));
   });
 });

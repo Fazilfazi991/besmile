@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
-import { freshLocation } from '@/lib/attendance-geofence';
+import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { permissionAllows, type PermissionRequirement } from '@/lib/permission-access';
 
 type DashboardData = Record<string, any>;
@@ -23,6 +23,8 @@ export default function EmployeeDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [attendanceStatus, setAttendanceStatus] = useState('');
+  const attendanceRequest = useRef(false);
 
   const load = async (quiet = false) => {
     quiet ? setRefreshing(true) : setLoading(true);
@@ -101,15 +103,18 @@ export default function EmployeeDashboard() {
   const canCrm = has(permissions, { anyOf: ['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view', 'sales.view'] });
 
   const attendanceAction = async (action: 'clockIn' | 'clockOut' | 'startBreak' | 'endBreak') => {
-    if (!profile) return;
+    if (!profile || attendanceRequest.current) return;
+    attendanceRequest.current = true;
     setNotice(''); setError(''); setRefreshing(true);
     try {
-      if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation());
-      if (action === 'clockOut' && todayAttendance) await employeeRepository.clockOut(todayAttendance.id, await freshLocation());
+      if (action === 'clockIn' || action === 'clockOut') setAttendanceStatus(locationCheckingMessage);
+      if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation('Clock In'));
+      if (action === 'clockOut' && todayAttendance) await employeeRepository.clockOut(todayAttendance.id, await freshLocation('Clock Out'));
       if (action === 'startBreak' && todayAttendance) await employeeRepository.startBreak(todayAttendance.id);
       if (action === 'endBreak' && activeBreak) await employeeRepository.endBreak(activeBreak.id);
       setNotice('Attendance updated.'); await load(true);
-    } catch (caughtError: any) { setError(caughtError.message || 'Attendance could not be updated.'); setRefreshing(false); }
+    } catch (caughtError: any) { setError(caughtError.message || 'Attendance could not be updated.'); }
+    finally { attendanceRequest.current = false; setAttendanceStatus(''); setRefreshing(false); }
   };
 
   const markAllRead = async () => {
@@ -136,13 +141,13 @@ export default function EmployeeDashboard() {
       <div><p className="eyebrow">{new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p><h2>Good morning, {profile.full_name}.</h2><p>{richProfile.department?.name || 'BSmile'} {richProfile.designation ? `- ${richProfile.designation}` : ''} - here is your day at a glance.</p></div>
       <a href="/employee/profile" className="profile-chip"><span>{profile.full_name?.slice(0, 1)?.toUpperCase() || 'B'}</span><div><b>My profile</b><small>View details</small></div></a>
     </div>
-    {error && <p className="dashboard-message dashboard-error">{error}</p>}{notice && <p className="dashboard-message dashboard-success">{notice}</p>}
+    {error && <p className="dashboard-message dashboard-error">{error}</p>}{attendanceStatus && <p className="dashboard-message">{attendanceStatus}</p>}{notice && <p className="dashboard-message dashboard-success">{notice}</p>}
 
     {canAttendance && <section className="attendance-card">
       <div><p className="eyebrow">TODAY&apos;S ATTENDANCE</p><h3>{!todayAttendance ? 'Not clocked in' : todayAttendance.clock_out ? 'Day completed' : activeBreak ? 'On a break' : 'Working today'}</h3><p>Clock in: <b>{fmtTime(todayAttendance?.clock_in)}</b> &nbsp; Clock out: <b>{fmtTime(todayAttendance?.clock_out)}</b></p><p className="attendance-duration">{workingDuration(todayAttendance, activeBreak)}</p></div>
       <div className="attendance-actions">
-        {!todayAttendance && <button className="button button-primary" disabled={refreshing} onClick={() => void attendanceAction('clockIn')}>Clock in</button>}
-        {todayAttendance && !todayAttendance.clock_out && !activeBreak && <><button className="button button-secondary" disabled={refreshing} onClick={() => void attendanceAction('startBreak')}>Start break</button><button className="button button-primary" disabled={refreshing} onClick={() => void attendanceAction('clockOut')}>Clock out</button></>}
+        {!todayAttendance && <button className="button button-primary" disabled={refreshing} onClick={() => void attendanceAction('clockIn')}>{attendanceStatus ? 'Checking location...' : error === locationBlockedMessage ? 'Try again' : 'Clock in'}</button>}
+        {todayAttendance && !todayAttendance.clock_out && !activeBreak && <><button className="button button-secondary" disabled={refreshing} onClick={() => void attendanceAction('startBreak')}>Start break</button><button className="button button-primary" disabled={refreshing} onClick={() => void attendanceAction('clockOut')}>{attendanceStatus ? 'Checking location...' : error === locationBlockedMessage ? 'Try again' : 'Clock out'}</button></>}
         {activeBreak && <button className="button button-primary" disabled={refreshing} onClick={() => void attendanceAction('endBreak')}>End break</button>}
         <a className="button button-quiet" href="/employee/attendance">Attendance history</a>
       </div>
