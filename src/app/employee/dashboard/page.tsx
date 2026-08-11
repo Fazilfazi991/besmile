@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
+import { freshLocation } from '@/lib/attendance-geofence';
 import { permissionAllows, type PermissionRequirement } from '@/lib/permission-access';
 
 type DashboardData = Record<string, any>;
@@ -103,8 +104,8 @@ export default function EmployeeDashboard() {
     if (!profile) return;
     setNotice(''); setError(''); setRefreshing(true);
     try {
-      if (action === 'clockIn') await employeeRepository.clockIn(profile.id);
-      if (action === 'clockOut' && todayAttendance) await employeeRepository.clockOut(todayAttendance.id);
+      if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation());
+      if (action === 'clockOut' && todayAttendance) await employeeRepository.clockOut(todayAttendance.id, await freshLocation());
       if (action === 'startBreak' && todayAttendance) await employeeRepository.startBreak(todayAttendance.id);
       if (action === 'endBreak' && activeBreak) await employeeRepository.endBreak(activeBreak.id);
       setNotice('Attendance updated.'); await load(true);

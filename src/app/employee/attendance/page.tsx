@@ -5,6 +5,7 @@ import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
 import { canClockIn, dateKey, minutes, monthlyDays, weekday } from '@/lib/attendance-rules';
 import { awarenessEventsForMonth } from '@/lib/calendar-events';
+import { freshLocation } from '@/lib/attendance-geofence';
 import { EmployeeBanner, EmployeeLoading, EmployeeMetric, EmployeeMetricGrid, EmployeePageHeader, EmployeeSection, EmployeeStatusBadge } from '@/components/employee-ui';
 
 const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -54,8 +55,8 @@ export default function AttendancePage() {
     if (!profile) return;
     setActing(true); setError(''); setNotice('');
     try {
-      if (action === 'clockIn') await employeeRepository.clockIn(profile.id);
-      if (action === 'clockOut' && activeToday?.row) await employeeRepository.clockOut(activeToday.row.id);
+      if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation());
+      if (action === 'clockOut' && activeToday?.row) await employeeRepository.clockOut(activeToday.row.id, await freshLocation());
       if (action === 'startBreak' && activeToday?.row) await employeeRepository.startBreak(activeToday.row.id);
       if (action === 'endBreak' && activeBreak) await employeeRepository.endBreak(activeBreak.id);
       setNotice('Attendance updated.');
