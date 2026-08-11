@@ -102,7 +102,7 @@ begin
   if meeting_type_value not in ('office','google_meet','microsoft_teams','zoom','other') then raise exception 'Choose a valid meeting type.'; end if;
   if target_meeting is not null and not exists (select 1 from public.meetings where id=target_meeting and (organizer_id=auth.uid() or public.has_permission('meetings.manage'))) then raise exception 'Permission denied for meeting update' using errcode='42501'; end if;
   ids := array(select distinct value from unnest(array_append(coalesce(participant_ids,'{}'::uuid[]), auth.uid())) value);
-  if exists (select 1 from unnest(ids) id left join public.profiles p on p.id=id where p.id is null or not p.is_employee) then raise exception 'Choose active employee invitees only.'; end if;
+  if exists (select 1 from unnest(ids) as candidate(employee_id) left join public.profiles p on p.id=candidate.employee_id where p.id is null or not p.is_employee) then raise exception 'Choose active employee invitees only.'; end if;
   select jsonb_agg(jsonb_build_object('employee_id',employee_id,'kind',conflict_kind,'title',conflict_title,'start_at',conflict_start,'end_at',conflict_end)) into conflicts from public.meeting_conflicts(meeting_start,meeting_end,ids,target_meeting);
   if conflicts is not null then raise exception 'Selected invitees are unavailable: %', conflicts using errcode='23P01'; end if;
   if target_meeting is null then
