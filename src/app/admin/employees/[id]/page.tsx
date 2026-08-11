@@ -543,7 +543,7 @@ function Overview({ profile, data, employment, personal, metrics }: any) {
   const today = data.todayAttendance;
   return (
     <div className="grid gap-5 xl:grid-cols-2">
-      <Panel title="Employment information">
+      <Panel title="Employee Information">
         <Pairs entries={employment} />
       </Panel>
       <Panel title="Contact information">
