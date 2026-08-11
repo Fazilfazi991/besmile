@@ -14,4 +14,11 @@ describe("chat composer emoji insertion", () => {
       "Hello 😊",
     );
   });
+
+  it("keeps the caret after a multi-code-unit emoji inserted mid-draft", () => {
+    expect(insertEmojiAtCursor("AB", "\u{1F60A}", 1, 1)).toEqual({
+      value: "A\u{1F60A}B",
+      cursor: 3,
+    });
+  });
 });

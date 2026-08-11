@@ -10,6 +10,22 @@ const sql = readFileSync(
   "utf8",
 );
 
+const privilegeHardeningSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260811153000_chat_function_privilege_hardening.sql",
+  ),
+  "utf8",
+);
+
+const notificationOverloadFixSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260811154500_chat_notification_overload_fix.sql",
+  ),
+  "utf8",
+);
+
 describe("company chat and voice migration", () => {
   it("creates exactly one keyed system group and backfills current employees", () => {
     expect(sql).toContain("system_key = 'all_employees'");
@@ -37,6 +53,26 @@ describe("company chat and voice migration", () => {
     );
     expect(sql).toContain(
       "create or replace function public.create_group_chat",
+    );
+  });
+
+  it("keeps internal security-definer helpers out of anon and authenticated RPC", () => {
+    expect(privilegeHardeningSql).toContain(
+      "from public, anon, authenticated",
+    );
+    expect(privilegeHardeningSql).toContain(
+      "grant execute on function public.ensure_my_all_employees_chat()",
+    );
+    expect(privilegeHardeningSql).toContain("to authenticated");
+  });
+
+  it("uses the unambiguous notification overload for new chat messages", () => {
+    expect(notificationOverloadFixSql).toContain("'system'::text");
+    expect(notificationOverloadFixSql).toContain("'normal'::text");
+    expect(notificationOverloadFixSql).toContain("'none'::text");
+    expect(notificationOverloadFixSql).toContain("'{}'::jsonb");
+    expect(notificationOverloadFixSql).toContain(
+      "from public, anon, authenticated",
     );
   });
 });

@@ -68,6 +68,7 @@ export function ChatHub() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const textSelectionRef = useRef({ start: 0, end: 0 });
   const emojiRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -296,12 +297,17 @@ export function ChatHub() {
   };
   const insertEmoji = (emoji: string) => {
     const input = textRef.current;
+    const selection = textSelectionRef.current;
     const inserted = insertEmojiAtCursor(
       text,
       emoji,
-      input?.selectionStart ?? text.length,
-      input?.selectionEnd ?? text.length,
+      selection.start,
+      selection.end,
     );
+    textSelectionRef.current = {
+      start: inserted.cursor,
+      end: inserted.cursor,
+    };
     setText(inserted.value);
     setEmojiOpen(false);
     requestAnimationFrame(() => {
@@ -745,7 +751,19 @@ export function ChatHub() {
                       rows={1}
                       placeholder="Write a message"
                       value={text}
-                      onChange={(event) => setText(event.target.value)}
+                      onChange={(event) => {
+                        setText(event.target.value);
+                        textSelectionRef.current = {
+                          start: event.target.selectionStart,
+                          end: event.target.selectionEnd,
+                        };
+                      }}
+                      onSelect={(event) => {
+                        textSelectionRef.current = {
+                          start: event.currentTarget.selectionStart,
+                          end: event.currentTarget.selectionEnd,
+                        };
+                      }}
                       onKeyDown={submitKey}
                       disabled={
                         sending || !active.chat_conversations?.channel_id
