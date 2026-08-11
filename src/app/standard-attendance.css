@@ -1,0 +1,4 @@
+/* Standard Mode uses the same shared My Attendance card as Colorful Mode. */
+html:not([data-theme="colorful"]) .standard-hub-header~.my-attendance-card {
+  display: flex;
+}
