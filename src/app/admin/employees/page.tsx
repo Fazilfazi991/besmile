@@ -3,14 +3,142 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { adminRepository } from '@/lib/admin-repository';
-import { employeeStatuses, employeeStatusLabel, isFormerEmployeeStatus, isOperationalEmployeeStatus } from '@/lib/employee-status';
+import {
+  employeeStatuses,
+  employeeStatusLabel,
+  isFormerEmployeeStatus,
+  isOperationalEmployeeStatus,
+} from '@/lib/employee-status';
+
+type WorkforceView = 'active' | 'removed' | 'all';
 
 export default function EmployeesPage() {
-  const [employees, setEmployees] = useState<any[]>([]); const [query, setQuery] = useState(''); const [role, setRole] = useState(''); const [status, setStatus] = useState(''); const [department, setDepartment] = useState(''); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
-  const load = async (value = query) => { setLoading(true); try { const result = await adminRepository.employees(value, 0, 150); setEmployees(result.data); setError(''); } catch (caught: any) { setError(caught.message || 'Employees could not be loaded.'); } finally { setLoading(false); } };
-  useEffect(() => { const timer = window.setTimeout(() => void load(''), 0); return () => window.clearTimeout(timer); }, []);
-  const departments = [...new Set(employees.map(employee => employee.department?.name).filter(Boolean))]; const roles = [...new Set(employees.map(employee => employee.role).filter(Boolean))]; const shown = useMemo(() => employees.filter(employee => (!role || employee.role === role) && (!status || employee.status === status) && (!department || employee.department?.name === department)), [employees, role, status, department]); const operational = employees.filter(employee => isOperationalEmployeeStatus(employee.status)).length; const former = employees.filter(employee => isFormerEmployeeStatus(employee.status)).length;
-  return <section className="mx-auto max-w-[1320px] space-y-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="eyebrow">People</p><h1 className="text-2xl font-bold">Employees</h1><p className="mt-1 text-sm text-slate-600">Manage employee profiles, status, access, and work activity.</p></div><Link className="btn btn-primary" href="/admin/employees/new">Add employee</Link></div>{error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}<div className="grid gap-3 sm:grid-cols-3"><Metric label="Total employees" value={String(employees.length)} hint="Visible in your current scope" /><Metric label="Operational workforce" value={String(operational)} hint="Active, intern, and probation" /><Metric label="Former / inactive" value={String(former)} hint="Inactive, resigned, and terminated" /></div><div className="card grid gap-2 p-3 md:grid-cols-[minmax(230px,1fr)_160px_160px_180px_auto]"><input className="input" placeholder="Search name, email, phone, or employee ID" value={query} onChange={event => setQuery(event.target.value)} /><select className="input" value={role} onChange={event => setRole(event.target.value)}><option value="">All roles</option>{roles.map(value => <option key={value}>{value}</option>)}</select><select className="input" value={department} onChange={event => setDepartment(event.target.value)}><option value="">All departments</option>{departments.map(value => <option key={value}>{value}</option>)}</select><select className="input" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{employeeStatuses.map(value => <option value={value} key={value}>{employeeStatusLabel(value)}</option>)}</select><button className="btn border" onClick={() => void load()}>Search</button></div><div className="card overflow-x-auto"><table className="min-w-[980px] w-full text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{['Employee', 'Employee ID', 'Role', 'Department', 'Designation', 'Joined', 'Status', 'Action'].map(label => <th className="px-4 py-3 text-left" key={label}>{label}</th>)}</tr></thead><tbody>{loading ? Array.from({ length: 5 }, (_, index) => <tr className="border-t" key={index}><td colSpan={8} className="px-4 py-5"><div className="h-4 animate-pulse rounded bg-slate-100" /></td></tr>) : shown.map(employee => <tr className="border-t border-slate-100" key={employee.id}><td className="px-4 py-3"><b>{employee.full_name}</b><small className="block text-slate-500">{employee.email}</small></td><td className="px-4 py-3">{employee.employee_code || '—'}</td><td className="px-4 py-3 capitalize">{employee.role}</td><td className="px-4 py-3">{employee.department?.name || '—'}</td><td className="px-4 py-3">{employee.designation || '—'}</td><td className="px-4 py-3">{employee.joining_date || '—'}</td><td className="px-4 py-3"><StatusBadge status={employee.status} /></td><td className="px-4 py-3"><Link className="font-semibold text-teal-700 hover:underline" href={`/admin/employees/${employee.id}`}>Open profile</Link></td></tr>)}</tbody></table>{!loading && !shown.length && <p className="p-8 text-center text-sm text-slate-500">No employees match this directory view.</p>}</div></section>;
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [query, setQuery] = useState('');
+  const [role, setRole] = useState('');
+  const [status, setStatus] = useState('');
+  const [workforceView, setWorkforceView] = useState<WorkforceView>('active');
+  const [department, setDepartment] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = async (value = query) => {
+    setLoading(true);
+    try {
+      const result = await adminRepository.employees(value, 0, 150, 'all');
+      setEmployees(result.data);
+      setError('');
+    } catch (caught: any) {
+      setError(caught.message || 'Employees could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(''), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const departments = [...new Set(employees.map((employee) => employee.department?.name).filter(Boolean))];
+  const roles = [...new Set(employees.map((employee) => employee.role).filter(Boolean))];
+  const shown = useMemo(
+    () => employees.filter((employee) => {
+      const inWorkforceView = workforceView === 'all'
+        || (workforceView === 'active'
+          ? !isFormerEmployeeStatus(employee.status) && employee.workforce_visible !== false
+          : isFormerEmployeeStatus(employee.status) || employee.workforce_visible === false);
+      return inWorkforceView
+        && (!role || employee.role === role)
+        && (!status || employee.status === status)
+        && (!department || employee.department?.name === department);
+    }),
+    [employees, role, status, workforceView, department],
+  );
+  const operational = employees.filter((employee) => isOperationalEmployeeStatus(employee.status) && employee.workforce_visible !== false).length;
+  const former = employees.filter((employee) => isFormerEmployeeStatus(employee.status)).length;
+
+  return (
+    <section className="mx-auto max-w-[1320px] space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow">People</p>
+          <h1 className="text-2xl font-bold">Employees</h1>
+          <p className="mt-1 text-sm text-slate-600">Manage employee profiles, status, access, and work activity.</p>
+        </div>
+        <Link className="btn btn-primary" href="/admin/employees/new">Add employee</Link>
+      </div>
+      {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Metric label="Total employees" value={String(employees.length)} hint="Visible in your current scope" />
+        <Metric label="Operational workforce" value={String(operational)} hint="Active, intern, and probation" />
+        <Metric label="Former / inactive" value={String(former)} hint="Inactive, resigned, and terminated" />
+      </div>
+      <div className="card grid gap-2 p-3 md:grid-cols-[150px_minmax(220px,1fr)_150px_150px_170px_auto]">
+        <select className="input" aria-label="Workforce view" value={workforceView} onChange={(event) => setWorkforceView(event.target.value as WorkforceView)}>
+          <option value="active">Active</option>
+          <option value="removed">Removed / inactive</option>
+          <option value="all">All</option>
+        </select>
+        <input className="input" placeholder="Search name, email, phone, or employee ID" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <select className="input" value={role} onChange={(event) => setRole(event.target.value)}>
+          <option value="">All roles</option>
+          {roles.map((value) => <option key={value}>{value}</option>)}
+        </select>
+        <select className="input" value={department} onChange={(event) => setDepartment(event.target.value)}>
+          <option value="">All departments</option>
+          {departments.map((value) => <option key={value}>{value}</option>)}
+        </select>
+        <select className="input" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="">All statuses</option>
+          {employeeStatuses.map((value) => <option value={value} key={value}>{employeeStatusLabel(value)}</option>)}
+        </select>
+        <button className="btn border" onClick={() => void load()}>Search</button>
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[980px] text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>{['Employee', 'Employee ID', 'Role', 'Department', 'Designation', 'Joined', 'Status', 'Action'].map((label) => <th className="px-4 py-3 text-left" key={label}>{label}</th>)}</tr>
+          </thead>
+          <tbody>
+            {loading
+              ? Array.from({ length: 5 }, (_, index) => <tr className="border-t" key={index}><td colSpan={8} className="px-4 py-5"><div className="h-4 animate-pulse rounded bg-slate-100" /></td></tr>)
+              : shown.map((employee) => (
+                <tr className="border-t border-slate-100" key={employee.id}>
+                  <td className="px-4 py-3"><b>{employee.full_name}</b><small className="block text-slate-500">{employee.email}</small></td>
+                  <td className="px-4 py-3">{employee.employee_code || '—'}</td>
+                  <td className="px-4 py-3 capitalize">{employee.role}</td>
+                  <td className="px-4 py-3">{employee.department?.name || '—'}</td>
+                  <td className="px-4 py-3">{employee.designation || '—'}</td>
+                  <td className="px-4 py-3">{employee.joining_date || '—'}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={employee.status} />
+                    {employee.removed_at && <small className="mt-1 block text-slate-500">Removed {new Date(employee.removed_at).toLocaleDateString()}{employee.remover?.full_name ? ` by ${employee.remover.full_name}` : ''}</small>}
+                  </td>
+                  <td className="px-4 py-3"><Link className="font-semibold text-teal-700 hover:underline" href={`/admin/employees/${employee.id}`}>Open profile</Link></td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+        {!loading && !shown.length && <p className="p-8 text-center text-sm text-slate-500">No employees match this directory view.</p>}
+      </div>
+    </section>
+  );
 }
-function Metric({ label, value, hint }: { label: string; value: string; hint: string }) { return <div className="card p-4"><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-xl font-bold">{value}</p><p className="mt-1 text-xs text-slate-500">{hint}</p></div>; }
-function StatusBadge({ status }: { status: string }) { const tone: Record<string, string> = { active: 'bg-emerald-50 text-emerald-800', intern: 'bg-sky-50 text-sky-800', probation: 'bg-violet-50 text-violet-800', on_leave: 'bg-amber-50 text-amber-800', inactive: 'bg-slate-100 text-slate-700', resigned: 'bg-orange-50 text-orange-800', terminated: 'bg-rose-50 text-rose-800' }; return <span className={`rounded-full px-2 py-1 text-xs font-bold ${tone[status] || 'bg-slate-100 text-slate-700'}`}>{employeeStatusLabel(status)}</span>; }
+
+function Metric({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return <div className="card p-4"><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-xl font-bold">{value}</p><p className="mt-1 text-xs text-slate-500">{hint}</p></div>;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const tone: Record<string, string> = {
+    active: 'bg-emerald-50 text-emerald-800',
+    intern: 'bg-sky-50 text-sky-800',
+    probation: 'bg-violet-50 text-violet-800',
+    on_leave: 'bg-amber-50 text-amber-800',
+    inactive: 'bg-slate-100 text-slate-700',
+    resigned: 'bg-orange-50 text-orange-800',
+    terminated: 'bg-rose-50 text-rose-800',
+  };
+  return <span className={`rounded-full px-2 py-1 text-xs font-bold ${tone[status] || 'bg-slate-100 text-slate-700'}`}>{employeeStatusLabel(status)}</span>;
+}

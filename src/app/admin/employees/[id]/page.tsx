@@ -22,7 +22,12 @@ import { FinanceStatus, inr } from "@/components/finance-ui";
 import {
   canChangeEmployeeStatus,
   canManageEmployee,
+  canRemoveEmployee,
+  canRestoreEmployee,
+  employeeRemovalReasons,
   employeeStatuses,
+  removalReasonText,
+  removalReasonValidation,
   statusChangeValidation,
   type EmployeeStatus,
 } from "@/lib/employee-management-rules";
@@ -57,6 +62,10 @@ export default function AdminEmployeeProfile() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [nextStatus, setNextStatus] = useState<EmployeeStatus>("active");
   const [statusReason, setStatusReason] = useState("");
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [removalReason, setRemovalReason] = useState("");
+  const [removalDetails, setRemovalDetails] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [edit, setEdit] = useState<any>({});
   const [editOptions, setEditOptions] = useState<any>({
@@ -70,12 +79,13 @@ export default function AdminEmployeeProfile() {
       const admin = (await currentProfile()) as any;
       if (!admin)
         throw new Error("Your session is unavailable. Please try again.");
-      const [canViewEmployees, canEditEmployees, canManageEmployees, canStatusEmployees] =
+      const [canViewEmployees, canEditEmployees, canManageEmployees, canStatusEmployees, canRemoveEmployees] =
         await Promise.all([
           employeeRepository.hasPermission("employees.view"),
           employeeRepository.hasPermission("employees.edit"),
           employeeRepository.hasPermission("employees.manage"),
           employeeRepository.hasPermission("employees.status.manage"),
+          employeeRepository.hasPermission("employees.remove"),
         ]);
       if (!canViewEmployees)
         throw new Error(
@@ -90,6 +100,7 @@ export default function AdminEmployeeProfile() {
         ...admin,
         canEditEmployees: canEditEmployees || canManageEmployees,
         canStatusEmployees: canStatusEmployees || canManageEmployees,
+        canRemoveEmployees,
         canManageAccess: admin.role === "super_admin",
       });
       setProfile(employee);
@@ -167,6 +178,46 @@ export default function AdminEmployeeProfile() {
       router.refresh();
     } catch (caught: any) {
       setError(caught.message || "Employee status could not be changed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const removeEmployee = async () => {
+    const message = removalReasonValidation(removalReason, removalDetails);
+    if (message) {
+      setError(message);
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await adminRepository.removeEmployee(
+        profile.id,
+        removalReasonText(removalReason, removalDetails),
+      );
+      setNotice("Employee removed from the current workforce. Historical records were preserved.");
+      setRemoveOpen(false);
+      setRemovalReason("");
+      setRemovalDetails("");
+      await load();
+      router.refresh();
+    } catch (caught: any) {
+      setError(caught.message || "Employee could not be removed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const restoreEmployee = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await adminRepository.restoreEmployee(profile.id);
+      setNotice("Employee restored to the current workforce. Revoked direct grants remain revoked.");
+      setRestoreOpen(false);
+      await load();
+      router.refresh();
+    } catch (caught: any) {
+      setError(caught.message || "Employee could not be restored.");
     } finally {
       setBusy(false);
     }
@@ -268,6 +319,10 @@ export default function AdminEmployeeProfile() {
   const canChangeStatus =
     Boolean(viewer?.canStatusEmployees) &&
     canChangeEmployeeStatus(viewer, profile);
+  const canRemove =
+    Boolean(viewer?.canRemoveEmployees) && canRemoveEmployee(viewer, profile);
+  const canRestore =
+    Boolean(viewer?.canRemoveEmployees) && canRestoreEmployee(viewer, profile);
   const employment = [
     ["Employee ID", profile.employee_code],
     ["Work email", profile.email],
@@ -278,6 +333,13 @@ export default function AdminEmployeeProfile() {
     ["Joining date", profile.joining_date],
     ["Employment type", profile.employment_type],
     ["Employment status", profile.status],
+    ...(profile.removed_at
+      ? [
+          ["Removal date", formatDate(profile.removed_at)],
+          ["Removal reason", profile.removal_reason],
+          ["Removed by", profile.remover?.full_name],
+        ]
+      : []),
   ];
   const personal = [
     ["Personal phone", profile.phone],
@@ -323,6 +385,11 @@ export default function AdminEmployeeProfile() {
             </p>
             <div className="mt-2 flex gap-2">
               <FinanceStatus value={profile.status} />
+              {profile.removed_at && (
+                <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-bold text-rose-800">
+                  Removed / inactive
+                </span>
+              )}
               <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold capitalize">
                 {profile.role}
               </span>
@@ -337,9 +404,30 @@ export default function AdminEmployeeProfile() {
               Manage access
             </Link>
           )}
-          <Link className="btn btn-primary" href="/admin/tasks">
-            Assign task
-          </Link>
+          {isOperationalEmployeeStatus(profile.status) && (
+            <Link className="btn btn-primary" href="/admin/tasks">
+              Assign task
+            </Link>
+          )}
+          {(canRemove || canRestore) && <span className="hidden h-9 border-l border-slate-200 sm:block" aria-hidden="true" />}
+          {canRemove && (
+            <button
+              className="btn border border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100"
+              disabled={busy}
+              onClick={() => setRemoveOpen(true)}
+            >
+              Remove employee
+            </button>
+          )}
+          {canRestore && (
+            <button
+              className="btn border border-teal-300 bg-teal-50 text-teal-900"
+              disabled={busy}
+              onClick={() => setRestoreOpen(true)}
+            >
+              Restore employee
+            </button>
+          )}
         </div>
       </header>
       {error && <Banner error={error} />}
@@ -347,6 +435,16 @@ export default function AdminEmployeeProfile() {
         <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
           {notice}
         </p>
+      )}
+      {profile.removed_at && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950">
+          <b>Removed from current workforce</b>
+          <p className="mt-1">
+            {formatDate(profile.removed_at)} · {profile.removal_reason || "No reason recorded"}
+            {profile.remover?.full_name ? ` · removed by ${profile.remover.full_name}` : ""}
+          </p>
+          <p className="mt-1 text-rose-800">Historical attendance, payroll, tasks, CRM, Chat, meetings, finance and audit records remain available.</p>
+        </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <Metric label="Attendance this month" value={`${metrics.days} days`} />
@@ -515,6 +613,48 @@ export default function AdminEmployeeProfile() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {removeOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 p-3 sm:p-4">
+          <div className="card w-full max-w-lg border border-rose-200 p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="remove-employee-title">
+            <p className="text-xs font-bold uppercase tracking-wide text-rose-700">Destructive workforce action</p>
+            <h2 id="remove-employee-title" className="mt-1 text-xl font-bold">Remove {profile.full_name}?</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              This employee will lose active access and will be removed from the current workforce. Historical attendance, payroll and other records will be preserved.
+            </p>
+            <div className="mt-5 grid gap-3">
+              <label className="text-sm font-medium">
+                Reason for removal
+                <select className="input mt-1" required value={removalReason} onChange={(event) => setRemovalReason(event.target.value)}>
+                  <option value="">Choose a reason</option>
+                  {employeeRemovalReasons.map((reason) => <option value={reason} key={reason}>{reason}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-medium">
+                Details {removalReason === "Other" ? "(required)" : "(optional)"}
+                <textarea className="input mt-1 min-h-24" maxLength={950} value={removalDetails} onChange={(event) => setRemovalDetails(event.target.value)} placeholder="Add context for the audit history" />
+              </label>
+            </div>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button className="btn border" disabled={busy} onClick={() => setRemoveOpen(false)}>Cancel</button>
+              <button className="btn border border-rose-700 bg-rose-700 text-white hover:bg-rose-800" disabled={busy || !removalReason} onClick={() => void removeEmployee()}>
+                {busy ? "Removing…" : "Remove employee"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {restoreOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-3 sm:p-4">
+          <div className="card w-full max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="restore-employee-title">
+            <h2 id="restore-employee-title" className="text-xl font-bold">Restore {profile.full_name}?</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-700">This returns the existing profile to the current workforce. Previously revoked direct permission grants will remain revoked.</p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button className="btn border" disabled={busy} onClick={() => setRestoreOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" disabled={busy} onClick={() => void restoreEmployee()}>{busy ? "Restoring…" : "Restore employee"}</button>
+            </div>
+          </div>
         </div>
       )}
       {statusOpen && (

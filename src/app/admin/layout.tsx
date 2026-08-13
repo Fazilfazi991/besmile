@@ -4,6 +4,8 @@ import { GlobalCommandCenter } from '@/components/global-command-center';
 import { redirect } from 'next/navigation';
 import { PermissionSidebar } from '@/components/permission-sidebar';
 import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
+import { grantedPermissions } from '@/lib/granted-permissions';
+import Link from 'next/link';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
@@ -16,8 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
   if (!profile) redirect('/unauthorized');
   if (profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
-  const permissionResults = await Promise.all(navigationPermissionCodes.map(permission => db.rpc('has_permission', { permission_code: permission })));
-  const allowed = new Set<string>(navigationPermissionCodes.filter((_, index) => permissionResults[index].data === true));
+  const allowed = await grantedPermissions(db, navigationPermissionCodes);
   if (profile.role !== 'super_admin' && !isManagementRole(profile.role) && !allowed.has('admin.shell')) redirect('/employee/dashboard');
   const isEmployeeShell = profile.role !== 'super_admin' && !isManagementRole(profile.role);
   const visibleGroups = filterNavigation(navigationForProfile(profile.role), allowed);
@@ -29,7 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return <div className="app-shell employee-shell">
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={subtitle} profileHref={profileHref} />
     <main className="app-main">
-      <header className="app-topbar">{isEmployeeShell && <div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div>}<div className="topbar-actions"><ThemeModeSwitcher /><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><a className="topbar-user" href={profileHref}><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{subtitle}</small></div></a></div></header>
+      <header className="app-topbar">{isEmployeeShell && <div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div>}<div className="topbar-actions"><ThemeModeSwitcher /><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><Link className="topbar-user" href={profileHref}><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{subtitle}</small></div></Link></div></header>
       <div className="app-content">{children}</div>
     </main>
   </div>;

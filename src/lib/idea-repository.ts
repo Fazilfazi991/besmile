@@ -40,7 +40,7 @@ export const ideaRepository = {
 
   async feed() {
     const { data, error } = await db().from('ideas')
-      .select('*,category:idea_categories(id,name),submitter:profiles!ideas_submitted_by_fkey(id,full_name,avatar_url,designation,department:departments(name)),supports:idea_supports(id,employee_id),comments:idea_comments(id,is_deleted)')
+      .select('*,category:idea_categories(id,name),submitter:profiles!ideas_submitted_by_fkey(id,full_name,avatar_url,designation,department:departments(name)),supports:idea_supports(id,employee_id),comments:idea_comments(id,is_deleted),attachments:idea_attachments(id)')
       .order('created_at', { ascending: false })
       .limit(60);
     if (error) throw error;
@@ -135,7 +135,7 @@ export const ideaRepository = {
   async notifyMentions(ideaId: string, profileId: string, content: string, commentId: string) {
     const mentionText = content.toLowerCase();
     if (!mentionText.includes('@')) return;
-    const { data: people, error } = await db().from('profiles').select('id,full_name').eq('status', 'active');
+    const { data: people, error } = await db().from('profiles').select('id,full_name').eq('is_employee', true).eq('workforce_visible', true).eq('status', 'active');
     if (error) throw error;
     const recipients = (people || []).filter((person: any) => person.id !== profileId && person.full_name && mentionText.includes(`@${String(person.full_name).toLowerCase()}`));
     await Promise.all([...new Map(recipients.map((person: any) => [person.id, person])).values()].map((person: any) => db().rpc('notify_user', {

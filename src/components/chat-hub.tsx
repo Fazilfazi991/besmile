@@ -5,6 +5,7 @@
 import {
   FormEvent,
   KeyboardEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -41,6 +42,8 @@ export function ChatHub() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [active, setActive] = useState<any>();
   const [messages, setMessages] = useState<any[]>([]);
+  const [hasEarlierMessages, setHasEarlierMessages] = useState(false);
+  const [loadingEarlierMessages, setLoadingEarlierMessages] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
   const [query, setQuery] = useState("");
   const [messageQuery, setMessageQuery] = useState("");
@@ -76,19 +79,24 @@ export function ChatHub() {
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartedRef = useRef(0);
   const messageRequest = useRef(0);
+  const profileRef = useRef<any>(undefined);
+  const activeRef = useRef<any>(undefined);
 
-  const load = async (selectedId?: string) => {
+  const load = useCallback(async (selectedId?: string) => {
     try {
-      const me = profile || ((await currentProfile()) as any);
+      const me = profileRef.current || ((await currentProfile()) as any);
       if (!me) throw new Error("Your session has expired.");
+      profileRef.current = me;
       setProfile(me);
       const list = await employeeRepository.conversations(me.id);
       setConversations(list);
       const next = selectedId
         ? list.find((item: any) => item.conversation_id === selectedId)
         : list.find(
-            (item: any) => item.conversation_id === active?.conversation_id,
+            (item: any) =>
+              item.conversation_id === activeRef.current?.conversation_id,
           ) || list[0];
+      activeRef.current = next || null;
       setActive(next || null);
       setError("");
     } catch (cause: any) {
@@ -99,39 +107,43 @@ export function ChatHub() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       void load();
     }, 0);
     return () => clearTimeout(timer);
-  }, []);
+  }, [load]);
   useEffect(() => {
-    if (!active || !profile) return;
+    const conversationId = active?.conversation_id;
+    const profileId = profile?.id;
+    if (!conversationId || !profileId) return;
     let alive = true;
     const requestId = ++messageRequest.current;
     setMessages([]);
+    setHasEarlierMessages(false);
     setError("");
     const loadMessages = async () => {
       try {
-        const rows = await employeeRepository.chatMessages(
-          active.conversation_id,
+        const page = await employeeRepository.chatMessagePage(
+          conversationId,
         );
         if (!alive || requestId !== messageRequest.current) return;
         setMessages(
-          rows.filter(
+          page.data.filter(
             (message: any) =>
-              message.conversation_id === active.conversation_id,
+              message.conversation_id === conversationId,
           ),
         );
+        setHasEarlierMessages(page.hasMore);
         await employeeRepository.markConversationRead(
-          active.conversation_id,
-          profile.id,
+          conversationId,
+          profileId,
         );
         setConversations((list) =>
           list.map((item) =>
-            item.conversation_id === active.conversation_id
+            item.conversation_id === conversationId
               ? { ...item, unread_count: 0 }
               : item,
           ),
@@ -150,21 +162,21 @@ export function ChatHub() {
     };
     void loadMessages();
     const channel = supabase
-      ?.channel(`chat-${active.conversation_id}`)
+      ?.channel(`chat-${conversationId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "chat_messages",
-          filter: `conversation_id=eq.${active.conversation_id}`,
+          filter: `conversation_id=eq.${conversationId}`,
         },
         (event: any) => {
           setMessages((rows) => upsertChatMessage(rows, event.new as any));
-          if (event.new.sender_id !== profile.id)
+          if (event.new.sender_id !== profileId)
             void employeeRepository.markConversationRead(
-              active.conversation_id,
-              profile.id,
+              conversationId,
+              profileId,
             );
         },
       )
@@ -175,12 +187,13 @@ export function ChatHub() {
     };
   }, [active?.conversation_id, profile?.id]);
   useEffect(() => {
-    if (!newChat || !profile) return;
+    const profileId = profile?.id;
+    if (!newChat || !profileId) return;
     const timer = setTimeout(() => {
       void employeeRepository
         .chatPeople(peopleQuery)
         .then((rows) =>
-          setPeople(rows.filter((person: any) => person.id !== profile.id)),
+          setPeople(rows.filter((person: any) => person.id !== profileId)),
         )
         .catch((cause) => setError(cause.message));
     }, 180);
@@ -293,6 +306,30 @@ export function ChatHub() {
       console.error(cause);
     } finally {
       setSending(false);
+    }
+  };
+  const loadEarlierMessages = async () => {
+    if (!active || loadingEarlierMessages || !messages.length) return;
+    setLoadingEarlierMessages(true);
+    const container = scrollRef.current;
+    const previousHeight = container?.scrollHeight || 0;
+    try {
+      const page = await employeeRepository.chatMessagePage(
+        active.conversation_id,
+        messages[0]?.created_at,
+      );
+      setMessages((current) => {
+        const known = new Set(current.map((message) => message.id));
+        return [...page.data.filter((message: any) => !known.has(message.id)), ...current];
+      });
+      setHasEarlierMessages(page.hasMore);
+      requestAnimationFrame(() => {
+        if (container) container.scrollTop += container.scrollHeight - previousHeight;
+      });
+    } catch (cause: any) {
+      setError(cause.message || "Earlier messages could not be loaded.");
+    } finally {
+      setLoadingEarlierMessages(false);
     }
   };
   const insertEmoji = (emoji: string) => {
@@ -440,6 +477,7 @@ export function ChatHub() {
     messageRequest.current++;
     setMessages([]);
     setError("");
+    activeRef.current = item;
     setActive(item);
     setDetails(false);
     setMessageQuery("");
@@ -593,7 +631,7 @@ export function ChatHub() {
           {active ? (
             <>
               <header className="chat-message-header">
-                <button className="chat-back" onClick={() => setActive(null)}>
+                <button className="chat-back" onClick={() => { activeRef.current = null; setActive(null); }}>
                   Back
                 </button>
                 {active.chat_conversations.is_system_group ? (
@@ -641,6 +679,16 @@ export function ChatHub() {
                 </div>
               )}
               <div className="chat-messages" ref={scrollRef}>
+                {hasEarlierMessages && !messageQuery.trim() && (
+                  <button
+                    type="button"
+                    className="chat-load-earlier"
+                    disabled={loadingEarlierMessages}
+                    onClick={() => void loadEarlierMessages()}
+                  >
+                    {loadingEarlierMessages ? "Loading..." : "Load earlier messages"}
+                  </button>
+                )}
                 {matchingMessages.map((message, index) => (
                   <Message
                     key={message.id}
@@ -1183,6 +1231,8 @@ function MessageFile({ message }: { message: any }) {
       rel="noreferrer"
     >
       {image && url ? (
+        // Signed, user-uploaded chat attachments are intentionally rendered directly.
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={message.attachment_name} />
       ) : (
         <span>FILE</span>

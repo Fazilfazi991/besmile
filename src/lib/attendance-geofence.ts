@@ -20,7 +20,7 @@ export const geolocationOptions: PositionOptions = {
 };
 
 export const locationCheckingMessage =
-  "Checking your location? This may take a few seconds.";
+  "Checking your location… This may take a few seconds.";
 
 export const locationBlockedMessage =
   "Location access is blocked. BSmile needs your location to verify that you are within the office attendance area. Enable Location permission for this site in your browser settings, then try again.";
@@ -66,7 +66,7 @@ export function validLocation(location: LocationEvidence) {
 }
 
 export const inaccurateLocationError = (accuracy: number) =>
-  `Your location was detected, but GPS accuracy is currently ?${Math.round(accuracy)}m. Attendance requires accuracy within 50m. Move to an area with a better location signal and try again.`;
+  `Your location was detected, but GPS accuracy is currently ±${Math.round(accuracy)}m. Attendance requires accuracy within 50m. Move to an area with a better location signal and try again.`;
 
 export function locationError(
   error: Pick<GeolocationPositionError, "code"> | undefined,

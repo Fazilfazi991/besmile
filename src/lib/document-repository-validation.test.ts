@@ -60,10 +60,30 @@ describe('employee document repository validation', () => {
   it('cleans uploaded employee-request objects and restores request status when metadata persistence fails', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/lib/employee-repository.ts'), 'utf8');
 
-    expect(repository).toContain("select('status')");
+    expect(repository).toMatch(/\.select\(["']status,document_submissions\(storage_path\)["']\)/);
     expect(repository).toContain('previousStatus');
-    expect(repository).toContain("storage.from('employee-documents').remove([path])");
-    expect(repository).toContain('update({status:previousStatus})');
-    expect(repository).toContain('file_size:file.size');
+    expect(repository).toMatch(/storage\s*\.from\(["']employee-documents["']\)\s*\.remove\(\[path\]\)/);
+    expect(repository).toMatch(/update\(\{\s*status:\s*previousStatus\s*\}\)/);
+    expect(repository).toMatch(/file_size:\s*file\.size/);
+    expect(repository).toContain('previousPath');
+    expect(repository).toContain('previousPath !== path');
+
+    const upload = repository.indexOf('.upload(path, file)');
+    const metadata = repository.indexOf('.from("document_submissions").upsert', upload);
+    const cleanup = repository.indexOf('.remove([path])', metadata);
+    const statusRestore = repository.indexOf('status: previousStatus', cleanup);
+    expect(upload).toBeGreaterThan(-1);
+    expect(metadata).toBeGreaterThan(upload);
+    expect(cleanup).toBeGreaterThan(metadata);
+    expect(statusRestore).toBeGreaterThan(cleanup);
+  });
+
+  it('allows rejected submissions to be corrected and removes the superseded object', () => {
+    const repository = readFileSync(resolve(process.cwd(), 'src/lib/employee-repository.ts'), 'utf8');
+    const page = readFileSync(resolve(process.cwd(), 'src/app/employee/documents/page.tsx'), 'utf8');
+    expect(repository).toContain('document_submissions(storage_path)');
+    expect(repository).toContain('remove([previousPath])');
+    expect(page).toContain("request.status === 'rejected'");
+    expect(page).toContain("'Replace document'");
   });
 });

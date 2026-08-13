@@ -9,7 +9,7 @@ export default async function NewEmployeePage() {
   if (!user) redirect('/sign-in');
   const [{ data: profile, error: profileError }, permission, departments, managers] = await Promise.all([
     db.from('profiles').select('role,status').eq('id', user.id).maybeSingle(), db.rpc('has_permission', { permission_code: 'employees.create' }),
-    db.from('departments').select('id,name').order('name'), db.from('profiles').select('id,full_name,role').eq('status', 'active').in('role', ['super_admin', 'chairman', 'director', 'general_manager']).order('full_name'),
+    db.from('departments').select('id,name').order('name'), db.from('profiles').select('id,full_name,role').eq('workforce_visible', true).eq('status', 'active').in('role', ['super_admin', 'chairman', 'director', 'general_manager']).order('full_name'),
   ]);
   if (profileError) {
     console.warn('Add employee profile lookup failed', { route: '/admin/employees/new', userId: user.id, code: profileError.code });

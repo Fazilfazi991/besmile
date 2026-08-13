@@ -20,6 +20,8 @@ export default function EmployeeDashboard() {
   const [profile, setProfile] = useState<any>();
   const [data, setData] = useState<DashboardData>({});
   const [loading, setLoading] = useState(true);
+  const [primaryLoading, setPrimaryLoading] = useState(true);
+  const [secondaryLoading, setSecondaryLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -28,48 +30,64 @@ export default function EmployeeDashboard() {
 
   const load = async (quiet = false) => {
     quiet ? setRefreshing(true) : setLoading(true);
+    setPrimaryLoading(true);
+    setSecondaryLoading(true);
     try {
       const signedInProfile = await currentProfile() as any;
       if (!signedInProfile) throw new Error('Your session has expired. Please sign in again.');
       setProfile(signedInProfile);
 
-      const permissionChecks = await Promise.all(dashboardPermissionCodes.map(permission => employeeRepository.hasPermission(permission)));
-      const permissions = new Set<string>(dashboardPermissionCodes.filter((_, index) => permissionChecks[index]));
+      const permissions = await employeeRepository.grantedPermissions(dashboardPermissionCodes);
       const can = (requirement: PermissionRequirement) => has(permissions, requirement);
       const canCrm = can({ anyOf: ['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view', 'sales.view'] });
+      setData(current => ({ ...current, permissions }));
+      setLoading(false);
 
-      const results = await Promise.allSettled([
+      const primaryPromise = Promise.allSettled([
         can({ anyOf: ['attendance.self', 'attendance.view_self', 'attendance.view', 'attendance.manage'] }) ? employeeRepository.attendanceHistory(signedInProfile.id) : Promise.resolve([]),
         can({ anyOf: ['tasks.view_self', 'tasks.assign'] }) ? employeeRepository.myTasks(signedInProfile.id) : Promise.resolve([]),
+        employeeRepository.notifications(signedInProfile.id, 0, 20),
+        employeeRepository.profile(signedInProfile.id),
+      ]);
+      const secondaryPromise = Promise.allSettled([
         can({ anyOf: ['leave.self', 'leave.request', 'leave.view', 'leave.manage', 'leave.approve'] }) ? employeeRepository.leaveHistory(signedInProfile.id) : Promise.resolve([]),
         can({ anyOf: ['documents.view', 'documents.employee.view', 'patient_documents.view'] }) ? employeeRepository.documentRequests(signedInProfile.id) : Promise.resolve([]),
         can({ anyOf: ['announcements.view', 'announcements.manage'] }) ? employeeRepository.announcements(signedInProfile.id) : Promise.resolve([]),
-        employeeRepository.notifications(signedInProfile.id, 0, 20),
-        employeeRepository.profile(signedInProfile.id),
         canCrm ? employeeRepository.myCrmLeads(signedInProfile.id) : Promise.resolve([]),
         canCrm ? employeeRepository.myCrmFollowups(signedInProfile.id) : Promise.resolve([]),
         canCrm ? employeeRepository.myCrmSales(signedInProfile.id) : Promise.resolve([]),
       ]);
-      const [attendance, tasks, leaves, documents, announcements, notifications, richProfile, crmLeads, crmFollowups, crmSales] = results;
-      setData({
-        permissions,
+      const primary = await primaryPromise;
+      const [attendance, tasks, notifications, richProfile] = primary;
+      setData(current => ({
+        ...current,
         attendance: attendance.status === 'fulfilled' ? attendance.value : [],
         tasks: tasks.status === 'fulfilled' ? tasks.value : [],
+        notifications: notifications.status === 'fulfilled' ? notifications.value : [],
+        richProfile: richProfile.status === 'fulfilled' ? richProfile.value : signedInProfile,
+      }));
+      setPrimaryLoading(false);
+
+      const secondary = await secondaryPromise;
+      const [leaves, documents, announcements, crmLeads, crmFollowups, crmSales] = secondary;
+      setData(current => ({
+        ...current,
         leaves: leaves.status === 'fulfilled' ? leaves.value : [],
         documents: documents.status === 'fulfilled' ? documents.value : [],
         announcements: announcements.status === 'fulfilled' ? announcements.value : [],
-        notifications: notifications.status === 'fulfilled' ? notifications.value : [],
-        richProfile: richProfile.status === 'fulfilled' ? richProfile.value : signedInProfile,
         crmLeads: crmLeads.status === 'fulfilled' ? crmLeads.value : [],
         crmFollowups: crmFollowups.status === 'fulfilled' ? crmFollowups.value : [],
         crmSales: crmSales.status === 'fulfilled' ? crmSales.value : [],
-      });
-      const failed = results.filter(result => result.status === 'rejected').length;
+      }));
+      setSecondaryLoading(false);
+      const failed = [...primary, ...secondary].filter(result => result.status === 'rejected').length;
       setError(failed ? `${failed} dashboard section${failed === 1 ? '' : 's'} could not be refreshed.` : '');
     } catch (caughtError: any) {
       setError(caughtError.message || 'Unable to load your workspace.');
     } finally {
       setLoading(false);
+      setPrimaryLoading(false);
+      setSecondaryLoading(false);
       setRefreshing(false);
     }
   };
@@ -119,8 +137,11 @@ export default function EmployeeDashboard() {
 
   const markAllRead = async () => {
     if (!profile) return;
-    try { await employeeRepository.markAllNotificationsRead(profile.id); setNotice('All notifications marked as read.'); await load(true); }
-    catch (caughtError: any) { setError(caughtError.message || 'Unable to update notifications.'); }
+    const previous = data.notifications || [];
+    const readAt = new Date().toISOString();
+    setData(current => ({ ...current, notifications: previous.map((item: any) => ({ ...item, read_at: item.read_at || readAt })) }));
+    try { await employeeRepository.markAllNotificationsRead(profile.id); setNotice('All notifications marked as read.'); }
+    catch (caughtError: any) { setData(current => ({ ...current, notifications: previous })); setError(caughtError.message || 'Unable to update notifications.'); }
   };
 
   if (loading) return <DashboardState title="Preparing your workspace" detail="Loading today's attendance, tasks, updates, and requests..." />;
@@ -139,9 +160,10 @@ export default function EmployeeDashboard() {
   return <div className="employee-dashboard">
     <div className="dashboard-welcome">
       <div><p className="eyebrow">{new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p><h2>Good morning, {profile.full_name}.</h2><p>{richProfile.department?.name || 'BSmile'} {richProfile.designation ? `- ${richProfile.designation}` : ''} - here is your day at a glance.</p></div>
-      <a href="/employee/profile" className="profile-chip"><span>{profile.full_name?.slice(0, 1)?.toUpperCase() || 'B'}</span><div><b>My profile</b><small>View details</small></div></a>
+      <Link href="/employee/profile" className="profile-chip"><span>{profile.full_name?.slice(0, 1)?.toUpperCase() || 'B'}</span><div><b>My profile</b><small>View details</small></div></Link>
     </div>
     {error && <p className="dashboard-message dashboard-error">{error}</p>}{attendanceStatus && <p className="dashboard-message">{attendanceStatus}</p>}{notice && <p className="dashboard-message dashboard-success">{notice}</p>}
+    {(primaryLoading || secondaryLoading) && <div className="dashboard-progress" role="status"><span />{primaryLoading ? 'Loading today\'s essentials...' : 'Loading additional dashboard sections...'}</div>}
 
     {canAttendance && <section className="attendance-card">
       <div><p className="eyebrow">TODAY&apos;S ATTENDANCE</p><h3>{!todayAttendance ? 'Not clocked in' : todayAttendance.clock_out ? 'Day completed' : activeBreak ? 'On a break' : 'Working today'}</h3><p>Clock in: <b>{fmtTime(todayAttendance?.clock_in)}</b> &nbsp; Clock out: <b>{fmtTime(todayAttendance?.clock_out)}</b></p><p className="attendance-duration">{workingDuration(todayAttendance, activeBreak)}</p></div>
@@ -149,7 +171,7 @@ export default function EmployeeDashboard() {
         {!todayAttendance && <button className="button button-primary" disabled={refreshing} onClick={() => void attendanceAction('clockIn')}>{attendanceStatus ? 'Checking location...' : error === locationBlockedMessage ? 'Try again' : 'Clock in'}</button>}
         {todayAttendance && !todayAttendance.clock_out && !activeBreak && <><button className="button button-secondary" disabled={refreshing} onClick={() => void attendanceAction('startBreak')}>Start break</button><button className="button button-primary" disabled={refreshing} onClick={() => void attendanceAction('clockOut')}>{attendanceStatus ? 'Checking location...' : error === locationBlockedMessage ? 'Try again' : 'Clock out'}</button></>}
         {activeBreak && <button className="button button-primary" disabled={refreshing} onClick={() => void attendanceAction('endBreak')}>End break</button>}
-        <a className="button button-quiet" href="/employee/attendance">Attendance history</a>
+        <Link className="button button-quiet" href="/employee/attendance">Attendance history</Link>
       </div>
     </section>}
 
@@ -170,20 +192,20 @@ export default function EmployeeDashboard() {
 
     <div className="dashboard-columns">
       {canTasks && <Section title="My tasks" link="/employee/tasks" linkLabel="View all tasks"><div className="dashboard-list">{displayTasks.length ? displayTasks.map((item: any) => <TaskRow key={item.id} item={item} today={today} />) : <Empty text="You have no active tasks." />}</div></Section>}
-      {canAnnouncements && <Section title="Announcements" link="/employee/announcements" linkLabel="View all announcements"><div className="dashboard-list">{displayAnnouncements.length ? displayAnnouncements.map((item: any) => <a className="list-item" href={`/employee/announcements/${item.id}`} key={item.id}><div><b>{item.title}</b><small>{item.category} - {fmtDate(item.published_at)}</small></div><StatusBadge value={item.is_read ? 'Read' : 'New'} /></a>) : <Empty text="No announcements right now." />}</div></Section>}
-      <Section title="Notifications" link="/employee/notifications" linkLabel="View all notifications" action={unreadNotifications ? <button className="text-button" onClick={() => void markAllRead()}>Mark all read</button> : undefined}><div className="dashboard-list">{displayNotifications.length ? displayNotifications.map((item: any) => <a className="list-item" href={employeeNotificationLink(item.deep_link)} key={item.id}><div><b>{item.title}</b><small>{item.message || item.body || 'Open to view details'} - {relativeTime(item.created_at)}</small></div><StatusBadge value={item.read_at ? 'Read' : 'New'} /></a>) : <Empty text="You are all caught up." />}</div></Section>
-      {canLeave && <Section title="Leave requests" link="/employee/leaves" linkLabel="Manage leave"><div className="dashboard-list">{(data.leaves || []).slice(0, 3).map((item: any) => <a className="list-item" href="/employee/leaves" key={item.id}><div><b>{item.leave_types?.name || item.leave_type || 'Leave request'}</b><small>{fmtDate(item.starts_on)} - {fmtDate(item.ends_on)}</small></div><StatusBadge value={item.status} /></a>)}{!(data.leaves || []).length && <Empty text="No leave requests yet." />}</div></Section>}
-      {canDocuments && <Section title="Document requests" link="/employee/documents" linkLabel="View documents"><div className="dashboard-list">{pendingDocuments.slice(0, 3).map((item: any) => <a className="list-item" href="/employee/documents" key={item.id}><div><b>{item.title || item.request_title || 'Requested document'}</b><small>Due {fmtDate(item.due_date)}</small></div><StatusBadge value={item.status} /></a>)}{!pendingDocuments.length && <Empty text="No documents are waiting for you." />}</div></Section>}
+      {canAnnouncements && <Section title="Announcements" link="/employee/announcements" linkLabel="View all announcements"><div className="dashboard-list">{displayAnnouncements.length ? displayAnnouncements.map((item: any) => <Link className="list-item" href={`/employee/announcements/${item.id}`} key={item.id}><div><b>{item.title}</b><small>{item.category} - {fmtDate(item.published_at)}</small></div><StatusBadge value={item.is_read ? 'Read' : 'New'} /></Link>) : <Empty text="No announcements right now." />}</div></Section>}
+      <Section title="Notifications" link="/employee/notifications" linkLabel="View all notifications" action={unreadNotifications ? <button className="text-button" onClick={() => void markAllRead()}>Mark all read</button> : undefined}><div className="dashboard-list">{displayNotifications.length ? displayNotifications.map((item: any) => <Link className="list-item" href={employeeNotificationLink(item.deep_link)} key={item.id}><div><b>{item.title}</b><small>{item.message || item.body || 'Open to view details'} - {relativeTime(item.created_at)}</small></div><StatusBadge value={item.read_at ? 'Read' : 'New'} /></Link>) : <Empty text="You are all caught up." />}</div></Section>
+      {canLeave && <Section title="Leave requests" link="/employee/leaves" linkLabel="Manage leave"><div className="dashboard-list">{(data.leaves || []).slice(0, 3).map((item: any) => <Link className="list-item" href="/employee/leaves" key={item.id}><div><b>{item.leave_types?.name || item.leave_type || 'Leave request'}</b><small>{fmtDate(item.starts_on)} - {fmtDate(item.ends_on)}</small></div><StatusBadge value={item.status} /></Link>)}{!(data.leaves || []).length && <Empty text="No leave requests yet." />}</div></Section>}
+      {canDocuments && <Section title="Document requests" link="/employee/documents" linkLabel="View documents"><div className="dashboard-list">{pendingDocuments.slice(0, 3).map((item: any) => <Link className="list-item" href="/employee/documents" key={item.id}><div><b>{item.title || item.request_title || 'Requested document'}</b><small>Due {fmtDate(item.due_date)}</small></div><StatusBadge value={item.status} /></Link>)}{!pendingDocuments.length && <Empty text="No documents are waiting for you." />}</div></Section>}
       {canTasks && <Section title="Upcoming" link="/employee/tasks" linkLabel="View tasks"><div className="dashboard-list">{upcoming.length ? upcoming.map((item, index) => <div className="list-item" key={`${item.kind}-${index}`}><div><b>{item.label}</b><small>{item.kind} - {fmtDate(item.date)}</small></div><StatusBadge value={item.kind} /></div>) : <Empty text="Nothing upcoming at the moment." />}</div></Section>}
     </div>
   </div>;
 }
 
-function Metric({ label, value, href }: { label: string; value: number; href: string }) { return <a className="metric-card metric-link" href={href}><p>{label}</p><b>{value}</b><small>View details</small></a>; }
-function Section({ title, link, linkLabel, action, children }: any) { return <section className="dashboard-section"><div className="section-heading"><h3>{title}</h3><div>{action}<a href={link}>{linkLabel}</a></div></div>{children}</section>; }
+function Metric({ label, value, href }: { label: string; value: number; href: string }) { return <Link className="metric-card metric-link" href={href}><p>{label}</p><b>{value}</b><small>View details</small></Link>; }
+function Section({ title, link, linkLabel, action, children }: any) { return <section className="dashboard-section"><div className="section-heading"><h3>{title}</h3><div>{action}<Link href={link}>{linkLabel}</Link></div></div>{children}</section>; }
 function StatusBadge({ value }: { value: string }) { return <span className={`status-badge status-${String(value).toLowerCase().replace(/\s+/g, '-')}`}>{String(value).replace('_', ' ')}</span>; }
 function Empty({ text }: { text: string }) { return <p className="dashboard-empty">{text}</p>; }
 function DashboardState({ title, detail }: { title: string; detail: string }) { return <section className="dashboard-state"><h2>{title}</h2><p>{detail}</p><a className="button button-primary" href="/sign-in">Sign in</a></section>; }
-function TaskRow({ item, today }: { item: any; today: string }) { const task = item.tasks || {}; const overdue = item.status !== 'completed' && task.due_date && task.due_date < today; return <a className="list-item" href="/employee/tasks"><div><b>{task.title || 'Untitled task'}</b><small>{task.priority || 'medium'} priority - Due {fmtDate(task.due_date)}</small></div><div className="badge-stack">{overdue && <StatusBadge value="Overdue" />}<StatusBadge value={item.status || 'todo'} /></div></a>; }
+function TaskRow({ item, today }: { item: any; today: string }) { const task = item.tasks || {}; const overdue = item.status !== 'completed' && task.due_date && task.due_date < today; return <Link className="list-item" href="/employee/tasks"><div><b>{task.title || 'Untitled task'}</b><small>{task.priority || 'medium'} priority - Due {fmtDate(task.due_date)}</small></div><div className="badge-stack">{overdue && <StatusBadge value="Overdue" />}<StatusBadge value={item.status || 'todo'} /></div></Link>; }
 function relativeTime(value?: string) { if (!value) return 'Recently'; const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000)); return minutes < 60 ? `${minutes || 1}m ago` : minutes < 1440 ? `${Math.floor(minutes / 60)}h ago` : `${Math.floor(minutes / 1440)}d ago`; }
 function workingDuration(attendance: any, activeBreak: any) { if (!attendance?.clock_in) return 'Clock in to start your workday.'; const end = attendance.clock_out ? new Date(attendance.clock_out).getTime() : Date.now(); const openBreak = activeBreak ? Math.max(0, Math.round((Date.now() - new Date(activeBreak.started_at).getTime()) / 60000)) : 0; const totalMinutes = Math.max(0, Math.round((end - new Date(attendance.clock_in).getTime()) / 60000) - (attendance.break_minutes || 0) - openBreak); return `Working duration: ${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`; }

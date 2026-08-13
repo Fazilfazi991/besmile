@@ -23,6 +23,24 @@ export const employeeRepository = {
     if (error) throw error;
     return !!data;
   },
+  async grantedPermissions(permissionCodes: readonly string[]) {
+    const r = required();
+    const { data, error } = await r.rpc("granted_permissions", {
+      permission_codes: [...permissionCodes],
+    });
+    if (
+      error &&
+      (error.code === "PGRST202" ||
+        /granted_permissions|schema cache|could not find/i.test(error.message || ""))
+    ) {
+      const checks = await Promise.all(
+        permissionCodes.map((code) => this.hasPermission(code)),
+      );
+      return new Set(permissionCodes.filter((_, index) => checks[index]));
+    }
+    if (error) throw error;
+    return new Set((data || []) as string[]);
+  },
   async dashboard(userId: string) {
     const r = required();
     const { data: settings, error: settingsError } = await r
@@ -325,6 +343,7 @@ export const employeeRepository = {
           "id,full_name,designation,avatar_url,department:departments(name)",
         )
         .eq("is_employee", true)
+        .eq("workforce_visible", true)
         .eq("status", "active")
         .order("full_name"),
       r
@@ -391,6 +410,7 @@ export const employeeRepository = {
           "id,full_name,employee_code,designation,department:departments(name)",
         )
         .eq("is_employee", true)
+        .eq("workforce_visible", true)
         .in("status", operationalEmployeeStatuses)
         .order("full_name"),
       r
@@ -735,6 +755,15 @@ export const employeeRepository = {
       )
     )
       throw ensured.error;
+    const summary = await r.rpc("chat_conversation_summaries");
+    if (!summary.error) return summary.data || [];
+    if (
+      summary.error.code !== "PGRST202" &&
+      !/chat_conversation_summaries|schema cache|could not find/i.test(
+        summary.error.message || "",
+      )
+    )
+      throw summary.error;
     const { data, error } = await r
       .from("chat_members")
       .select(
@@ -795,6 +824,22 @@ export const employeeRepository = {
       .order("created_at");
     if (error) throw error;
     return data;
+  },
+  async chatMessagePage(conversationId: string, before?: string, size = 50) {
+    let request = required()
+      .from("chat_messages")
+      .select(
+        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,sender:profiles!chat_messages_sender_id_fkey(full_name)",
+      )
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(size);
+    if (before) request = request.lt("created_at", before);
+    const { data, error } = await request;
+    if (error) throw error;
+    const rows = (data || []).reverse();
+    return { data: rows, hasMore: rows.length === size };
   },
   async sendMessage(payload: {
     conversation_id: string;
@@ -1127,12 +1172,13 @@ export const employeeRepository = {
     const r = required();
     const existing = await r
       .from("document_requests")
-      .select("status")
+      .select("status,document_submissions(storage_path)")
       .eq("id", requestId)
       .eq("profile_id", userId)
       .single();
     if (existing.error) throw existing.error;
     const previousStatus = existing.data?.status || "requested";
+    const previousPath = existing.data?.document_submissions?.[0]?.storage_path || null;
     const path = `${userId}/requests/${requestId}-${crypto.randomUUID()}-${file.name}`;
     let uploaded = false,
       updated = false;
@@ -1164,6 +1210,8 @@ export const employeeRepository = {
         { onConflict: "request_id" },
       );
       if (submission.error) throw submission.error;
+      if (previousPath && previousPath !== path)
+        await r.storage.from("employee-documents").remove([previousPath]);
       return path;
     } catch (error) {
       if (uploaded) await r.storage.from("employee-documents").remove([path]);

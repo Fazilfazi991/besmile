@@ -91,7 +91,7 @@ export function generateAvailableSlots(input: {
 }
 
 export function validateDoctorPayload(payload: { doctor_name: string; specialization: string; qualification: string; phone: string; email?: string | null; consultation_duration_minutes: number; notes?: string | null }) {
-  if (payload.doctor_name.trim().length < 2) return 'Doctor name is required.';
+  if (payload.doctor_name.trim().length < 2) return 'Psychologist name is required.';
   if (payload.specialization.trim().length < 2) return 'Specialization is required.';
   if (payload.qualification.trim().length < 2) return 'Qualification is required.';
   if (payload.phone.trim().length < 6) return 'Phone number is required.';

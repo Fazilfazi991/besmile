@@ -458,3 +458,4 @@
     max-height: none;
   }
 }
+.chat-load-earlier{align-self:center;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#475569;font-size:.78rem;font-weight:600;padding:.4rem .8rem;transition:background-color .15s ease,transform .15s ease}.chat-load-earlier:hover{background:#f8fafc}.chat-load-earlier:active{transform:scale(.98)}.chat-load-earlier:disabled{cursor:wait;opacity:.65}

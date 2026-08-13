@@ -57,7 +57,7 @@ export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: 
     const results = await Promise.all(codes.map(code => db.rpc('has_permission', { permission_code: code })));
     setPerms(Object.fromEntries(codes.map((code, i) => [code, !!results[i].data])));
     if (results[1].data) {
-      const { data } = await db.from('profiles').select('id,full_name').in('status', operationalEmployeeStatuses).order('full_name');
+      const { data } = await db.from('profiles').select('id,full_name').eq('is_employee', true).eq('workforce_visible', true).in('status', operationalEmployeeStatuses).order('full_name');
       setStaff(data || []);
     }
     if (params.get('edit') === '1' && results[0].data) setForm('patient');

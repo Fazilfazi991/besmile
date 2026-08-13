@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const payrollPage = readFileSync(resolve(process.cwd(), 'src/app/admin/finance/payroll/page.tsx'), 'utf8');
 const adminRepository = readFileSync(resolve(process.cwd(), 'src/lib/admin-repository.ts'), 'utf8');
+const payrollLifecycle = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260808180000_payroll_atomic_lifecycle.sql'), 'utf8');
 
 describe('payroll workflow regressions', () => {
   it('calculates payroll period end in UTC to avoid timezone drift', () => {
@@ -12,8 +13,11 @@ describe('payroll workflow regressions', () => {
   });
 
   it('marks the payroll run paid when the last entry is paid', () => {
-    expect(adminRepository).toContain("eq('payroll_run_id',data.payroll_run_id)");
-    expect(adminRepository).toContain("neq('payment_status','paid')");
-    expect(adminRepository).toContain("update({status:'paid'})");
+    expect(adminRepository).toContain("rpc('pay_payroll_entry_atomic'");
+    expect(payrollLifecycle).toContain('select * into entry from public.payroll_entries where id=target_entry for update');
+    expect(payrollLifecycle).toContain('select * into run from public.payroll_runs where id=entry.payroll_run_id for update');
+    expect(payrollLifecycle).toContain("payment_status='paid'");
+    expect(payrollLifecycle).toContain("payment_status <> 'paid'");
+    expect(payrollLifecycle).toContain("update public.payroll_runs set status='paid'");
   });
 });

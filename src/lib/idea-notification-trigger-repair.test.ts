@@ -1,0 +1,2 @@
+import { readFileSync } from 'node:fs'; import { describe,expect,it } from 'vitest';
+describe('Idea Hub notifications',()=>{it('wires likes and comments to the submitter',()=>{const sql=readFileSync('supabase/migrations/20260813082500_idea_notification_trigger_repair.sql','utf8');for(const value of ['idea_comment_notification','idea_support_activity',"'idea_comment'","'idea_liked'",'/employee/ideas/'])expect(sql).toContain(value);});});

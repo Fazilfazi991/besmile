@@ -1,0 +1,2 @@
+import { readFileSync } from 'node:fs'; import { describe,expect,it } from 'vitest';
+describe('dashboard attendance navigation',()=>{it('opens the attendance workspace instead of employee management',()=>{const page=readFileSync('src/app/admin/page.tsx','utf8');const strip=readFileSync('src/components/team-attendance-strip.tsx','utf8');expect(page).toContain("title: 'Present today'");expect(page).toContain("href: '/admin/attendance'");expect(page).toContain('href="/admin/attendance">View attendance');expect(strip).toContain('href="/admin/attendance"');});});
