@@ -32,7 +32,7 @@ where not exists (
 -- A personal CRM scope includes a directly assigned lead and a lead converted to
 -- a clinical client the current user can access. Management/team behavior stays
 -- unchanged. This function is the RLS source of truth for list and direct-ID reads.
-create or replace function public.crm_lead_can_view(target uuid, clinical_client uuid default null)
+create or replace function public.crm_lead_can_view(target uuid, clinical_client uuid)
 returns boolean
 language sql
 stable

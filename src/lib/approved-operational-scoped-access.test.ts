@@ -18,6 +18,8 @@ describe('approved operational scoped access migration', () => {
 
   it('enforces clinical/direct assignment reads without granting sales', () => {
     expect(migration).toContain("public.patient_access(clinical_client)");
+    expect(migration).toContain('crm_lead_can_view(target uuid, clinical_client uuid)');
+    expect(migration).not.toContain('clinical_client uuid default null');
     expect(migration).toContain("target = auth.uid()");
     expect(migration).toContain("lead.assigned_to = auth.uid() and public.has_permission('sales.view')");
     expect(migration).not.toContain("public.has_permission('sales.view') or public.has_permission('crm.view_assigned')");
