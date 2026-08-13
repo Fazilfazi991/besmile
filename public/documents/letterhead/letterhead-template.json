@@ -1,0 +1,28 @@
+{
+  "templateName": "BSmile Official Letterhead",
+  "page": {
+    "format": "A4",
+    "widthPx": 2480,
+    "heightPx": 3508,
+    "dpi": 300,
+    "widthMm": 210,
+    "heightMm": 297
+  },
+  "masterBackground": "BSmile_Letterhead_Blank_A4_300dpi.png",
+  "webPreview": "BSmile_Letterhead_Web_Preview.png",
+  "headerAsset": "BSmile_Letterhead_Header_300dpi.png",
+  "footerAsset": "BSmile_Letterhead_Footer_300dpi.png",
+  "safeContentAreaPx": {
+    "left": 313,
+    "right": 2167,
+    "top": 720,
+    "bottom": 3000
+  },
+  "recommendedDocumentTitleAreaPx": {
+    "left": 313,
+    "right": 2167,
+    "top": 700,
+    "bottom": 900
+  },
+  "usage": "Use the master background on every generated A4 page. Place dynamic document heading and body only inside the safe content area. Do not rasterize dynamic text into the letterhead image."
+}

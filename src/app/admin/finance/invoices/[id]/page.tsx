@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
 import { FinanceEmpty, FinanceStatus, inr } from '@/components/finance-ui';
+import { downloadOfficialReport } from '@/lib/official-report-download';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -16,6 +17,7 @@ export default function InvoiceDetail() {
   const [notice, setNotice] = useState('');
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [payment, setPayment] = useState({ amount: '', payment_date: today(), account_id: '', payment_method: 'cash', reference: '', notes: '' });
   const load = async () => {
     try { setError(''); const [loadedInvoice, options] = await Promise.all([adminRepository.financeInvoice(id), adminRepository.financeOptions()]); setInvoice(loadedInvoice); setAccounts(options.accounts); setPayment(current => ({ ...current, account_id: current.account_id || options.accounts[0]?.id || '' })); }
@@ -50,6 +52,22 @@ export default function InvoiceDetail() {
     } catch (caught: any) { setError(caught.message || 'Payment could not be recorded. Please try again.'); }
     finally { setSaving(false); }
   };
+  const downloadInvoice = async () => {
+    setPdfBusy(true); setError('');
+    try {
+      await downloadOfficialReport({
+        reportType: 'invoice',
+        columns: [{ key: 'description', label: 'Description', weight: 2.2 }, { key: 'quantity', label: 'Quantity', align: 'right' }, { key: 'rate', label: 'Rate', align: 'right' }, { key: 'amount', label: 'Amount', align: 'right' }],
+        rows: invoice.finance_invoice_items.map((item: any) => ({ description: item.description, quantity: item.quantity, rate: inr(item.rate), amount: inr(Number(item.quantity) * Number(item.rate)) })),
+        period: `Invoice ${invoice.invoice_number} | Issued ${invoice.issue_date}${invoice.due_date ? ` | Due ${invoice.due_date}` : ''}`,
+        filters: [`Bill to: ${invoice.customer_name}`, `Status: ${displayStatus}`],
+        totals: [{ label: 'Subtotal', value: inr(totals.subtotal) }, { label: 'Discount', value: inr(invoice.discount) }, { label: 'Tax', value: inr(invoice.tax) }, { label: 'Total', value: inr(totals.total) }, { label: 'Paid', value: inr(totals.paid) }, { label: 'Balance', value: inr(totals.outstanding) }],
+        context: { invoice_id: id, invoice_number: invoice.invoice_number },
+        filenameSuffix: invoice.invoice_number,
+      });
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to generate invoice PDF.'); }
+    finally { setPdfBusy(false); }
+  };
 
   if (error && !invoice) return <section className="mx-auto max-w-5xl"><p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</p></section>;
   if (!invoice) return <section className="mx-auto max-w-5xl"><div className="card p-6"><div className="h-6 w-48 animate-pulse rounded bg-slate-100" /><div className="mt-6 h-48 animate-pulse rounded bg-slate-100" /></div></section>;
@@ -58,7 +76,7 @@ export default function InvoiceDetail() {
   const canPay = totals.outstanding > 0 && !['draft', 'cancelled'].includes(invoice.status);
 
   return <section className="mx-auto max-w-5xl space-y-5 print:max-w-none">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><button className="mb-2 text-sm font-medium text-teal-700 hover:underline print:hidden" onClick={() => router.push('/admin/finance/invoices')}>← Back to invoices</button><p className="eyebrow">BsSmile · Customer invoice</p><div className="flex flex-wrap items-center gap-3"><h1 className="text-2xl font-bold">{invoice.invoice_number}</h1><FinanceStatus value={displayStatus} /></div><p className="mt-1 text-sm text-slate-600">Issued {invoice.issue_date} {invoice.due_date ? `· Due ${invoice.due_date}` : ''}</p></div><div className="flex flex-wrap gap-2 print:hidden">{invoice.status === 'draft' && <><button className="btn border" disabled={saving} onClick={() => void setInvoiceStatus('cancelled')}>Cancel invoice</button><button className="btn btn-primary" disabled={saving} onClick={() => void setInvoiceStatus('sent')}>{saving ? 'Saving…' : 'Mark sent'}</button></>}{canPay && <button className="btn btn-primary" onClick={() => setPaymentOpen(true)}>Record payment</button>}<button className="btn border" onClick={() => window.print()}>Print</button></div></div>
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><button className="mb-2 text-sm font-medium text-teal-700 hover:underline print:hidden" onClick={() => router.push('/admin/finance/invoices')}>← Back to invoices</button><p className="eyebrow">BsSmile · Customer invoice</p><div className="flex flex-wrap items-center gap-3"><h1 className="text-2xl font-bold">{invoice.invoice_number}</h1><FinanceStatus value={displayStatus} /></div><p className="mt-1 text-sm text-slate-600">Issued {invoice.issue_date} {invoice.due_date ? `· Due ${invoice.due_date}` : ''}</p></div><div className="flex flex-wrap gap-2 print:hidden">{invoice.status === 'draft' && <><button className="btn border" disabled={saving} onClick={() => void setInvoiceStatus('cancelled')}>Cancel invoice</button><button className="btn btn-primary" disabled={saving} onClick={() => void setInvoiceStatus('sent')}>{saving ? 'Saving…' : 'Mark sent'}</button></>}{canPay && <button className="btn btn-primary" onClick={() => setPaymentOpen(true)}>Record payment</button>}<button className="btn border" disabled={pdfBusy} onClick={() => void downloadInvoice()}>{pdfBusy ? 'Generating PDF...' : 'Download PDF'}</button></div></div>
     {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}{notice && <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">{notice}</p>}
     <article className="card overflow-hidden"><div className="grid gap-5 border-b border-slate-100 p-6 md:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Bill to</p><h2 className="mt-2 text-lg font-bold">{invoice.customer_name}</h2><p className="mt-1 text-sm text-slate-600">{invoice.customer_phone || 'No phone provided'}</p><p className="text-sm text-slate-600">{invoice.customer_email || 'No email provided'}</p></div><div className="md:text-right"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Amount due</p><p className="mt-2 text-3xl font-bold text-slate-950">{inr(totals.outstanding)}</p><p className="mt-1 text-sm text-slate-600">Total invoice value {inr(totals.total)}</p></div></div><div className="overflow-x-auto"><table className="min-w-[620px] w-full text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{['Description', 'Quantity', 'Rate', 'Amount'].map(label => <th className="px-6 py-3 text-left" key={label}>{label}</th>)}</tr></thead><tbody>{invoice.finance_invoice_items.map((item: any) => <tr className="border-t border-slate-100" key={item.id}><td className="px-6 py-4 font-medium">{item.description}</td><td className="px-6 py-4">{item.quantity}</td><td className="px-6 py-4">{inr(item.rate)}</td><td className="px-6 py-4 font-semibold">{inr(Number(item.quantity) * Number(item.rate))}</td></tr>)}</tbody></table></div><div className="grid gap-5 border-t border-slate-100 p-6 md:grid-cols-[1fr_300px]"><div>{invoice.notes && <><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Notes / payment instructions</p><p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{invoice.notes}</p></>}</div><dl className="space-y-2 text-sm"><TotalRow label="Subtotal" value={inr(totals.subtotal)} /><TotalRow label="Discount" value={`− ${inr(invoice.discount)}`} /><TotalRow label="Tax" value={inr(invoice.tax)} /><TotalRow label="Total" value={inr(totals.total)} emphasized /><TotalRow label="Paid" value={inr(totals.paid)} /><TotalRow label="Balance" value={inr(totals.outstanding)} emphasized /></dl></div></article>
     <section className="card"><div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold">Payment history</h2><p className="mt-1 text-sm text-slate-500">Payments posted to this invoice and their receiving account.</p></div>{invoice.finance_invoice_payments?.length ? <div className="divide-y divide-slate-100">{invoice.finance_invoice_payments.map((entry: any) => <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4" key={entry.id}><div><b>{inr(entry.amount)}</b><p className="mt-1 text-sm text-slate-600">{entry.payment_date} · {entry.finance_accounts?.name || 'Account unavailable'} · {entry.payment_method || 'Method not recorded'}</p>{entry.reference_number && <p className="mt-1 text-xs text-slate-500">Reference: {entry.reference_number}</p>}</div><span className="text-xs text-slate-500">Payment recorded</span></div>)}</div> : <FinanceEmpty>No payments have been recorded yet.</FinanceEmpty>}</section>

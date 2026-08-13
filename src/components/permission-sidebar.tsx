@@ -9,7 +9,7 @@ import type { NavigationGroup, NavigationLink } from '@/lib/permission-access';
 
 function isActive(pathname: string, link: NavigationLink) {
   const candidates = [link.href, ...(link.activeHrefs || [])];
-  return candidates.some((href) => pathname === href || (href !== '/admin' && pathname.startsWith(`${href}/`)));
+  return candidates.some((href) => pathname === href || (!link.exact && href !== '/admin' && pathname.startsWith(`${href}/`)));
 }
 
 export function PermissionSidebar({ groups, name, subtitle, profileHref }: { groups: readonly NavigationGroup[]; name: string; subtitle: string; profileHref: string }) {
