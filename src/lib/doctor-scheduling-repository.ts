@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { generateAvailableSlots, validateAvailabilityRanges, validateDoctorPayload, type AppointmentStatus, type ConsultationType } from './doctor-scheduling-rules';
+import { grantedPermissions } from './granted-permissions';
 
 const db = () => {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -42,11 +43,11 @@ export const doctorSchedulingRepository = {
       'clinician.availability.manage_own',
       'clinician.appointments.view_own',
     ];
-    const [results, clinician] = await Promise.all([
-      Promise.all(codes.map(code => db().rpc('has_permission', { permission_code: code }))),
+    const [allowed, clinician] = await Promise.all([
+      grantedPermissions(db(), codes),
       db().rpc('current_clinician_id'),
     ]);
-    const permissions = Object.fromEntries(codes.map((code, index) => [code, results[index].data === true]));
+    const permissions = Object.fromEntries(codes.map(code => [code, allowed.has(code)]));
     if (clinician.data) {
       permissions['clinician.schedule.view_own'] = true;
       permissions['clinician.availability.manage_own'] = true;

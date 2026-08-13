@@ -6,6 +6,8 @@ const migration = readFileSync(
   'utf8',
 ).toLowerCase();
 const employeeRepository = readFileSync('src/lib/employee-repository.ts', 'utf8');
+const doctorRepository = readFileSync('src/lib/doctor-scheduling-repository.ts', 'utf8');
+const commandCenter = readFileSync('src/components/global-command-center.tsx', 'utf8');
 
 describe('performance batch one', () => {
   it('batches permission checks without replacing the hardened permission decision', () => {
@@ -13,6 +15,8 @@ describe('performance batch one', () => {
     expect(migration).toContain('where public.has_permission(requested_code)');
     expect(migration).toContain('security invoker');
     expect(employeeRepository).toContain('.rpc("granted_permissions"');
+    expect(doctorRepository).toContain('grantedPermissions(db(), codes)');
+    expect(doctorRepository).not.toContain("codes.map(code => db().rpc('has_permission'");
   });
 
   it('keeps chat and CRM summaries inside the caller RLS context', () => {
@@ -26,5 +30,10 @@ describe('performance batch one', () => {
     expect(employeeRepository).toContain('async chatMessagePage(');
     expect(employeeRepository).toContain('.limit(size)');
     expect(employeeRepository).toContain('request.lt("created_at", before)');
+  });
+
+  it('rolls back optimistic notification batching and blocks repeated submission', () => {
+    expect(commandCenter).toContain('if (markingAllNotifications.current) return');
+    expect(commandCenter).toContain('setNotifications(previous)');
   });
 });
