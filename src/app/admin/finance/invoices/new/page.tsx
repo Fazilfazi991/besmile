@@ -1,7 +1,6 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { currentProfile } from '@/lib/auth';
 import { adminRepository } from '@/lib/admin-repository';
 import { inr } from '@/components/finance-ui';
@@ -16,7 +15,6 @@ const initialForm = {
 };
 
 export default function NewInvoice() {
-  const router = useRouter();
   const [form, setForm] = useState<any>(initialForm);
   const [items, setItems] = useState<InvoiceItem[]>([{ description: '', quantity: 1, rate: 0 }]);
   const [saving, setSaving] = useState<'draft' | 'sent' | null>(null);
@@ -49,7 +47,9 @@ export default function NewInvoice() {
         created_by: profile.id,
         status,
       }, items.map(item => ({ ...item, description: item.description.trim() })));
-      router.push(`/admin/finance/invoices/${invoice.id}`);
+      // The atomic RPC has confirmed persistence; use a full navigation so the
+      // operator cannot be left on a completed form if client routing stalls.
+      window.location.assign(`/admin/finance/invoices/${invoice.id}`);
     } catch (caught: any) {
       setError(caught.message || 'Unable to save this invoice.');
     } finally {
@@ -94,7 +94,7 @@ export default function NewInvoice() {
         <section className="card p-5"><h2 className="text-lg font-bold">Summary</h2><div className="mt-4 space-y-3"><Field label="Discount (₹)"><input className="input" type="number" min="0" step="0.01" value={form.discount} onChange={event => setForm({ ...form, discount: Number(event.target.value) })} /></Field><Field label="Tax (₹)"><input className="input" type="number" min="0" step="0.01" value={form.tax} onChange={event => setForm({ ...form, tax: Number(event.target.value) })} /></Field><div className="space-y-2 border-t border-slate-200 pt-3 text-sm"><SummaryRow label="Subtotal" value={inr(subtotal)} /><SummaryRow label="Discount" value={`− ${inr(Number(form.discount || 0))}`} /><SummaryRow label="Tax" value={inr(Number(form.tax || 0))} /><div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold"><span>Total</span><span>{inr(total)}</span></div></div></div></section>
       </div>
 
-      <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5"><button type="button" className="btn border" onClick={() => router.back()}>Cancel</button><button className="btn border" disabled={saving !== null}>{saving === 'draft' ? 'Saving…' : 'Save draft'}</button><button type="button" className="btn btn-primary" disabled={saving !== null} onClick={() => void save('sent')}>{saving === 'sent' ? 'Saving…' : 'Save & send'}</button></div>
+      <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5"><button type="button" className="btn border" onClick={() => window.history.back()}>Cancel</button><button className="btn border" disabled={saving !== null}>{saving === 'draft' ? 'Saving…' : 'Save draft'}</button><button type="button" className="btn btn-primary" disabled={saving !== null} onClick={() => void save('sent')}>{saving === 'sent' ? 'Saving…' : 'Save & send'}</button></div>
       <p className="text-right text-xs text-slate-500">Save & send marks the invoice as sent. Email delivery is not part of this MVP.</p>
     </form>
   </section>;
