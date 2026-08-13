@@ -7,7 +7,7 @@ const env = Object.fromEntries(readFileSync('.env.local', 'utf8').split(/\r?\n/)
 }));
 const ref = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split('.')[0];
 if (ref !== 'ksmqzxncdvuxiabypjth') throw new Error(`Refusing unexpected project ${ref}.`);
-const password = env.SEED_USER_TEMP_PASSWORD;
+const password = process.env.QA_AUDIT_PASSWORD || env.SEED_USER_TEMP_PASSWORD;
 if (!password) throw new Error('A controlled QA password is required.');
 
 const accounts = [
@@ -21,7 +21,7 @@ const accounts = [
   ['guest_sales', 'fazil4fazi@gmail.com'],
   ['staff', 'staff@qa.bsmile.local'],
 ];
-const codes = ['admin.access', 'roles.manage', 'permissions.manage', 'audit.view', 'employees.create', 'leave.approve', 'payroll.view', 'finance.dashboard.view', 'leads.view', 'patients.view', 'patients.view_assigned', 'attendance.self', 'leave.self', 'tasks.assign', 'chat.use'];
+const codes = ['admin.access', 'admin.shell', 'roles.manage', 'permissions.manage', 'audit.view', 'employees.view', 'employees.manage', 'employees.create', 'employees.edit', 'employees.status.manage', 'leave.approve', 'payroll.view', 'finance.dashboard.view', 'crm.manage_all', 'leads.view', 'sales.view', 'patients.view', 'patients.view_assigned', 'attendance.self', 'leave.self', 'tasks.assign', 'chat.use'];
 const results = [];
 for (const [expectedRole, email] of accounts) {
   const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -32,7 +32,8 @@ for (const [expectedRole, email] of accounts) {
     const response = await client.rpc('has_permission', { permission_code: code });
     return [code, response.error ? { error: response.error.message } : response.data];
   })));
-  results.push({ expected_role: expectedRole, email, auth: 'ok', profile_role: profile.data?.role, active: profile.data?.status === 'active', permissions });
-  await client.auth.signOut();
+  const visibleProfiles = await client.from('profiles').select('id', { count: 'exact', head: true });
+  results.push({ expected_role: expectedRole, email, auth: 'ok', profile_role: profile.data?.role, active: profile.data?.status === 'active', visible_profile_count: visibleProfiles.error ? { error: visibleProfiles.error.message } : visibleProfiles.count, permissions });
+  await client.auth.signOut({ scope: 'local' });
 }
 console.log(JSON.stringify({ project: ref, results }, null, 2));
