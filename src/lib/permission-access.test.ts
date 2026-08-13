@@ -158,4 +158,24 @@ describe('permission compatibility', () => {
     expect(labels).toEqual(expect.arrayContaining(['CRM Dashboard', 'My Leads', 'My Follow-ups', 'My Sales', 'Notifications', 'Profile']));
     expect(labels).not.toEqual(expect.arrayContaining(['Dashboard', 'Attendance', 'Leave', 'Documents']));
   });
+
+  it('keeps assigned clinical CRM separate from sales and admin CRM', () => {
+    const scoped = new Set(['crm.view_assigned']);
+    const labels = filterNavigation(employeeNavigation, scoped).flatMap((group) => group.links.map((link) => link.label));
+    expect(labels).toEqual(expect.arrayContaining(['CRM Dashboard', 'My Leads', 'My Follow-ups']));
+    expect(labels).not.toContain('My Sales');
+    expect(permissionAllows(scoped, employeeRouteRequirement('/employee/crm'))).toBe(true);
+    expect(permissionAllows(scoped, employeeRouteRequirement('/employee/crm/leads/example'))).toBe(true);
+    expect(permissionAllows(scoped, employeeRouteRequirement('/employee/crm/sales'))).toBe(false);
+    expect(permissionAllows(scoped, adminRouteRequirement('/admin/crm'))).toBe(false);
+    expect(permissionAllows(scoped, adminRouteRequirement('/admin/crm/import'))).toBe(false);
+  });
+
+  it('keeps own tasks and own leave out of management routes', () => {
+    expect(permissionAllows(new Set(['tasks.view_self']), employeeRouteRequirement('/employee/tasks'))).toBe(true);
+    expect(permissionAllows(new Set(['tasks.view_self']), employeeRouteRequirement('/employee/tasks/manage'))).toBe(false);
+    expect(permissionAllows(new Set(['tasks.view_self']), adminRouteRequirement('/admin/tasks'))).toBe(false);
+    expect(permissionAllows(new Set(['leave.self']), employeeRouteRequirement('/employee/leaves'))).toBe(true);
+    expect(permissionAllows(new Set(['leave.self']), adminRouteRequirement('/admin/leaves'))).toBe(false);
+  });
 });

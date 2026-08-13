@@ -45,6 +45,7 @@ export default function LeavesPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const [form, setForm] = useState({
     leave_type_id: '',
     starts_on: '',
@@ -124,6 +125,20 @@ export default function LeavesPage() {
       ),
     [requests],
   );
+  const cancelPending = async (id: string) => {
+    setCancelling(id);
+    setError('');
+    setNotice('');
+    try {
+      await employeeRepository.cancelLeave(id, 'cancelled');
+      setNotice('Pending leave request cancelled.');
+      await load();
+    } catch (cancelError: unknown) {
+      setError(leaveErrorMessage(cancelError));
+    } finally {
+      setCancelling(null);
+    }
+  };
   const upcoming = requests.find(
     (request) => request.status === 'approved' && request.starts_on >= today,
   );
@@ -330,6 +345,16 @@ export default function LeavesPage() {
                     <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
                       <b>Admin comment:</b> {request.approval_comment}
                     </p>
+                  )}
+                  {request.status === 'pending' && (
+                    <button
+                      type="button"
+                      className="btn mt-3 border px-3 py-1.5 text-sm text-rose-700"
+                      disabled={cancelling === request.id}
+                      onClick={() => void cancelPending(request.id)}
+                    >
+                      {cancelling === request.id ? 'Cancelling...' : 'Cancel request'}
+                    </button>
                   )}
                 </article>
               ))}

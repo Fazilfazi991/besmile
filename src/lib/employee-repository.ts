@@ -96,14 +96,13 @@ export const employeeRepository = {
     if (statuses.error) throw statuses.error;
     return { sources: sources.data, statuses: statuses.data };
   },
-  async myCrmLeads(userId: string, filters: any = {}) {
+  async myCrmLeads(_userId: string, filters: any = {}) {
     const r = required();
     let q = r
       .from("crm_leads")
       .select(
         "*,source:crm_lead_sources(name),status:crm_lead_statuses(name),crm_lead_followups(*)",
       )
-      .eq("assigned_to", userId)
       .is("archived_at", null)
       .order("updated_at", { ascending: false });
     if (filters.query)
@@ -121,27 +120,25 @@ export const employeeRepository = {
     if (error) throw error;
     return data;
   },
-  async myCrmLead(userId: string, id: string) {
+  async myCrmLead(_userId: string, id: string) {
     const { data, error } = await required()
       .from("crm_leads")
       .select(
         "*,source:crm_lead_sources(name),status:crm_lead_statuses(name),assignee:profiles!crm_leads_assigned_to_fkey(full_name),crm_lead_followups(*,profiles(full_name)),crm_sales(*)",
       )
       .eq("id", id)
-      .eq("assigned_to", userId)
       .maybeSingle();
     if (error)
       throw new Error("CRM data could not be loaded. Please try again.");
     if (!data) throw new Error(crmRecordUnavailableMessage);
     return data;
   },
-  async myCrmFollowups(userId: string) {
+  async myCrmFollowups(_userId: string) {
     const { data, error } = await required()
       .from("crm_lead_followups")
       .select(
         "*,crm_leads!inner(id,full_name,phone,assigned_to,status:crm_lead_statuses(name))",
       )
-      .eq("crm_leads.assigned_to", userId)
       .order("next_follow_up_at", { ascending: true });
     if (error) throw error;
     return data;
