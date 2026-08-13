@@ -245,6 +245,18 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     }
   };
 
+  const submitSessionRecord = async (appointment: any) => {
+    if (!profile) return;
+    setSaving(appointment.id); setError(''); setNotice('');
+    try {
+      await doctorSchedulingRepository.submitPsychologistSessionRecord(appointment.id, profile.id);
+      setNotice('Session record submitted. Eligible online psychologist payments are created automatically.');
+      setSelected(undefined);
+      await load();
+    } catch (caught: any) { setError(caught.message || 'Unable to submit the session record.'); }
+    finally { setSaving(''); }
+  };
+
   const startReschedule = (appointment: any) => {
     setReschedule(appointment);
     setAppointmentForm({ patient_id: appointment.patient_id, doctor_id: appointment.doctor_id, date: dateKey(new Date(appointment.start_at)), slot: '', consultation_type: appointment.consultation_type, remarks: appointment.remarks || '' });
@@ -301,7 +313,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       </EmployeeSection>
     </div>}
 
-    {selected && <AppointmentPanel appointment={selected} canUpdate={canUpdate} canCancel={canCancel} saving={saving === selected.id} onClose={() => setSelected(undefined)} onStatus={status => void changeStatus(selected, status)} onReschedule={() => startReschedule(selected)} />}
+    {selected && <AppointmentPanel appointment={selected} canUpdate={canUpdate} canCancel={canCancel} canSubmitRecord={selected.status === 'completed' && selected.doctor?.profile_id === profile?.id} saving={saving === selected.id} onClose={() => setSelected(undefined)} onStatus={status => void changeStatus(selected, status)} onSubmitRecord={() => void submitSessionRecord(selected)} onReschedule={() => startReschedule(selected)} />}
   </section>;
 }
 
@@ -536,8 +548,8 @@ function AppointmentGroups({ appointments, onOpen }: { appointments: any[]; onOp
   return <div className="appointment-groups">{groups.map(([title, rows]) => <section key={title}><h3>{title}</h3>{rows.length ? rows.map(item => <button type="button" onClick={() => onOpen(item)} key={item.id}><span><b>{item.patient?.full_name || 'Client'}</b><small>{fmtDate(item.start_at)} - {fmtTime(item.start_at)} - {item.doctor?.doctor_name || 'Psychologist'}</small></span><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge></button>) : <p>No appointments.</p>}</section>)}</div>;
 }
 
-function AppointmentPanel({ appointment, canUpdate, canCancel, saving, onClose, onStatus, onReschedule }: { appointment: any; canUpdate: boolean; canCancel: boolean; saving: boolean; onClose: () => void; onStatus: (status: AppointmentStatus) => void; onReschedule: () => void }) {
-  return <div className="doctor-panel-backdrop"><aside className="doctor-panel"><header><div><h2>{appointment.patient?.full_name || 'Client'}</h2><p>{appointment.doctor?.doctor_name || 'Psychologist'} - {fmtDate(appointment.start_at)}</p></div><button type="button" onClick={onClose}>Close</button></header><dl><div><dt>Time</dt><dd>{fmtTime(appointment.start_at)} to {fmtTime(appointment.end_at)}</dd></div><div><dt>Consultation</dt><dd>{label(appointment.consultation_type)}</dd></div><div><dt>Status</dt><dd><EmployeeStatusBadge tone={statusTones[appointment.status as AppointmentStatus]}>{statusLabels[appointment.status as AppointmentStatus]}</EmployeeStatusBadge></dd></div><div><dt>Remarks</dt><dd>{appointment.remarks || '-'}</dd></div></dl><div className="panel-actions">{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('confirmed')}>Confirm</button>}{canUpdate && <button disabled={saving} type="button" onClick={onReschedule}>Reschedule</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('completed')}>Completed</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('no_show')}>No Show</button>}{canCancel && <button disabled={saving} type="button" className="danger" onClick={() => onStatus('cancelled')}>Cancel</button>}</div></aside></div>;
+function AppointmentPanel({ appointment, canUpdate, canCancel, canSubmitRecord, saving, onClose, onStatus, onSubmitRecord, onReschedule }: { appointment: any; canUpdate: boolean; canCancel: boolean; canSubmitRecord: boolean; saving: boolean; onClose: () => void; onStatus: (status: AppointmentStatus) => void; onSubmitRecord: () => void; onReschedule: () => void }) {
+  return <div className="doctor-panel-backdrop"><aside className="doctor-panel"><header><div><h2>{appointment.patient?.full_name || 'Client'}</h2><p>{appointment.doctor?.doctor_name || 'Psychologist'} - {fmtDate(appointment.start_at)}</p></div><button type="button" onClick={onClose}>Close</button></header><dl><div><dt>Time</dt><dd>{fmtTime(appointment.start_at)} to {fmtTime(appointment.end_at)}</dd></div><div><dt>Consultation</dt><dd>{label(appointment.consultation_type)}</dd></div><div><dt>Status</dt><dd><EmployeeStatusBadge tone={statusTones[appointment.status as AppointmentStatus]}>{statusLabels[appointment.status as AppointmentStatus]}</EmployeeStatusBadge></dd></div><div><dt>Remarks</dt><dd>{appointment.remarks || '-'}</dd></div></dl><div className="panel-actions">{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('confirmed')}>Confirm</button>}{canUpdate && <button disabled={saving} type="button" onClick={onReschedule}>Reschedule</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('completed')}>Completed</button>}{canSubmitRecord && <button disabled={saving} type="button" onClick={onSubmitRecord}>Submit session record</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('no_show')}>No Show</button>}{canCancel && <button disabled={saving} type="button" className="danger" onClick={() => onStatus('cancelled')}>Cancel</button>}</div></aside></div>;
 }
 
 function daysForView(cursor: string, view: 'day' | 'week' | 'month') {

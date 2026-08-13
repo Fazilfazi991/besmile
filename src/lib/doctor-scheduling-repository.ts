@@ -208,6 +208,11 @@ export const doctorSchedulingRepository = {
     return data;
   },
 
+  async submitPsychologistSessionRecord(appointmentId: string, submittedBy: string) {
+    const { error } = await db().from('psychologist_session_records').insert({ appointment_id: appointmentId, submitted_by: submittedBy });
+    if (error) throw error;
+  },
+
   async rescheduleAppointment(id: string, startAt: string, endAt: string, remarks = '') {
     const { data, error } = await db().rpc('reschedule_doctor_appointment', { target_appointment: id, appointment_start: startAt, appointment_end: endAt, status_remarks: remarks || null });
     if (error) throw error;
