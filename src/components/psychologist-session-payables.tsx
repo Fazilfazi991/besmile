@@ -24,10 +24,13 @@ type StatementHistory = {
 
 export function PsychologistSessionPayables() {
   const [rows, setRows] = useState<any[]>([]);
+  const [summaryRows, setSummaryRows] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [clinicians, setClinicians] = useState<any[]>([]);
   const [history, setHistory] = useState<StatementHistory[]>([]);
   const [allowed, setAllowed] = useState(false);
   const [canGenerate, setCanGenerate] = useState(false);
+  const [canManage, setCanManage] = useState(false);
   const [status, setStatus] = useState('pending');
   const [doctor, setDoctor] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -41,6 +44,8 @@ export function PsychologistSessionPayables() {
   const [paidOn, setPaidOn] = useState(today());
   const [reference, setReference] = useState('');
   const [method, setMethod] = useState('bank_transfer');
+  const [rate, setRate] = useState('');
+  const [rateDoctor, setRateDoctor] = useState('');
 
   const loadHistory = async () => {
     const response = await fetch('/api/finance/psychologist-payment-statements', { cache: 'no-store' });
@@ -54,20 +59,29 @@ export function PsychologistSessionPayables() {
         'finance.manage', 'documents.manage', 'documents.employee.manage',
       ]);
       const mayView = permissions.has('psychologist_payments.view');
+      const mayManage = permissions.has('psychologist_payments.manage');
       const mayGenerate = permissions.has('psychologist_payments.manage')
         && (permissions.has('documents.manage') || permissions.has('documents.employee.manage'));
       setAllowed(mayView);
       setCanGenerate(mayGenerate);
+      setCanManage(mayManage);
       if (!mayView) return;
-      const [payables, accountRows] = await Promise.all([
+      const [payables, summaries, accountRows, clinicianRows] = await Promise.all([
         db.from('psychologist_session_payables')
           .select('*,psychologist:outsourced_doctors(doctor_name),appointment:doctor_appointments(start_at)')
           .order('session_date', { ascending: false }),
+        db.from('psychologist_session_payables').select('status,payable_amount,due_date'),
         db.from('finance_accounts').select('id,name').eq('is_active', true).order('name'),
+        db.rpc('eligible_psychologist_payment_clinicians'),
       ]);
       if (payables.error) throw payables.error;
+      if (summaries.error) throw summaries.error;
+      if (accountRows.error) throw accountRows.error;
+      if (clinicianRows.error) throw clinicianRows.error;
       setRows(payables.data || []);
+      setSummaryRows(summaries.data || []);
       setAccounts(accountRows.data || []);
+      setClinicians(clinicianRows.data || []);
       if (mayGenerate) await loadHistory();
     } catch (caught: any) {
       setError(caught.message || 'Unable to load psychologist payables.');
@@ -90,9 +104,9 @@ export function PsychologistSessionPayables() {
   const selectedTotal = selectedRows.reduce((sum, row) => sum + Number(row.payable_amount), 0);
   const selectedGroup = selectedRows[0] ? paymentGroup(selectedRows[0].status) : '';
   const selectableRows = filteredRows.filter(row => row.status !== 'cancelled' && Boolean(doctor));
-  const due = rows.filter(row => row.status === 'payment_due');
+  const due = summaryRows.filter(row => row.status === 'payment_due');
   const overdue = due.filter(row => row.due_date && row.due_date < today());
-  const paid = rows.filter(row => row.status === 'paid');
+  const paid = summaryRows.filter(row => row.status === 'paid');
   const pending = due.reduce((sum, row) => sum + Number(row.payable_amount), 0);
   const canSettle = settling && accountId && paidOn && !busy;
 
@@ -153,6 +167,17 @@ export function PsychologistSessionPayables() {
     setReference('');
     setMethod('bank_transfer');
   };
+  const saveRate = async () => {
+    const amount = Number(rate);
+    if (!rateDoctor || !Number.isFinite(amount) || amount <= 0) return setError('Choose an outsourced clinician and enter a positive INR session rate.');
+    setBusy('rate'); setError('');
+    try {
+      const { error: saveError } = await db.from('psychologist_payout_settings').upsert({ doctor_id: rateDoctor, default_session_payout: amount, is_active: true }, { onConflict: 'doctor_id' });
+      if (saveError) throw saveError;
+      setRate(''); await load();
+    } catch (caught: any) { setError(caught.message || 'Unable to save payment configuration.'); }
+    finally { setBusy(''); }
+  };
   const settle = async () => {
     if (!settling || !accountId || !paidOn) return;
     setBusy(settling.id); setError('');
@@ -173,14 +198,15 @@ export function PsychologistSessionPayables() {
     {error && <p className="rounded bg-rose-50 p-3 text-rose-700">{error}</p>}
     {notice && <p className="rounded bg-emerald-50 p-3 text-emerald-800">{notice}</p>}
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Pending" value={inr(pending)}/><Metric label="Due soon" value={due.length - overdue.length}/><Metric label="Overdue" value={overdue.length}/><Metric label="Paid" value={paid.length}/></div>
-    <div className="card space-y-3 p-4">
+     <div className="card space-y-3 p-4">
       <div><h2 className="font-semibold">Payment statement selection</h2><p className="text-sm text-slate-500">Choose one psychologist and a payment state. Official totals come from the selected payable snapshots.</p></div>
       <div className="flex flex-wrap gap-2">
         <select className="input" aria-label="Payment status" value={status} onChange={event => setStatus(event.target.value)}><option value="pending">Pending eligible</option><option value="paid">Paid</option><option value="cancelled">Cancelled</option><option value="all">All statuses</option></select>
         <select className="input" aria-label="Psychologist" value={doctor} onChange={event => setDoctor(event.target.value)}><option value="">Select psychologist</option>{doctors.map(([id, name]) => <option key={String(id)} value={String(id)}>{String(name)}</option>)}</select>
         <label className="text-xs text-slate-500">From<input className="input block" aria-label="Session date from" type="date" value={dateFrom} onChange={event => setDateFrom(event.target.value)}/></label>
         <label className="text-xs text-slate-500">To<input className="input block" aria-label="Session date to" type="date" value={dateTo} onChange={event => setDateTo(event.target.value)}/></label>
-      </div>
+     </div>
+     {canManage && <div className="card space-y-3 p-4"><div><h2 className="font-semibold">Outsourced clinician payment configuration</h2><p className="text-sm text-slate-500">Set an INR rate per completed session. A missing rate prevents liability creation; no ₹0 payable is generated.</p></div><div className="flex flex-wrap gap-2"><select className="input" aria-label="Outsourced clinician payment configuration" value={rateDoctor} onChange={event => setRateDoctor(event.target.value)}><option value="">Select outsourced clinician</option>{clinicians.map(clinician => <option key={clinician.id} value={clinician.id}>{clinician.doctor_name} · {clinician.consultation_duration_minutes} min{clinician.payment_configured ? ` · ₹${clinician.default_session_payout}/session` : ' · Payment configuration required'}</option>)}</select><input className="input" aria-label="INR per completed session" type="number" min="0.01" step="0.01" placeholder="INR per completed session" value={rate} onChange={event => setRate(event.target.value)} /><button className="btn" disabled={busy === 'rate'} onClick={() => void saveRate()}>{busy === 'rate' ? 'Saving…' : 'Save rate'}</button></div></div>}
       {canGenerate && <div className="flex flex-wrap items-center gap-3"><button className="btn border" onClick={selectAll}>Select all eligible</button><button className="btn border" onClick={() => setSelected([])}>Clear</button><span className="text-sm">{selected.length} selected · <b>{inr(selectedTotal)}</b></span><button className="btn btn-primary" disabled={!selected.length || busy === 'generate'} onClick={() => void generate()}>{busy === 'generate' ? 'Generating…' : 'Generate Payment Statement'}</button></div>}
     </div>
     <div className="card overflow-x-auto"><table className="min-w-[900px] w-full text-sm"><thead><tr className="border-b">{canGenerate && <th className="p-3 text-left">Select</th>}<th className="p-3 text-left">Psychologist</th><th className="p-3 text-left">Session</th><th className="p-3 text-left">Submitted</th><th className="p-3 text-right">Payable</th><th className="p-3 text-left">Due</th><th className="p-3 text-left">Status</th><th className="p-3"/></tr></thead><tbody>{filteredRows.map(row => { const isOverdue = row.status === 'payment_due' && row.due_date < today(); return <tr className="border-b" key={row.id}>{canGenerate && <td className="p-3"><input aria-label={`Select payable ${row.id}`} type="checkbox" checked={selected.includes(row.id)} disabled={!canSelect(row)} onChange={() => toggle(row)}/></td>}<td className="p-3">{row.psychologist?.doctor_name}</td><td className="p-3">{row.session_date}</td><td className="p-3">{String(row.session_record_submitted_at).slice(0, 10)}</td><td className="p-3 text-right">{inr(row.payable_amount)}</td><td className="p-3">{row.due_date || 'Manual'}</td><td className="p-3"><FinanceStatus value={isOverdue ? 'overdue' : row.status}/></td><td className="p-3">{row.status === 'payment_due' && <button className="btn border" disabled={busy === row.id} onClick={() => openSettlement(row)}>{busy === row.id ? 'Settling…' : 'Mark paid'}</button>}</td></tr>; })}</tbody></table>{!filteredRows.length && <p className="p-6 text-slate-500">No psychologist session payables match these filters.</p>}</div>
