@@ -22,18 +22,19 @@ export async function middleware(request: NextRequest) {
   );
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const protectedPath = path.startsWith('/employee') || path.startsWith('/admin') || path.startsWith('/clinician');
+  const protectedPath = path.startsWith('/employee') || path.startsWith('/admin') || path.startsWith('/clinician') || path === '/change-password';
 
   if (protectedPath && !user) return redirectWithCookies(request, response, '/sign-in');
 
   if (user) {
-    const { data: profile, error: profileError } = await supabase.from('profiles').select('role,status,is_employee').eq('id', user.id).maybeSingle();
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('role,status,is_employee,must_change_password').eq('id', user.id).maybeSingle();
     if (profileError) {
       console.warn('Middleware profile lookup failed', { path, userId: user.id, code: profileError.code });
       return response;
     }
     if (!profile) return redirectWithCookies(request, response, '/unauthorized');
     if (profile.status === 'inactive' || profile.status === 'terminated') return redirectWithCookies(request, response, '/sign-in?inactive=1');
+    if (profile.must_change_password && path !== '/change-password') return redirectWithCookies(request, response, '/change-password');
     const isSuperAdmin = profile.role === 'super_admin';
     const isManagement = isManagementRole(profile.role);
     const isOutsourcedClinician = profile.is_employee === false;
@@ -70,4 +71,4 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/', '/employee/:path*', '/admin/:path*', '/clinician/:path*'] };
+export const config = { matcher: ['/', '/employee/:path*', '/admin/:path*', '/clinician/:path*', '/change-password'] };

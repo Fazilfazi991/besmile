@@ -46,7 +46,7 @@ export function EmployeeCreateForm({
           <p className="eyebrow">People</p>
           <h1 className="text-2xl font-bold">Add employee</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Creates an employee profile and sends a secure password-setup invitation.
+            Creates an active employee account that can sign in immediately.
           </p>
         </div>
         <Link className="btn border" href="/admin/employees">
@@ -85,6 +85,10 @@ export function EmployeeCreateForm({
         </Field>
         <Field label="Work email" required>
           <input name="email" type="email" className="input" required defaultValue={values.email || ''} />
+        </Field>
+        <Field label="Temporary password">
+          <input name="temporary_password" type="password" autoComplete="new-password" className="input" placeholder="Enter temporary password" />
+          <span className="mt-1 block text-xs font-normal text-slate-500">Leave blank to use the default temporary password. The employee must change it at first sign-in.</span>
         </Field>
         <Field label="Phone">
           <input name="phone" type="tel" className="input" defaultValue={values.phone || ''} />
@@ -149,7 +153,7 @@ export function EmployeeCreateForm({
         </Field>
         <div className="flex items-end">
           <button className="btn btn-primary w-full" disabled={cannotSubmit}>
-            {pending ? 'Creating employee...' : 'Create employee and send invitation'}
+            {pending ? 'Creating employee...' : 'Create employee account'}
           </button>
         </div>
       </form>
