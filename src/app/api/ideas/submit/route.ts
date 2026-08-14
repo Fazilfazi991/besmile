@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const db = await serverSupabase();
     const { data: { user } } = await db.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { data: canCreate, error: permissionError } = await db.rpc('has_permission', { permission_code: 'ideas.create' });
+    const { data: canCreate, error: permissionError } = await db.rpc('has_permission', { permission_code: 'innovation.create' });
     if (permissionError) throw permissionError;
     if (!canCreate) return NextResponse.json({ error: 'Permission denied.' }, { status: 403 });
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     if (categoryError) throw categoryError;
     if (!category) throw new Error('Choose an active Innovation Hub category.');
 
-    const { data: idea, error: ideaError } = await db.from('ideas').insert({ ...payload, submitted_by: user.id, submitter_department_id: profile.department_id || null, status: 'Submitted' }).select('id').single();
+    const { data: idea, error: ideaError } = await db.from('ideas').insert({ ...payload, expected_benefit: payload.expected_benefit.trim() || null, submitted_by: user.id, submitter_department_id: profile.department_id || null, status: 'submitted' }).select('id').single();
     if (ideaError) throw ideaError;
     ideaId = idea.id;
 
