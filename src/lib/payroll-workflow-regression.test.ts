@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const payrollPage = readFileSync(resolve(process.cwd(), 'src/app/admin/finance/payroll/page.tsx'), 'utf8');
 const adminRepository = readFileSync(resolve(process.cwd(), 'src/lib/admin-repository.ts'), 'utf8');
 const payrollLifecycle = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260808180000_payroll_atomic_lifecycle.sql'), 'utf8');
+const latestPayrollLifecycle = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260814071500_batch_4_payroll_audit_followup.sql'), 'utf8');
 
 describe('payroll workflow regressions', () => {
   it('calculates payroll period end in UTC to avoid timezone drift', () => {
@@ -19,5 +20,9 @@ describe('payroll workflow regressions', () => {
     expect(payrollLifecycle).toContain("payment_status='paid'");
     expect(payrollLifecycle).toContain("payment_status <> 'paid'");
     expect(payrollLifecycle).toContain("update public.payroll_runs set status='paid'");
+    expect(latestPayrollLifecycle).toContain('select * into entry from public.payroll_entries where id=target_entry for update');
+    expect(latestPayrollLifecycle).toContain('select * into run from public.payroll_runs where id=entry.payroll_run_id for update');
+    expect(latestPayrollLifecycle).toContain("payment_status<>'paid'");
+    expect(latestPayrollLifecycle).toContain("update public.payroll_runs set status='paid'");
   });
 });
