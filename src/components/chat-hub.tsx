@@ -814,7 +814,7 @@ export function ChatHub() {
                       ref={textRef}
                       className="input"
                       rows={1}
-                      placeholder="Write a message"
+                      placeholder="Type a message"
                       value={text}
                       onChange={(event) => {
                         setText(event.target.value);
@@ -901,7 +901,7 @@ export function ChatHub() {
           <aside className="chat-details-panel">
             <div className="chat-details-heading">
               <h2>Conversation details</h2>
-              <button onClick={() => setDetails(false)}>Close</button>
+              <button aria-label="Close conversation details" onClick={() => setDetails(false)}>Close</button>
             </div>
             <Avatar name={chatName(active, profile.id)} large />
             <h3>{chatName(active, profile.id)}</h3>
