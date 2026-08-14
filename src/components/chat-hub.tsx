@@ -548,7 +548,7 @@ export function ChatHub() {
           </div>
           <input
             className="input chat-search"
-            placeholder="Search conversations"
+            placeholder="Search conversations..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -655,14 +655,28 @@ export function ChatHub() {
                 </div>
                 <div className="chat-header-actions">
                   <button
+                    aria-label="Search messages"
+                    title="Search messages"
                     onClick={() =>
                       setMessageQuery((value) => (value ? "" : " "))
                     }
                   >
-                    Search
+                    <span aria-hidden="true">⌕</span>
                   </button>
-                  <button onClick={() => setDetails((value) => !value)}>
-                    Details
+                  <button
+                    aria-label="Conversation details"
+                    title="Conversation details"
+                    onClick={() => setDetails((value) => !value)}
+                  >
+                    <span aria-hidden="true">i</span>
+                  </button>
+                  <button
+                    className="chat-more-button"
+                    aria-label="More conversation options"
+                    title="More conversation options"
+                    onClick={() => setDetails((value) => !value)}
+                  >
+                    <span aria-hidden="true">•••</span>
                   </button>
                 </div>
               </header>
@@ -679,6 +693,9 @@ export function ChatHub() {
                 </div>
               )}
               <div className="chat-messages" ref={scrollRef}>
+                <div className="chat-date-divider" aria-label="Today">
+                  <span>Today</span>
+                </div>
                 {hasEarlierMessages && !messageQuery.trim() && (
                   <button
                     type="button"
@@ -765,7 +782,7 @@ export function ChatHub() {
                         onClick={() => setEmojiOpen((value) => !value)}
                         disabled={sending}
                       >
-                        ☺
+                        <span aria-hidden="true">☺</span>
                       </button>
                       {emojiOpen && (
                         <div
@@ -837,7 +854,8 @@ export function ChatHub() {
                     !active.chat_conversations?.channel_id
                   }
                 >
-                  Attach
+                  <span aria-hidden="true">⌇</span>
+                  <span className="chat-action-label">Attach</span>
                 </button>
                 {!recording && !voicePreview && (
                   <button
@@ -851,7 +869,7 @@ export function ChatHub() {
                       !active.chat_conversations?.channel_id
                     }
                   >
-                    🎤
+                    <span aria-hidden="true">♩</span>
                   </button>
                 )}
                 <button
@@ -863,7 +881,7 @@ export function ChatHub() {
                     (!text.trim() && !file && !voicePreview)
                   }
                 >
-                  {sending ? "Sending..." : "Send"}
+                  <span aria-hidden="true">➤</span> {sending ? "Sending..." : "Send"}
                 </button>
                 <small>
                   {voicePreview
@@ -1176,9 +1194,7 @@ function Message({
 }) {
   return (
     <article className={`chat-message ${own ? "own" : ""}`}>
-      {sender && (
-        <b className="chat-sender">{message.sender?.full_name || "Member"}</b>
-      )}
+      {sender && <b className="chat-sender">{message.sender?.full_name || "Member"}</b>}
       <div>
         {message.body && <p>{message.body}</p>}
         {message.message_type === "voice" ? (
@@ -1188,8 +1204,9 @@ function Message({
         )}
         <time>
           {time(message.created_at)}
-          {own && " - Sent"}
+          {own && "  ✓✓"}
         </time>
+        <button className="chat-reaction-button" type="button" aria-label="React to message" title="React to message">☺</button>
       </div>
     </article>
   );
