@@ -107,7 +107,6 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const canCreate = can(permissions, 'doctor_scheduling.create_appointments', 'appointments.create');
   const canUpdate = can(permissions, 'doctor_scheduling.update_appointments', 'appointments.update', 'appointments.update_status', 'appointments.reschedule');
   const canCancel = can(permissions, 'doctor_scheduling.cancel_appointments', 'appointments.cancel');
-  const canSubmitOutsourcedSessionRecord = permissions['online_psychologists.manage'];
   const filteredAppointments = useMemo(() => appointments.filter(item => (!doctorFilter || item.doctor_id === doctorFilter) && (!patientFilter || item.patient_id === patientFilter) && (!statusFilter || item.status === statusFilter)), [appointments, doctorFilter, patientFilter, statusFilter]);
   const visibleDays = useMemo(() => daysForView(cursor, view), [cursor, view]);
   const currentDoctor = doctors.find(item => item.id === appointmentForm.doctor_id);
@@ -246,18 +245,6 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     }
   };
 
-  const submitSessionRecord = async (appointment: any) => {
-    if (!profile) return;
-    setSaving(appointment.id); setError(''); setNotice('');
-    try {
-      await doctorSchedulingRepository.submitPsychologistSessionRecord(appointment.id, profile.id);
-      setNotice('Session record submitted. Eligible online psychologist payments are created automatically.');
-      setSelected(undefined);
-      await load();
-    } catch (caught: any) { setError(caught.message || 'Unable to submit the session record.'); }
-    finally { setSaving(''); }
-  };
-
   const startReschedule = (appointment: any) => {
     setReschedule(appointment);
     setAppointmentForm({ patient_id: appointment.patient_id, doctor_id: appointment.doctor_id, date: dateKey(new Date(appointment.start_at)), slot: '', consultation_type: appointment.consultation_type, remarks: appointment.remarks || '' });
@@ -314,7 +301,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       </EmployeeSection>
     </div>}
 
-    {selected && <AppointmentPanel appointment={selected} canUpdate={canUpdate} canCancel={canCancel} canSubmitRecord={canSubmitOutsourcedSessionRecord && selected.status === 'completed' && selected.consultation_type === 'online' && selected.doctor?.clinician_type === 'outsourced'} saving={saving === selected.id} onClose={() => setSelected(undefined)} onStatus={status => void changeStatus(selected, status)} onSubmitRecord={() => void submitSessionRecord(selected)} onReschedule={() => startReschedule(selected)} />}
+    {selected && <AppointmentPanel appointment={selected} canUpdate={canUpdate} canCancel={canCancel} saving={saving === selected.id} onClose={() => setSelected(undefined)} onStatus={status => void changeStatus(selected, status)} onReschedule={() => startReschedule(selected)} />}
   </section>;
 }
 
@@ -510,7 +497,7 @@ function DoctorEditor({ form, availability, errors, saving, readOnlyIdentity, on
 
   return <div className="doctor-editor-backdrop" role="dialog" aria-modal="true" aria-label={form.id ? 'Edit psychologist' : 'Add psychologist'}>
     <form className="doctor-editor" noValidate onSubmit={onSubmit} ref={formRef}>
-      <header><div><h2>{form.id ? 'Edit Psychologist' : 'Add Psychologist'}</h2><p>Configure only scheduling details and weekly availability.</p></div><button type="button" onClick={onClose}>Close</button></header>
+      <header><div><h2>{form.id ? 'Edit Psychologist' : 'Add Psychologist'}</h2><p>Configure scheduling details and weekly availability. Outsourced clinician payment rates are managed securely in Finance → Psychologist Payments.</p></div><button type="button" onClick={onClose}>Close</button></header>
       {errorKeys.length > 0 && <div className="doctor-form-summary" role="alert">{errors._form || 'Please fix the highlighted fields below.'}</div>}
       <label>Clinician name<input {...errorProps('doctor_name')} disabled={readOnlyIdentity} value={form.doctor_name} onChange={event => field('doctor_name', event.target.value)} /><DoctorFieldError errors={errors} name="doctor_name" /></label>
       <label>Clinician type<select {...errorProps('clinician_type')} disabled={readOnlyIdentity} value={form.clinician_type || 'outsourced'} onChange={event => field('clinician_type', event.target.value)}><option value="staff_psychologist">Staff psychologist</option><option value="psychology_intern">Psychology intern</option><option value="outsourced">Outsourced</option></select><DoctorFieldError errors={errors} name="clinician_type" /></label>
@@ -549,8 +536,8 @@ function AppointmentGroups({ appointments, onOpen }: { appointments: any[]; onOp
   return <div className="appointment-groups">{groups.map(([title, rows]) => <section key={title}><h3>{title}</h3>{rows.length ? rows.map(item => <button type="button" onClick={() => onOpen(item)} key={item.id}><span><b>{item.patient?.full_name || 'Client'}</b><small>{fmtDate(item.start_at)} - {fmtTime(item.start_at)} - {item.doctor?.doctor_name || 'Psychologist'}</small></span><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge></button>) : <p>No appointments.</p>}</section>)}</div>;
 }
 
-function AppointmentPanel({ appointment, canUpdate, canCancel, canSubmitRecord, saving, onClose, onStatus, onSubmitRecord, onReschedule }: { appointment: any; canUpdate: boolean; canCancel: boolean; canSubmitRecord: boolean; saving: boolean; onClose: () => void; onStatus: (status: AppointmentStatus) => void; onSubmitRecord: () => void; onReschedule: () => void }) {
-  return <div className="doctor-panel-backdrop"><aside className="doctor-panel"><header><div><h2>{appointment.patient?.full_name || 'Client'}</h2><p>{appointment.doctor?.doctor_name || 'Psychologist'} - {fmtDate(appointment.start_at)}</p></div><button type="button" onClick={onClose}>Close</button></header><dl><div><dt>Time</dt><dd>{fmtTime(appointment.start_at)} to {fmtTime(appointment.end_at)}</dd></div><div><dt>Consultation</dt><dd>{label(appointment.consultation_type)}</dd></div><div><dt>Status</dt><dd><EmployeeStatusBadge tone={statusTones[appointment.status as AppointmentStatus]}>{statusLabels[appointment.status as AppointmentStatus]}</EmployeeStatusBadge></dd></div><div><dt>Remarks</dt><dd>{appointment.remarks || '-'}</dd></div></dl><div className="panel-actions">{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('confirmed')}>Confirm</button>}{canUpdate && <button disabled={saving} type="button" onClick={onReschedule}>Reschedule</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('completed')}>Completed</button>}{canSubmitRecord && <button disabled={saving} type="button" onClick={onSubmitRecord}>Submit session record</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('no_show')}>No Show</button>}{canCancel && <button disabled={saving} type="button" className="danger" onClick={() => onStatus('cancelled')}>Cancel</button>}</div></aside></div>;
+function AppointmentPanel({ appointment, canUpdate, canCancel, saving, onClose, onStatus, onReschedule }: { appointment: any; canUpdate: boolean; canCancel: boolean; saving: boolean; onClose: () => void; onStatus: (status: AppointmentStatus) => void; onReschedule: () => void }) {
+  return <div className="doctor-panel-backdrop"><aside className="doctor-panel"><header><div><h2>{appointment.patient?.full_name || 'Client'}</h2><p>{appointment.doctor?.doctor_name || 'Psychologist'} - {fmtDate(appointment.start_at)}</p></div><button type="button" onClick={onClose}>Close</button></header><dl><div><dt>Time</dt><dd>{fmtTime(appointment.start_at)} to {fmtTime(appointment.end_at)}</dd></div><div><dt>Consultation</dt><dd>{label(appointment.consultation_type)}</dd></div><div><dt>Status</dt><dd><EmployeeStatusBadge tone={statusTones[appointment.status as AppointmentStatus]}>{statusLabels[appointment.status as AppointmentStatus]}</EmployeeStatusBadge></dd></div><div><dt>Remarks</dt><dd>{appointment.remarks || '-'}</dd></div></dl><div className="panel-actions">{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('confirmed')}>Confirm</button>}{canUpdate && <button disabled={saving} type="button" onClick={onReschedule}>Reschedule</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('completed')}>Completed</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('no_show')}>No Show</button>}{canCancel && <button disabled={saving} type="button" className="danger" onClick={() => onStatus('cancelled')}>Cancel</button>}</div></aside></div>;
 }
 
 function daysForView(cursor: string, view: 'day' | 'week' | 'month') {
