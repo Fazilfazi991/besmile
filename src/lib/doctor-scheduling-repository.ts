@@ -32,6 +32,7 @@ export const doctorSchedulingRepository = {
       'doctor_scheduling.create_appointments',
       'doctor_scheduling.update_appointments',
       'doctor_scheduling.cancel_appointments',
+      'online_psychologists.manage',
       'appointments.view',
       'appointments.create',
       'appointments.update',
