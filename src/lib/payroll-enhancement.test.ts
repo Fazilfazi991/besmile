@@ -3,14 +3,27 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260814061003_batch_4_payroll_enhancement.sql'), 'utf8');
+const followup = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260814071500_batch_4_payroll_audit_followup.sql'), 'utf8');
 const employeePage = readFileSync(resolve(process.cwd(), 'src/app/employee/payroll/page.tsx'), 'utf8');
 const payslipRoute = readFileSync(resolve(process.cwd(), 'src/app/api/payroll/entries/[id]/payslip/route.ts'), 'utf8');
+const reportRoute = readFileSync(resolve(process.cwd(), 'src/app/api/payroll/runs/[id]/report/route.ts'), 'utf8');
+const payrollDetail = readFileSync(resolve(process.cwd(), 'src/app/admin/finance/payroll/[id]/page.tsx'), 'utf8');
+const diyaBoundary = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260813130000_production_user_cleanup.sql'), 'utf8');
+const psychologistPayables = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260813213043_psychologist_session_payables.sql'), 'utf8');
 
 describe('Batch 4 employee payroll integrity', () => {
   it('creates only active employee snapshots from effective salary settings', () => {
-    expect(migration).toContain("profile.status='active'");
-    expect(migration).toContain('settings.effective_date<=target_period_end');
+    expect(followup).toContain("profile.status='active'");
+    expect(followup).toContain('settings.effective_date<=target_period_end');
+    expect(followup).toContain('profile.workforce_visible');
+    expect(followup).toContain('profile.joining_date<=target_period_end');
     expect(migration).toContain('settings.basic_salary,settings.default_allowances,settings.default_deductions');
+  });
+
+  it('leaves intern and probation eligibility unassumed while excluding former employees', () => {
+    expect(followup).toContain("profile.status='active'");
+    expect(followup).not.toContain("profile.status in ('active','intern','probation')");
+    for (const status of ['resigned', 'inactive', 'terminated']) expect(followup).not.toContain(`profile.status='${status}'`);
   });
 
   it('stores deterministic numeric gross and net snapshots', () => {
@@ -33,10 +46,17 @@ describe('Batch 4 employee payroll integrity', () => {
   });
 
   it('settles once with a row lock and one linked Finance transaction', () => {
-    expect(migration).toContain('where id=target_entry for update');
-    expect(migration).toContain("entry.finance_transaction_id is not null");
-    expect(migration).toContain("values('payroll_payment'");
-    expect(migration).toContain('finance_transaction_id=ledger_id');
+    expect(followup).toContain('where id=target_entry for update');
+    expect(followup).toContain("entry.finance_transaction_id is not null");
+    expect(followup).toContain("values('payroll_payment'");
+    expect(followup).toContain('finance_transaction_id=ledger_id');
+    expect(followup).toContain("not exists(select 1 from public.finance_accounts where id=target_account and is_active)");
+  });
+
+  it('requires explicit Finance account selection and never defaults to the first account', () => {
+    expect(payrollDetail).toContain("account_id: ''");
+    expect(payrollDetail).not.toContain("account_id: accounts[0]");
+    expect(payrollDetail).toContain('<option value="">Select account</option>');
   });
 
   it('tracks every draft adjustment with reason, actor and timestamp', () => {
@@ -58,5 +78,19 @@ describe('Batch 4 employee payroll integrity', () => {
     expect(payslipRoute).toContain('entry.gross_earnings');
     expect(payslipRoute).toContain('entry.net_payable');
     expect(payslipRoute).toContain("record_payroll_payslip_access");
+    expect(payslipRoute).toContain("Payment date: ${entry.payment_date || 'Pending'}");
+    expect(payslipRoute).toContain('generateOfficialReport');
+    expect(reportRoute).toContain('generateOfficialReport');
+    expect(reportRoute).toContain("run.status === 'draft'");
+  });
+
+  it('preserves the Diya Finance boundary and outsourced psychologist separation', () => {
+    expect(diyaBoundary).toContain("permission.code like 'finance.%'");
+    expect(diyaBoundary).toContain("permission.code like 'payroll.%'");
+    expect(diyaBoundary).toContain("permission.code like 'invoices.%'");
+    expect(psychologistPayables).toContain("'psychologist_payment'");
+    expect(psychologistPayables).toContain('psychologist_session_payables');
+    expect(followup).not.toContain('psychologist_session_payables');
+    expect(followup).not.toContain("values('psychologist_payment'");
   });
 });

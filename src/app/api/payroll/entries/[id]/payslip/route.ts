@@ -21,7 +21,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     heading: 'SALARY SLIP', filename: `BSmile_SALARY_SLIP_${entry.profile?.employee_code || 'employee'}_${entry.payroll_run?.period_start}.pdf`,
     columns: [{ key: 'component', label: 'Salary component', weight: 2 }, { key: 'amount', label: 'Amount', align: 'right' }], rows,
     period: `Pay period: ${entry.payroll_run?.period_start} - ${entry.payroll_run?.period_end}`,
-    filters: [`Employee: ${entry.profile?.full_name || 'Employee'}`, `Employee code: ${entry.profile?.employee_code || '—'}`, `Payment status: ${entry.payment_status}`],
+    filters: [`Employee: ${entry.profile?.full_name || 'Employee'}`, `Employee code: ${entry.profile?.employee_code || '—'}`, `Payment status: ${entry.payment_status}`, `Payment date: ${entry.payment_date || 'Pending'}`],
     totals: [{ label: 'Gross earnings', value: inr(entry.gross_earnings) }, { label: 'Net payable', value: inr(entry.net_payable) }],
   });
   const audit = await db.rpc('record_payroll_payslip_access', { target_entry: id });
