@@ -44,5 +44,6 @@ describe('outsourced clinician payable sync', () => {
     expect(payments).toContain('Payment configuration required');
     expect(payments).toContain("onConflict: 'doctor_id'");
     expect(payments).toContain("select('status,payable_amount,due_date')");
+    expect(payments).toContain('clinicians.map(clinician => [clinician.id, clinician.doctor_name] as const)');
   });
 });

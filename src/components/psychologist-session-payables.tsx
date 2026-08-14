@@ -58,7 +58,7 @@ export function PsychologistSessionPayables() {
 
   useEffect(() => { void load(); }, [status, doctor]);
 
-  const doctors = useMemo(() => Array.from(new Map(rows.map(x => [x.psychologist_id, x.psychologist?.doctor_name || 'Psychologist'])).entries()), [rows]);
+  const doctors = useMemo(() => clinicians.map(clinician => [clinician.id, clinician.doctor_name] as const), [clinicians]);
   const due = summaryRows.filter(x => x.status === 'payment_due');
   const overdue = due.filter(x => x.due_date && x.due_date < today());
   const paid = summaryRows.filter(x => x.status === 'paid');
