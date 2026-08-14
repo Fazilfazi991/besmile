@@ -31,7 +31,7 @@ export default function SalarySettings() {
     event.preventDefault();
     try {
       const profile = await currentProfile() as any;
-      await adminRepository.saveSalarySetting({ ...edit, basic_salary: Number(edit.basic_salary || 0), default_allowances: Number(edit.default_allowances || 0), default_deductions: Number(edit.default_deductions || 0), updated_by: profile.id, is_active: edit.is_active !== false });
+      await adminRepository.saveSalarySetting({ ...edit, basic_salary: String(edit.basic_salary || 0), default_allowances: String(edit.default_allowances || 0), default_deductions: String(edit.default_deductions || 0), updated_by: profile.id, is_active: edit.is_active !== false });
       setEdit(null); setNotice({ kind: 'success', text: 'Salary setting saved.' }); await load();
     } catch { setNotice({ kind: 'error', text: 'Salary setting could not be saved. Please try again.' }); }
   };

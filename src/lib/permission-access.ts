@@ -94,6 +94,7 @@ export function adminRouteRequirement(path: string): PermissionRequirement {
 
 export function employeeRouteRequirement(path: string): PermissionRequirement | undefined {
   if (path.startsWith('/employee/profile') || path.startsWith('/employee/notifications')) return undefined;
+  if (path.startsWith('/employee/payroll')) return undefined;
   if (path.startsWith('/employee/announcements')) return anyOf('announcements.view', 'announcements.manage');
   if (path.startsWith('/employee/chat')) return anyOf('chat.use');
   if (path.startsWith('/employee/attendance')) return anyOf('attendance.self', 'attendance.view_self', 'attendance.view', 'attendance.manage');
@@ -126,6 +127,7 @@ export const adminNavigation: readonly NavigationGroup[] = [
 ];
 
 export const employeeNavigation: readonly NavigationGroup[] = [
+  { title: 'PAYROLL', links: [{ label: 'My Payroll', href: '/employee/payroll' }] },
   { title: 'WORKSPACE', links: [{ label: 'Dashboard', href: '/employee/dashboard', requirement: anyOf('dashboard.view') }, { label: 'Attendance', href: '/employee/attendance', requirement: anyOf('attendance.self', 'attendance.view_self', 'attendance.view', 'attendance.manage') }, { label: 'My Calendar', href: '/employee/calendar' }, { label: 'Meetings', href: '/employee/meetings', requirement: anyOf('meetings.view', 'meetings.create', 'meetings.manage') }, { label: 'Leave', href: '/employee/leaves', requirement: anyOf('leave.self', 'leave.request', 'leave.view', 'leave.manage', 'leave.approve') }, { label: 'Tasks', href: '/employee/tasks', requirement: anyOf('tasks.view_self', 'tasks.assign') }, { label: 'Manage Tasks', href: '/employee/tasks/manage', requirement: anyOf('tasks.assign') }, { label: 'Appointment & Scheduling', href: '/employee/doctor-scheduling', activeHrefs: ['/admin/doctor-scheduling'], requirement: anyOf('doctor_scheduling.view') }, { label: 'Innovation Hub', href: '/employee/ideas', activeHrefs: ['/admin/ideas'], requirement: anyOf('ideas.view') }, { label: 'Clients', href: '/employee/patients', activeHrefs: ['/admin/patients'], requirement: anyOf('patients.view') }, { label: 'Assigned Clients', href: '/employee/assigned-patients', activeHrefs: ['/employee/patients'], requirement: anyOf('patients.view_assigned') }, { label: 'Documents', href: '/employee/documents', requirement: anyOf('documents.view', 'documents.employee.view', 'patient_documents.view') }] },
   { title: 'OPERATIONS', links: [{ label: 'Employees', href: '/admin/employees', requirement: requireAllAndAny(['admin.shell'], ['employees.view']) }, { label: 'Clients', href: '/admin/patients', requirement: requireAllAndAny(['admin.shell'], ['patients.view', 'patients.view_all']) }, { label: 'Operational Documents', href: '/admin/documents', requirement: requireAllAndAny(['admin.shell'], ['documents.employee.manage', 'documents.administration.manage']) }] },
   { title: 'COMMUNICATION', links: [{ label: 'Notifications', href: '/employee/notifications' }, { label: 'Chat', href: '/employee/chat', requirement: anyOf('chat.use') }, { label: 'Profile', href: '/employee/profile' }] },
