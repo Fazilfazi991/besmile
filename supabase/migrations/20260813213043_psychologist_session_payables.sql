@@ -7,11 +7,34 @@ insert into public.permissions(code, description) values
   ('psychologist_payments.settle', 'Settle psychologist session payment liabilities')
 on conflict(code) do update set description = excluded.description;
 
-insert into public.role_permissions(role_id, permission_id)
-select role.id, permission.id from public.roles role join public.permissions permission
-  on permission.code in ('psychologist_payments.view','psychologist_payments.manage','psychologist_payments.settle')
-where role.code in ('chairman','director','general_manager')
-on conflict do nothing;
+-- Production uses the legacy `role_permissions(role, permission_id)` shape.
+-- Keep the seed compatible with both supported RBAC schemas without altering
+-- existing role mappings or introducing new role identities.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'role_permissions' and column_name = 'role'
+  ) then
+    insert into public.role_permissions(role, permission_id)
+    select management_role.role_name::public.employee_role, permission.id
+    from (values ('Chairman'), ('Director'), ('General Manager')) as management_role(role_name)
+    join public.permissions permission
+      on permission.code in ('psychologist_payments.view','psychologist_payments.manage','psychologist_payments.settle')
+    on conflict do nothing;
+  elsif exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'role_permissions' and column_name = 'role_id'
+  ) then
+    insert into public.role_permissions(role_id, permission_id)
+    select role.id, permission.id from public.roles role join public.permissions permission
+      on permission.code in ('psychologist_payments.view','psychologist_payments.manage','psychologist_payments.settle')
+    where role.code in ('chairman','director','general_manager')
+    on conflict do nothing;
+  else
+    raise exception 'Unsupported role_permissions schema for psychologist payment permission seeding';
+  end if;
+end $$;
 
 create table if not exists public.psychologist_payout_settings (
   id uuid primary key default gen_random_uuid(),
