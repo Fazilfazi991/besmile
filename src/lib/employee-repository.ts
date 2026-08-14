@@ -16,6 +16,16 @@ const required = () => {
   return db;
 };
 export const employeeRepository = {
+  async myPayroll(profileId: string) {
+    const { data, error } = await required()
+      .from("payroll_entries")
+      .select("*,payroll_run:payroll_runs(period_start,period_end,status)")
+      .eq("profile_id", profileId)
+      .in("payment_status", ["approved", "paid"])
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
   async hasPermission(permissionCode: string) {
     const { data, error } = await required().rpc("has_permission", {
       permission_code: permissionCode,

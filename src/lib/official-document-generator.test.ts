@@ -84,9 +84,15 @@ describe('official document generator', () => {
     expect(route).toContain('db.auth.getUser()');
     expect(route).toContain('canGenerateOfficialReport(db, input.reportType)');
     expect(route).toContain('record_official_report_generation');
-    for (const file of [operational, finance, invoice, payroll]) {
+    for (const file of [operational, finance, invoice]) {
       expect(file).toContain('downloadOfficialReport');
       expect(file).not.toContain('window.print()');
     }
+    expect(payroll).toContain('downloadPayrollDocument');
+    expect(payroll).not.toContain('window.print()');
+    const payrollReport = readFileSync(resolve(process.cwd(), 'src/app/api/payroll/runs/[id]/report/route.ts'), 'utf8');
+    const payslip = readFileSync(resolve(process.cwd(), 'src/app/api/payroll/entries/[id]/payslip/route.ts'), 'utf8');
+    expect(payrollReport).toContain('generateOfficialReport');
+    expect(payslip).toContain('generateOfficialReport');
   });
 });
