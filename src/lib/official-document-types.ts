@@ -36,6 +36,10 @@ export type NormalizedOfficialDocument = OfficialDocumentInput & {
   typeLabel: string;
 };
 
+export function offerLetterBody(name = '', position = '', joiningDate = '') {
+  return `Dear ${name || '[Candidate name]'},\n\nWe are pleased to offer you the position of ${position || '[Position]'} at BSmile - The Mind Studio. Your proposed joining date is ${joiningDate || '[Joining date]'}.\n\nThis offer is subject to the policies and employment terms communicated by the organization. We look forward to welcoming you to the BSmile team.\n\nPlease confirm your acceptance of this offer by signing and returning a copy of this letter.`;
+}
+
 const clean = (value: unknown, max: number) => String(value ?? '').replace(/\u0000/g, '').trim().slice(0, max);
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 

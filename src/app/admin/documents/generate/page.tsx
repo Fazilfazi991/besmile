@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { officialDocumentTypes, type OfficialDocumentInput, type OfficialDocumentType } from '@/lib/official-document-types';
+import { offerLetterBody, officialDocumentTypes, type OfficialDocumentInput, type OfficialDocumentType } from '@/lib/official-document-types';
 
 type Employee = { id: string; full_name: string; designation?: string | null; joining_date?: string | null; department?: { name?: string } | null };
 type HistoryItem = { id: string; title: string; category: string; file_name: string; created_at: string; storage_path: string };
@@ -26,7 +26,7 @@ const initialForm: OfficialDocumentInput = {
 };
 
 function templateBody(type: OfficialDocumentType, name = '', position = '', joiningDate = '') {
-  if (type === 'offer_letter') return `Dear ${name || '[Candidate name]'},\n\nWe are pleased to offer you the position of ${position || '[Position]'} at BSmile - The Mind Studio. Your proposed joining date is ${joiningDate || '[Joining date]'}.\n\nThis offer is subject to the policies and employment terms communicated by the organization. We look forward to welcoming you to the BSmile team.\n\nPlease confirm your acceptance of this offer by signing and returning a copy of this letter.`;
+  if (type === 'offer_letter') return offerLetterBody(name, position, joiningDate);
   if (type === 'policy') return '1. Purpose\n\nDescribe the purpose of this policy.\n\n2. Scope\n\nState who and what this policy applies to.\n\n3. Policy statement\n\nEnter the approved policy requirements and responsibilities here.';
   return 'Enter the official document content here. Separate paragraphs with a blank line for clean pagination.';
 }
