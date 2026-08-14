@@ -94,6 +94,14 @@ describe('permission compatibility', () => {
     expect(staffLabels).not.toContain('Staff Attendance');
   });
 
+  it('keeps Work & Performance behind its dedicated management permission', () => {
+    expect(permissionCatalogue).toContain('work_performance.view');
+    expect(permissionAllows(new Set(['work_performance.view']), adminRouteRequirement('/admin/work-performance'))).toBe(true);
+    expect(permissionAllows(new Set(['tasks.manage']), adminRouteRequirement('/admin/work-performance'))).toBe(false);
+    const labels = filterNavigation(adminNavigation, new Set(['work_performance.view'])).flatMap((group) => group.links.map((link) => link.label));
+    expect(labels).toContain('Work & Performance');
+  });
+
   it('exposes leave approvals only to reviewers', () => {
     expect(permissionAllows(new Set(['leave.approve']), adminRouteRequirement('/admin/leaves'))).toBe(true);
     expect(permissionAllows(new Set(['leave.self']), adminRouteRequirement('/admin/leaves'))).toBe(false);

@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
@@ -18,10 +18,11 @@ const initials = (name?: string) => (name || '?').split(' ').map(part => part[0]
 
 export default function AdminTasksPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [profile, setProfile] = useState<any>();
   const [staff, setStaff] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
-  const [filter, setFilter] = useState({ employee: '', status: '', priority: '', dueDate: '', query: '' });
+  const [filter, setFilter] = useState(() => ({ employee: searchParams.get('employee') || '', status: searchParams.get('status') || '', priority: searchParams.get('priority') || '', dueDate: searchParams.get('dueDate') || '', query: '' }));
   const [form, setForm] = useState(emptyTask);
   const [assigneeQuery, setAssigneeQuery] = useState('');
   const [editing, setEditing] = useState<any>();
