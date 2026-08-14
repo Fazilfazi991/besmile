@@ -28,6 +28,8 @@ export default function LeadDetail() {
   });
   const [patientNumber, setPatientNumber] = useState("");
   const [patientConversionOpen, setPatientConversionOpen] = useState(false);
+  const [matchingClients, setMatchingClients] = useState<any[]>([]);
+  const [existingClientId, setExistingClientId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -141,16 +143,17 @@ export default function LeadDetail() {
   };
   const convertPatient = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!patientNumber.trim()) {
+    if (!existingClientId && !patientNumber.trim()) {
       setError("Client ID is required.");
       return;
     }
     setBusy(true);
     setError("");
     try {
-      const patient = await adminRepository.convertLeadToPatient(
+      const patient = await adminRepository.convertLeadToClient(
         id,
         patientNumber,
+        existingClientId || null,
       );
       setPatientConversionOpen(false);
       setMessage(
@@ -173,6 +176,16 @@ export default function LeadDetail() {
     } finally {
       setBusy(false);
     }
+  };
+  const openPatientConversion = async () => {
+    setError("");
+    setPatientNumber("");
+    setExistingClientId("");
+    setMatchingClients([]);
+    try {
+      setMatchingClients(await adminRepository.findClientsByExactPhone(lead.phone));
+      setPatientConversionOpen(true);
+    } catch (caught: any) { setError(caught.message || 'Existing client check could not be completed.'); }
   };
   const archive = async () => {
     if (!window.confirm("Archive this lead?")) return;
@@ -201,7 +214,7 @@ export default function LeadDetail() {
             {lead.phone} {lead.location ? `· ${lead.location}` : ""}
           </p>
         </div>
-        {!convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setPatientConversionOpen(true); }}>Convert to client</button>}
+        {!convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => void openPatientConversion()}>Convert to client</button>}
         {convertedPatient && <Link className="btn border" href={`/admin/patients/${convertedPatient.slug || convertedPatient.id}`}>Open client</Link>}
         <button
           className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-700"
@@ -444,7 +457,7 @@ export default function LeadDetail() {
           )}
         </section>
       </div>
-      {patientConversionOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><form className="card w-full max-w-lg p-6" onSubmit={convertPatient}><h2 className="text-lg font-bold">Convert to Client</h2><p className="mt-1 text-sm text-slate-600">The lead remains in CRM. Matching contact and context fields will be copied to the new client record.</p><label className="mt-4 block text-sm font-semibold">Client ID <span className="text-rose-700">*</span><input autoFocus className="input mt-1" required value={patientNumber} onChange={event => setPatientNumber(event.target.value)} placeholder="Enter unique Client ID" /></label><p className="mt-2 text-xs text-slate-500">The Client ID must be unique. Validation errors keep your entered value.</p><div className="mt-5 flex justify-end gap-2"><button className="btn border" type="button" disabled={busy} onClick={() => setPatientConversionOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Converting...' : 'Convert to client'}</button></div></form></div>}
+      {patientConversionOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><form className="card w-full max-w-lg p-6" onSubmit={convertPatient}><h2 className="text-lg font-bold">Convert to Client</h2><p className="mt-1 text-sm text-slate-600">The lead remains in CRM and its source and follow-up history are retained.</p>{matchingClients.length > 0 && <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm"><b>Exact phone match found</b><p className="mt-1">Select a Client only when it is the same person. Names are not used for matching.</p>{matchingClients.map(client => <label className="mt-2 flex cursor-pointer gap-2" key={client.id}><input type="radio" name="existing-client" value={client.id} checked={existingClientId === client.id} onChange={() => setExistingClientId(client.id)} /><span>{client.full_name} · {client.patient_number}</span></label>)}</div>}{!existingClientId && <><label className="mt-4 block text-sm font-semibold">Client ID <span className="text-rose-700">*</span><input autoFocus className="input mt-1" required value={patientNumber} onChange={event => setPatientNumber(event.target.value)} placeholder="Enter unique Client ID" /></label><p className="mt-2 text-xs text-slate-500">The Client ID must be unique. Validation errors keep your entered value.</p></>}<div className="mt-5 flex justify-end gap-2"><button className="btn border" type="button" disabled={busy} onClick={() => setPatientConversionOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Converting...' : existingClientId ? 'Link existing client' : 'Convert to client'}</button></div></form></div>}
     </section>
   );
 }

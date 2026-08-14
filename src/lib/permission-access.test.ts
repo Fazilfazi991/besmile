@@ -46,7 +46,7 @@ describe('permission compatibility', () => {
       'chat.use', 'ideas.view',
     ]);
     const labels = filterNavigation(employeeNavigation, administrationAdmin).flatMap(group => group.links.map(link => link.label));
-    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'CRM Dashboard', 'Leads', 'Follow-ups', 'Clients', 'Employees', 'Operational Documents', 'Attendance', 'Leave', 'Chat', 'Profile']));
+    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'CRM Overview', 'Leads', 'Follow-ups', 'Clients', 'Employees', 'Operational Documents', 'Attendance', 'Leave', 'Chat', 'Profile']));
     expect(labels).not.toEqual(expect.arrayContaining(['Finance Dashboard', 'Payroll', 'Roles & Access', 'Task Assignment Access']));
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/finance'))).toBe(false);
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/access'))).toBe(false);
@@ -58,7 +58,7 @@ describe('permission compatibility', () => {
     const granted = new Set(['dashboard.view', 'employees.view', 'patients.view', 'leads.view', 'tasks.assign', 'documents.employee.manage', 'chat.use', 'announcements.manage', 'notifications.view', 'finance.dashboard.view', 'income.view', 'expenses.view', 'payroll.view', 'invoices.view', 'reports.finance.view']);
     const labels = filterNavigation(adminNavigation, granted).flatMap(group => group.links.map(link => link.label));
     expect(navigationForProfile('general_manager')).toBe(adminNavigation);
-    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'Clients', 'Operational Documents', 'Leads Management', 'Tasks', 'Finance Dashboard', 'Income', 'Expenses', 'Payroll', 'Invoices', 'Reports']));
+    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'Clients', 'Operational Documents', 'Leads', 'Tasks', 'Finance Dashboard', 'Income', 'Expenses', 'Payroll', 'Invoices', 'Reports']));
     expect(labels).not.toContain('Roles & Access');
   });
   it('accepts granular dashboard and finance permissions without legacy aliases', () => {
@@ -155,15 +155,15 @@ describe('permission compatibility', () => {
   it('limits guest sales navigation to CRM and universal employee links', () => {
     const groups = filterNavigation(employeeNavigation, new Set(['leads.view', 'leads.edit', 'sales.view', 'sales.edit']));
     const labels = groups.flatMap((group) => group.links.map((link) => link.label));
-    expect(labels).toEqual(expect.arrayContaining(['CRM Dashboard', 'My Leads', 'My Follow-ups', 'My Sales', 'Notifications', 'Profile']));
+    expect(labels).toEqual(expect.arrayContaining(['CRM Overview', 'Leads', 'Follow-ups', 'Sales', 'Notifications', 'Profile']));
     expect(labels).not.toEqual(expect.arrayContaining(['Dashboard', 'Attendance', 'Leave', 'Documents']));
   });
 
   it('keeps assigned clinical CRM separate from sales and admin CRM', () => {
     const scoped = new Set(['crm.view_assigned']);
     const labels = filterNavigation(employeeNavigation, scoped).flatMap((group) => group.links.map((link) => link.label));
-    expect(labels).toEqual(expect.arrayContaining(['CRM Dashboard', 'My Leads', 'My Follow-ups']));
-    expect(labels).not.toContain('My Sales');
+    expect(labels).toEqual(expect.arrayContaining(['CRM Overview', 'Leads', 'Follow-ups']));
+    expect(labels).not.toContain('Sales');
     expect(permissionAllows(scoped, employeeRouteRequirement('/employee/crm'))).toBe(true);
     expect(permissionAllows(scoped, employeeRouteRequirement('/employee/crm/leads/example'))).toBe(true);
     expect(permissionAllows(scoped, employeeRouteRequirement('/employee/crm/sales'))).toBe(false);

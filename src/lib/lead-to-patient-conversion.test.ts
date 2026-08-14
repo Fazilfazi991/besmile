@@ -11,7 +11,7 @@ describe('lead to patient conversion', () => {
     expect(migration).toContain('security definer');
     expect(migration).toContain('from public, anon, authenticated');
     expect(page).toContain('Convert to Client');
-    expect(page).toContain('convertLeadToPatient');
+    expect(page).toContain('convertLeadToClient');
     expect(page).toContain('That Client ID is already in use. Choose a different ID.');
   });
 });
