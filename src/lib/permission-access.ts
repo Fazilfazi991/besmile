@@ -66,6 +66,7 @@ export function adminRouteRequirement(path: string): PermissionRequirement {
   if (path.startsWith('/admin/policy-assistant/manage')) return anyOf('policy_assistant.manage');
   if (path.startsWith('/admin/policy-assistant')) return anyOf('policy_assistant.use');
   if (path === '/admin/employees/new') return anyOf('employees.create');
+  if (path.startsWith('/admin/onboarding')) return anyOf('onboarding.view', 'onboarding.manage');
   if (path.startsWith('/admin/leaves')) return anyOf('leave.approve', 'leave.manage', 'leave.review');
   if (path === '/admin/tasks') return anyOf('tasks.manage', 'tasks.assign');
   if (path === '/admin/task-access') return anyOf('tasks.manage_access');
@@ -120,6 +121,7 @@ export function employeeRouteRequirement(path: string): PermissionRequirement | 
 }
 
 export const adminNavigation: readonly NavigationGroup[] = [
+  { title: 'ONBOARDING', links: [{ label: 'Employee Onboarding', href: '/admin/onboarding', requirement: anyOf('onboarding.view', 'onboarding.manage') }] },
   { title: 'OVERVIEW', links: [{ label: 'Dashboard', href: '/admin', requirement: anyOf('admin.access', 'dashboard.view') }, { label: 'Reports', href: '/admin/reports', requirement: anyOf('reports.finance.view', 'reports.view') }] },
   { title: 'OPERATIONS', links: [{ label: 'Employees', href: '/admin/employees', requirement: anyOf('employees.view') }, { label: 'Clients', href: '/admin/patients', requirement: anyOf('patients.view', 'patients.view_assigned', 'patients.view_all') }, { label: 'Official Documents', href: '/admin/documents/generate', requirement: anyOf('documents.manage', 'documents.employee.manage') }, { label: 'Operational Documents', href: '/admin/documents', exact: true, requirement: anyOf('documents.manage', 'documents.employee.manage', 'documents.administration.manage') }] },
   { title: 'WORK MANAGEMENT', links: [{ label: 'My Attendance', href: '/admin/my-attendance', requirement: anyOf('attendance.self') }, { label: 'Staff Attendance', href: '/admin/attendance', requirement: anyOf('attendance.view', 'attendance.manage') }, { label: 'My Calendar', href: '/admin/calendar', requirement: anyOf('meetings.view', 'meetings.create', 'meetings.manage') }, { label: 'Meetings', href: '/admin/meetings', requirement: anyOf('meetings.view', 'meetings.create', 'meetings.manage') }, { label: 'Leave approvals', href: '/admin/leaves', requirement: anyOf('leave.approve', 'leave.manage', 'leave.review') }, { label: 'Tasks', href: '/admin/tasks', requirement: anyOf('tasks.manage', 'tasks.assign') }, { label: 'Task Access', href: '/admin/task-access', requirement: anyOf('tasks.manage_access') }, { label: 'Appointment & Scheduling', href: '/admin/doctor-scheduling', requirement: anyOf('doctor_scheduling.view') }, { label: 'Innovation Hub', href: '/admin/ideas', requirement: anyOf('ideas.view', 'ideas.manage_status', 'ideas.view_reports') }, { label: 'Customer Feedback', href: '/admin/customer-feedback', requirement: anyOf('customer_feedback.view') }, { label: 'Innovation Categories', href: '/admin/ideas/categories', requirement: anyOf('ideas.manage_categories') }] },
