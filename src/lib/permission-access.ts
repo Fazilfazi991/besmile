@@ -57,7 +57,7 @@ export function navigationForProfile(role: string | null | undefined) {
 }
 
 export function adminRouteRequirement(path: string): PermissionRequirement {
-  if (path === '/admin') return anyOf('admin.access');
+  if (path === '/admin') return anyOf('admin.access', 'dashboard.view');
   if (path === '/admin/profile') return anyOf('admin.access', 'dashboard.view');
   if (path === '/admin/my-attendance') return anyOf('attendance.self');
   if (path === '/admin/attendance') return anyOf('attendance.view', 'attendance.manage');

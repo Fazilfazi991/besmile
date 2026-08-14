@@ -388,6 +388,8 @@ export const employeeRepository = {
     }
     return {
       workDate,
+      attendanceAvailable: !attendanceResult.error,
+      leaveAvailable: !leaveResult.error,
       employees: people.map((person: any) => ({
         ...person,
         photo_url: person.avatar_url
