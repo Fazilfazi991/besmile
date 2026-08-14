@@ -32,9 +32,10 @@ describe('permission compatibility', () => {
     expect(permissionAllows(new Set(['dashboard.view', 'employees.view']), adminRouteRequirement('/admin/access'))).toBe(false);
   });
 
-  it('requires admin access for the admin root dashboard', () => {
-    expect(permissionAllows(new Set(['dashboard.view', 'admin.shell']), adminRouteRequirement('/admin'))).toBe(false);
+  it('allows legitimate dashboard or admin access for the admin root dashboard', () => {
+    expect(permissionAllows(new Set(['dashboard.view']), adminRouteRequirement('/admin'))).toBe(true);
     expect(permissionAllows(new Set(['admin.access']), adminRouteRequirement('/admin'))).toBe(true);
+    expect(permissionAllows(new Set(), adminRouteRequirement('/admin'))).toBe(false);
   });
 
   it('shows Administration Admin operational links without finance or access management', () => {

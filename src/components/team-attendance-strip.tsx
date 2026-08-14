@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { teamAttendanceState } from '@/lib/team-attendance-state';
+import { teamAttendanceDisplayState } from '@/lib/team-attendance-state';
 import { employeeAvatarInitials, resolveEmployeeAvatar } from '@/lib/employee-avatar';
 
 export type TeamMember = { id: string; full_name: string; designation?: string | null; department?: { name?: string | null } | null; photo_url?: string | null; attendance?: any; on_leave?: boolean };
@@ -16,7 +16,7 @@ export function TeamAttendanceStrip({ employees, loading = false, canOpenEmploye
 }
 
 function TeamAttendanceCard({ employee, canOpenEmployees, duplicatePhoto, standardHub, accent, attendanceAvailable, leaveAvailable }: { employee: TeamMember; canOpenEmployees: boolean; duplicatePhoto: boolean; standardHub: boolean; accent: number; attendanceAvailable: boolean; leaveAvailable: boolean }) {
-  const state = !attendanceAvailable ? { label: 'Attendance unavailable', detail: undefined, tone: 'neutral' } : !leaveAvailable ? teamAttendanceState(employee.attendance, false) : teamAttendanceState(employee.attendance, employee.on_leave); const photo = resolveEmployeeAvatar(employee.full_name, employee.photo_url); const designation = !employee.designation || /^(staff|employee)$/i.test(employee.designation.trim()) ? employee.department?.name || 'Designation not set' : employee.designation;
+  const state = teamAttendanceDisplayState(employee.attendance, employee.on_leave, attendanceAvailable, leaveAvailable); const photo = resolveEmployeeAvatar(employee.full_name, employee.photo_url); const designation = !employee.designation || /^(staff|employee)$/i.test(employee.designation.trim()) ? employee.department?.name || 'Designation not set' : employee.designation;
   const content = standardHub ? <><div className="team-member-hub-heading"><Avatar name={employee.full_name} src={duplicatePhoto ? undefined : photo} /><span aria-hidden="true" /><small title={designation}>{designation}</small></div><div className="team-member-copy"><b title={employee.full_name}>{employee.full_name}</b><span>{state.label}{state.detail ? ` · ${state.detail}` : ''}</span></div></> : <><Avatar name={employee.full_name} src={duplicatePhoto ? undefined : photo} /><div className="team-member-copy"><b title={employee.full_name}>{employee.full_name}</b><span title={designation}>{designation}</span></div><div className={`team-member-status ${state.tone}`}><span aria-hidden="true" /><div><strong>{state.label}</strong>{state.detail && <small>{state.detail}</small>}</div></div></>;
   return canOpenEmployees ? <Link href={`/admin/employees/${employee.id}`} className={`team-member-card${standardHub ? ` standard-team-card accent-${accent}` : ''}`}>{content}</Link> : <article className="team-member-card">{content}</article>;
 }

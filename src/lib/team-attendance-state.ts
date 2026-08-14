@@ -7,5 +7,9 @@ export function teamAttendanceState(attendance: TeamAttendanceRecord, onLeave = 
   if (activeBreak) return { label: 'On Break', detail: breakDuration(activeBreak.started_at), tone: 'break' };
   return { label: 'Present', detail: attendance.clock_in ? `In ${formatTime(attendance.clock_in)}` : undefined, tone: 'present' };
 }
+export function teamAttendanceDisplayState(attendance: TeamAttendanceRecord, onLeave = false, attendanceAvailable = true, leaveAvailable = true) {
+  if (!attendanceAvailable) return { label: 'Attendance unavailable', detail: undefined, tone: 'neutral' };
+  return teamAttendanceState(attendance, leaveAvailable ? onLeave : false);
+}
 function formatTime(value: string) { return new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(new Date(value)); }
 function breakDuration(value: string) { return `${Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 60000))} min`; }

@@ -12,15 +12,61 @@ import { employeeRepository } from '@/lib/employee-repository';
 import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { TeamAttendanceStrip, type TeamMember } from '@/components/team-attendance-strip';
 import { ModuleIcon } from '@/components/module-icon';
+import { adminDashboardPermissionCodes, runAdminDashboardRequestPlan } from '@/lib/admin-dashboard-request-plan';
 
 const fmtDate = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(new Date(value)) : 'Not scheduled';
+const emptyDashboardSummary = { employees: 0, presentToday: 0, lateToday: 0, onLeave: 0, pendingLeave: 0, openTasks: 0, overdueTasks: 0, leads: 0, newLeads: 0, followupsDue: 0, hotLeads: 0, sales: 0, pendingDocuments: 0, unreadNotifications: 0 };
 
 export default function ExecutiveDashboard() {
   const [summary, setSummary] = useState<any>(); const [finance, setFinance] = useState<any>(); const [audit, setAudit] = useState<any[]>([]); const [documents, setDocuments] = useState<any[]>([]); const [doctorSchedule, setDoctorSchedule] = useState<any>(); const [profile, setProfile] = useState<any>(); const [todayAttendance, setTodayAttendance] = useState<any>(); const [team, setTeam] = useState<TeamMember[]>(); const [canViewTeam, setCanViewTeam] = useState(false); const [canOpenEmployees, setCanOpenEmployees] = useState(false); const [canViewFinance, setCanViewFinance] = useState(false); const [teamAvailability, setTeamAvailability] = useState({ attendance: true, leave: true }); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [role, setRole] = useState<string>(); const [refreshingAttendance, setRefreshingAttendance] = useState(false);
   const [attendanceError, setAttendanceError] = useState('');
   const [attendanceStatus, setAttendanceStatus] = useState('');
   const attendanceRequest = useRef(false);
-  const load = async () => { const profilePromise = currentProfile().catch(() => null); const schedulingAccessPromise = doctorSchedulingRepository.permissions().catch(() => ({} as Record<string, boolean>)); const accessPromise = employeeRepository.grantedPermissions(['attendance.self', 'attendance.view', 'attendance.view_team', 'attendance.manage', 'employees.view', 'finance.dashboard.view', 'finance.view', 'payroll.view', 'payroll.manage', 'invoices.view', 'invoices.manage', 'reports.view', 'reports.finance.view']).catch(() => new Set<string>()); const summaryPromise = adminRepository.superAdminDashboard(); const [signedInProfile, schedulingAccess, access] = await Promise.all([profilePromise, schedulingAccessPromise, accessPromise]); if (signedInProfile) { setProfile(signedInProfile); setRole(signedInProfile.role); } const teamAccess = access.has('attendance.view') || access.has('attendance.manage'); const financeAccess = access.has('finance.dashboard.view') || access.has('finance.view'); setCanViewTeam(teamAccess); setCanOpenEmployees(access.has('employees.view')); setCanViewFinance(financeAccess); const primary = await Promise.allSettled([summaryPromise, financeAccess ? adminRepository.financeDashboard() : Promise.resolve(null)]); const [summaryResult, financeResult] = primary; if (summaryResult.status === 'fulfilled') setSummary(summaryResult.value); if (financeResult.status === 'fulfilled') setFinance(financeResult.value); if (primary.some(result => result.status === 'rejected')) setError('Primary dashboard data could not be refreshed.'); const secondary = await Promise.allSettled([isSecurityAdministratorRole(signedInProfile?.role) ? adminRepository.audit() : Promise.resolve([]), access.has('documents.manage') || access.has('documents.employee.manage') ? adminRepository.documentRequests() : Promise.resolve([]), schedulingAccess['doctor_scheduling.view'] ? doctorSchedulingRepository.summary() : Promise.resolve(null), signedInProfile && access.has('attendance.self') ? employeeRepository.attendanceToday(signedInProfile.id) : Promise.resolve({attendance:null}), teamAccess ? employeeRepository.teamAttendanceToday() : Promise.resolve(null)]); const [auditResult, documentResult, doctorScheduleResult, attendanceResult, teamResult] = secondary; if (auditResult.status === 'fulfilled') setAudit(auditResult.value); if (documentResult.status === 'fulfilled') setDocuments(documentResult.value); if (doctorScheduleResult.status === 'fulfilled') setDoctorSchedule(doctorScheduleResult.value); if (attendanceResult.status === 'fulfilled') setTodayAttendance(attendanceResult.value.attendance); if (teamResult.status === 'fulfilled' && teamResult.value) { setTeam(teamResult.value.employees); setTeamAvailability({ attendance: teamResult.value.attendanceAvailable !== false, leave: teamResult.value.leaveAvailable !== false }); } if (secondary.some(result => result.status === 'rejected')) setError(current => current || 'Some secondary dashboard data could not be refreshed.'); };
+  const load = async () => {
+    const profilePromise = currentProfile().catch(() => null);
+    const schedulingAccessPromise = doctorSchedulingRepository.permissions().catch(() => ({} as Record<string, boolean>));
+    const accessPromise = employeeRepository.grantedPermissions(adminDashboardPermissionCodes).catch(() => new Set<string>());
+    const [signedInProfile, schedulingAccess, access] = await Promise.all([profilePromise, schedulingAccessPromise, accessPromise]);
+    if (signedInProfile) { setProfile(signedInProfile); setRole(signedInProfile.role); }
+
+    const teamAccess = access.has('attendance.view') || access.has('attendance.manage');
+    const documentAccess = access.has('documents.manage') || access.has('documents.employee.manage');
+    const financeAccess = access.has('finance.dashboard.view') || access.has('finance.view');
+    setCanViewTeam(teamAccess);
+    setCanOpenEmployees(access.has('employees.view'));
+    setCanViewFinance(financeAccess);
+
+    const effectivePermissions = new Set(access);
+    if (schedulingAccess['doctor_scheduling.view']) effectivePermissions.add('doctor_scheduling.view');
+    const primaryPromise = runAdminDashboardRequestPlan(effectivePermissions, {
+      workforce: () => adminRepository.workforceSummary(),
+      leave: () => adminRepository.leaveApprovalSummary(),
+      task: () => adminRepository.taskSummary(),
+      crm: () => adminRepository.crmSummary(),
+      documentApproval: () => adminRepository.documentApprovalSummary(),
+      notification: () => adminRepository.notificationSummary(),
+      finance: () => adminRepository.financeDashboard(),
+      scheduling: () => doctorSchedulingRepository.summary(),
+      audit: () => adminRepository.audit(),
+    });
+    const secondaryPromise = Promise.allSettled([documentAccess ? adminRepository.documentRequests() : Promise.resolve([]), signedInProfile && access.has('attendance.self') ? employeeRepository.attendanceToday(signedInProfile.id) : Promise.resolve({attendance:null}), teamAccess ? employeeRepository.teamAttendanceToday() : Promise.resolve(null)]);
+    const [primary, secondary] = await Promise.all([primaryPromise, secondaryPromise]);
+    const summaryResults = [primary.results.workforce, primary.results.leave, primary.results.task, primary.results.crm, primary.results.documentApproval, primary.results.notification].filter(result => result !== undefined);
+    setSummary(summaryResults.reduce((combined, result) => result.status === 'fulfilled' && result.value ? { ...combined, ...result.value } : combined, emptyDashboardSummary));
+    const financeResult = primary.results.finance;
+    if (financeResult?.status === 'fulfilled') setFinance(financeResult.value);
+    const auditResult = primary.results.audit;
+    if (auditResult?.status === 'fulfilled') setAudit(auditResult.value as any[]);
+    const doctorScheduleResult = primary.results.scheduling;
+    if (doctorScheduleResult?.status === 'fulfilled') setDoctorSchedule(doctorScheduleResult.value);
+    if (primary.rejected) setError('Primary dashboard data could not be refreshed.');
+
+    const [documentResult, attendanceResult, teamResult] = secondary;
+    if (documentResult.status === 'fulfilled') setDocuments(documentResult.value);
+    if (attendanceResult.status === 'fulfilled') setTodayAttendance(attendanceResult.value.attendance);
+    if (teamResult.status === 'fulfilled' && teamResult.value) { setTeam(teamResult.value.employees); setTeamAvailability({ attendance: teamResult.value.attendanceAvailable !== false, leave: teamResult.value.leaveAvailable !== false }); }
+    if (secondary.some(result => result.status === 'rejected')) setError(current => current || 'Some secondary dashboard data could not be refreshed.');
+  };
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, []);
   const title = dashboardTitle(role);
   const securityAdministrator = isSecurityAdministratorRole(role);
