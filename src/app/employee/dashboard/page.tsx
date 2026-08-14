@@ -117,7 +117,7 @@ export default function EmployeeDashboard() {
   const canLeave = has(permissions, { anyOf: ['leave.self', 'leave.request', 'leave.view', 'leave.manage', 'leave.approve'] });
   const canDocuments = has(permissions, { anyOf: ['documents.view', 'documents.employee.view', 'patient_documents.view'] });
   const canAnnouncements = has(permissions, { anyOf: ['announcements.view', 'announcements.manage'] });
-  const canChat = has(permissions, { anyOf: ['chat.use'] });
+  const canChat = true;
   const canCrm = has(permissions, { anyOf: ['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view', 'sales.view'] });
 
   const attendanceAction = async (action: 'clockIn' | 'clockOut' | 'startBreak' | 'endBreak') => {
