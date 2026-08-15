@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { dateKey } from "./attendance-rules";
+import { employeeTaskHealth } from './task-health';
 import {
   hasLeaveOverlap,
   hasSufficientBalance,
@@ -55,7 +56,7 @@ export const employeeRepository = {
     const r = required();
     const { data: settings, error: settingsError } = await r
       .from("company_attendance_settings")
-      .select("timezone")
+      .select("timezone,work_start,working_days")
       .single();
     if (settingsError) throw settingsError;
     const [attendance, tasks, leaves, notifications] = await Promise.all([
@@ -322,7 +323,7 @@ export const employeeRepository = {
     const r = required();
     const { data: settings, error: settingsError } = await r
       .from("company_attendance_settings")
-      .select("timezone")
+      .select("timezone,work_start,working_days")
       .single();
     if (settingsError) throw settingsError;
     const workDate = dateKey(new Date(), settings.timezone);
@@ -339,7 +340,7 @@ export const employeeRepository = {
     const r = required();
     const { data: settings, error: settingsError } = await r
       .from("company_attendance_settings")
-      .select("timezone")
+      .select("timezone,work_start,working_days")
       .single();
     if (settingsError) throw settingsError;
     const workDate = dateKey(new Date(), settings.timezone);
@@ -372,6 +373,28 @@ export const employeeRepository = {
         (peopleResult.data || []).map((person: any) => [person.id, person]),
       ).values(),
     ];
+    const profileIds = people.map((person: any) => person.id);
+    let assignmentResult: any = profileIds.length ? await r
+      .from('task_assignments')
+      .select('profile_id,status,tasks!inner(id,status,due_date,start_date,sla_duration,sla_unit,sla_deadline,created_at)')
+      .in('profile_id', profileIds)
+      .neq('status', 'completed') : { data: [], error: null };
+    // Deploys can briefly serve a client version before the additive SLA migration
+    // reaches PostgREST's schema cache. Retrying with legacy task fields keeps Team
+    // Today functional and preserves due-date health for pre-SLA tasks.
+    if (assignmentResult.error && /start_date|sla_duration|sla_unit|sla_deadline|schema cache|column/i.test(String(assignmentResult.error.message || ''))) {
+      console.warn('Team Today: SLA fields unavailable; using legacy task-health query.', assignmentResult.error);
+      assignmentResult = await r.from('task_assignments').select('profile_id,status,tasks!inner(id,status,due_date,created_at)').in('profile_id', profileIds).neq('status', 'completed');
+    }
+    if (assignmentResult.error) throw assignmentResult.error;
+    const assignments = assignmentResult.data || [];
+    const tasksByProfile = new Map<string, any[]>();
+    assignments.forEach((assignment: any) => {
+      const rows = tasksByProfile.get(assignment.profile_id) || [];
+      rows.push({ ...assignment.tasks, assignment_status: assignment.status });
+      tasksByProfile.set(assignment.profile_id, rows);
+    });
+    const healthSettings = { timezone: settings.timezone, work_start: settings.work_start, working_days: settings.working_days };
     const attendanceByProfile = new Map(
       (attendanceResult.error ? [] : attendanceResult.data || []).map(
         (row: any) => [row.profile_id, row],
@@ -405,6 +428,7 @@ export const employeeRepository = {
           : null,
         attendance: attendanceByProfile.get(person.id) || null,
         on_leave: onLeave.has(person.id),
+        task_health: employeeTaskHealth(tasksByProfile.get(person.id) || [], healthSettings),
       })),
     };
   },

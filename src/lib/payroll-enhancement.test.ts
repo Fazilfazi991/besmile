@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260814061003_batch_4_payroll_enhancement.sql'), 'utf8');
 const followup = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260814071500_batch_4_payroll_audit_followup.sql'), 'utf8');
 const employeePage = readFileSync(resolve(process.cwd(), 'src/app/employee/payroll/page.tsx'), 'utf8');
+const employeeRepository = readFileSync(resolve(process.cwd(), 'src/lib/employee-repository.ts'), 'utf8');
 const payslipRoute = readFileSync(resolve(process.cwd(), 'src/app/api/payroll/entries/[id]/payslip/route.ts'), 'utf8');
 const reportRoute = readFileSync(resolve(process.cwd(), 'src/app/api/payroll/runs/[id]/report/route.ts'), 'utf8');
 const payrollDetail = readFileSync(resolve(process.cwd(), 'src/app/admin/finance/payroll/[id]/page.tsx'), 'utf8');
@@ -71,6 +72,9 @@ describe('Batch 4 employee payroll integrity', () => {
     expect(migration).toContain("payment_status in ('approved','paid')");
     expect(migration).toContain("public.has_permission('payroll.view') or public.has_permission('payroll.manage')");
     expect(employeePage).toContain('employeeRepository.myPayroll(profile.id)');
+    expect(employeeRepository).toContain('async myPayroll(profileId: string)');
+    expect(employeeRepository).toContain('.eq("profile_id", profileId)');
+    expect(employeeRepository).toContain('.in("payment_status", ["approved", "paid"])');
   });
 
   it('builds payslips from the stored finalized snapshot on the server', () => {

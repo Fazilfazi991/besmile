@@ -12,6 +12,9 @@ describe('task form submission', () => {
     expect(page).toContain('name="priority"');
     expect(page).toContain('name="description"');
     expect(page).toContain('name="due_date"');
+    expect(page).toContain('name="start_date"');
+    expect(page).toContain('name="sla_duration"');
+    expect(page).toContain('name="sla_unit"');
     expect(page).toContain('if (!payload.due_date) return setError');
   });
 
