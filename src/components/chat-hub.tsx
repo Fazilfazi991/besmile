@@ -896,20 +896,25 @@ export function ChatHub() {
         {active && details && (
           <aside className="chat-details-panel">
             <div className="chat-details-heading">
-              <h2>Conversation details</h2>
-              <button onClick={() => setDetails(false)}>Close</button>
+              <h2>Conversation info</h2>
+              <button type="button" aria-label="Close conversation info" title="Close" onClick={() => setDetails(false)}>Close</button>
             </div>
-            <Avatar name={chatName(active, profile.id)} large />
-            <h3>{chatName(active, profile.id)}</h3>
+            <div className="chat-details-summary">
+              <Avatar name={chatName(active, profile.id)} large />
+              <div>
+                <h3>{chatName(active, profile.id)}</h3>
+                <p className="chat-details-meta">{isGroup ? `${members.length} members · ${active.chat_conversations.group_type || "group"}` : other(active, profile.id)?.designation || "Direct conversation"}</p>
+              </div>
+            </div>
             {isGroup ? (
               <>
-                <p>
+                <p className="chat-details-description">
                   {active.chat_conversations.description ||
                     "No group description."}
                 </p>
                 <div className="chat-detail-section">
                   <div>
-                    <b>Members</b>
+                    <b>Members · {members.length}</b>
                     {isAdmin && !active.chat_conversations.is_system_group && (
                       <button
                         onClick={() => {
@@ -1277,9 +1282,10 @@ function Member({ member, admin, own, conversationId, refresh, report }: any) {
     <div className="chat-member">
       <Avatar name={person.full_name} />
       <span>
-        <b>
+        <b title={person.full_name || "Member"}>
           {person.full_name || "Member"}
           {member.profile_id === member.group_admin_id ? " Admin" : ""}
+          {own && <em>You</em>}
         </b>
         <small>
           {person.designation || person.department?.name || "Employee"}
