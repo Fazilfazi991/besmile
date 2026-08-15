@@ -592,7 +592,7 @@ export function ChatHub() {
                         className="chat-avatar chat-group-avatar"
                         aria-hidden="true"
                       >
-                        👥
+                        <span className="chat-group-glyph">✦</span>
                       </span>
                     ) : (
                       <Avatar name={chatName(item, profile.id)} />
@@ -639,7 +639,7 @@ export function ChatHub() {
                     className="chat-avatar chat-group-avatar"
                     aria-hidden="true"
                   >
-                    👥
+                    <span className="chat-group-glyph">✦</span>
                   </span>
                 ) : (
                   <Avatar name={chatName(active, profile.id)} />
@@ -655,14 +655,29 @@ export function ChatHub() {
                 </div>
                 <div className="chat-header-actions">
                   <button
+                    className="chat-icon-button"
+                    title="Search conversation"
+                    aria-label="Search conversation"
                     onClick={() =>
                       setMessageQuery((value) => (value ? "" : " "))
                     }
                   >
-                    Search
+                    <Icon name="search" />
                   </button>
-                  <button onClick={() => setDetails((value) => !value)}>
-                    Details
+                  <button
+                    className="chat-icon-button"
+                    title="Conversation details"
+                    aria-label="Conversation details"
+                    onClick={() => setDetails((value) => !value)}
+                  >
+                    <Icon name="info" />
+                  </button>
+                  <button
+                    className="chat-icon-button chat-more-button"
+                    title="More conversation options"
+                    aria-label="More conversation options"
+                  >
+                    <Icon name="more" />
                   </button>
                 </div>
               </header>
@@ -748,8 +763,7 @@ export function ChatHub() {
                   </div>
                 ) : voicePreview ? (
                   <div className="chat-voice-preview">
-                    <audio src={voicePreview.url} controls preload="metadata" />
-                    <span>{durationLabel(voicePreview.duration)}</span>
+                    <VoicePlayer src={voicePreview.url} duration={voicePreview.duration} label="Voice preview" />
                     <button type="button" onClick={discardVoice}>
                       Delete
                     </button>
@@ -1156,6 +1170,14 @@ function Avatar({ name, large = false }: { name?: string; large?: boolean }) {
     </span>
   );
 }
+function Icon({ name }: { name: "search" | "info" | "more" }) {
+  const paths = {
+    search: <><circle cx="10.8" cy="10.8" r="5.8" /><path d="m15.2 15.2 4 4" /></>,
+    info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></>,
+    more: <><circle cx="5" cy="12" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /><circle cx="19" cy="12" r="1" fill="currentColor" /></>,
+  };
+  return <svg className="chat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
 function Empty({ title, text }: { title: string; text: string }) {
   return (
     <div className="chat-empty">
@@ -1205,13 +1227,15 @@ function VoiceMessage({ message }: { message: any }) {
         .then(setUrl)
         .catch(() => undefined);
   }, [message.attachment_path]);
-  return (
-    <div className="chat-voice-message">
-      <span aria-hidden="true">🎤</span>
-      <audio src={url || undefined} controls preload="metadata" />
-      <b>{durationLabel(message.voice_duration_seconds)}</b>
-    </div>
-  );
+  return <VoicePlayer src={url} duration={message.voice_duration_seconds} label="Voice message" />;
+}
+function VoicePlayer({ src, duration = 0, label }: { src?: string; duration?: number; label: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const total = duration || audioRef.current?.duration || 0;
+  const toggle = () => { const audio = audioRef.current; if (!audio || !src) return; if (audio.paused) void audio.play(); else audio.pause(); };
+  return <div className="chat-voice-message"><audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onEnded={() => setPlaying(false)} onPause={() => setPlaying(false)} onPlay={() => setPlaying(true)} /><button type="button" className="chat-voice-play" onClick={toggle} aria-label={playing ? "Pause voice note" : "Play voice note"} disabled={!src}>{playing ? "❚❚" : "▶"}</button><div className="chat-voice-track" aria-label={label}><span style={{ width: `${total ? Math.min(100, elapsed / total * 100) : 0}%` }} /></div><b>{durationLabel(Math.round(playing ? elapsed : duration || elapsed))}</b></div>;
 }
 function MessageFile({ message }: { message: any }) {
   const [url, setUrl] = useState("");
