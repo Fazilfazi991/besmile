@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { dateKey } from "./attendance-rules";
+import { employeeTaskHealth } from './task-health';
 import {
   hasLeaveOverlap,
   hasSufficientBalance,
@@ -45,7 +46,7 @@ export const employeeRepository = {
     const r = required();
     const { data: settings, error: settingsError } = await r
       .from("company_attendance_settings")
-      .select("timezone")
+      .select("timezone,work_start,working_days")
       .single();
     if (settingsError) throw settingsError;
     const [attendance, tasks, leaves, notifications] = await Promise.all([
@@ -312,7 +313,7 @@ export const employeeRepository = {
     const r = required();
     const { data: settings, error: settingsError } = await r
       .from("company_attendance_settings")
-      .select("timezone")
+      .select("timezone,work_start,working_days")
       .single();
     if (settingsError) throw settingsError;
     const workDate = dateKey(new Date(), settings.timezone);
@@ -362,6 +363,20 @@ export const employeeRepository = {
         (peopleResult.data || []).map((person: any) => [person.id, person]),
       ).values(),
     ];
+    const profileIds = people.map((person: any) => person.id);
+    const { data: assignments, error: assignmentError } = profileIds.length ? await r
+      .from('task_assignments')
+      .select('profile_id,status,tasks!inner(id,status,due_date,start_date,sla_duration,sla_unit,sla_deadline,created_at)')
+      .in('profile_id', profileIds)
+      .neq('status', 'completed') : { data: [], error: null };
+    if (assignmentError) throw assignmentError;
+    const tasksByProfile = new Map<string, any[]>();
+    (assignments || []).forEach((assignment: any) => {
+      const rows = tasksByProfile.get(assignment.profile_id) || [];
+      rows.push({ ...assignment.tasks, assignment_status: assignment.status });
+      tasksByProfile.set(assignment.profile_id, rows);
+    });
+    const healthSettings = { timezone: settings.timezone, work_start: settings.work_start, working_days: settings.working_days };
     const attendanceByProfile = new Map(
       (attendanceResult.error ? [] : attendanceResult.data || []).map(
         (row: any) => [row.profile_id, row],
@@ -395,6 +410,7 @@ export const employeeRepository = {
           : null,
         attendance: attendanceByProfile.get(person.id) || null,
         on_leave: onLeave.has(person.id),
+        task_health: employeeTaskHealth(tasksByProfile.get(person.id) || [], healthSettings),
       })),
     };
   },

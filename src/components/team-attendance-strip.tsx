@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { teamAttendanceState } from '@/lib/team-attendance-state';
 import { employeeAvatarInitials, resolveEmployeeAvatar } from '@/lib/employee-avatar';
 
-export type TeamMember = { id: string; full_name: string; designation?: string | null; department?: { name?: string | null } | null; photo_url?: string | null; attendance?: any; on_leave?: boolean };
+export type TeamMember = { id: string; full_name: string; designation?: string | null; department?: { name?: string | null } | null; photo_url?: string | null; attendance?: any; on_leave?: boolean; task_health?: { health: 'on_track' | 'at_risk' | 'overdue'; active: number; overdue: number; atRisk: number } };
 
 export function TeamAttendanceStrip({ employees, loading = false, canOpenEmployees, standardHub = false }: { employees?: TeamMember[]; loading?: boolean; canOpenEmployees: boolean; standardHub?: boolean }) {
   if (loading) return <TeamAttendanceSkeleton />;
@@ -17,13 +17,12 @@ export function TeamAttendanceStrip({ employees, loading = false, canOpenEmploye
 
 function TeamAttendanceCard({ employee, canOpenEmployees, duplicatePhoto, standardHub, accent }: { employee: TeamMember; canOpenEmployees: boolean; duplicatePhoto: boolean; standardHub: boolean; accent: number }) {
   const state = teamAttendanceState(employee.attendance, employee.on_leave); const photo = resolveEmployeeAvatar(employee.full_name, employee.photo_url); const designation = !employee.designation || /^(staff|employee)$/i.test(employee.designation.trim()) ? employee.department?.name || 'Designation not set' : employee.designation;
-  const content = standardHub ? <><div className="team-member-hub-heading"><Avatar name={employee.full_name} src={duplicatePhoto ? undefined : photo} /><span>●</span><small title={designation}>{designation}</small></div><div className="team-member-copy"><b title={employee.full_name}>{employee.full_name}</b><span>Today&apos;s focus...</span></div><span className="team-focus-control">On track</span></> : <><Avatar name={employee.full_name} src={duplicatePhoto ? undefined : photo} /><div className="team-member-copy"><b title={employee.full_name}>{employee.full_name}</b><span title={designation}>{designation}</span></div><div className={`team-member-status ${state.tone}`}><span aria-hidden="true" /><div><strong>{state.label}</strong>{state.detail && <small>{state.detail}</small>}</div></div></>;
+  const health = employee.task_health || { health: 'on_track' as const, active: 0, overdue: 0, atRisk: 0 };
+  const healthLabel = health.health === 'overdue' ? 'Overdue' : health.health === 'at_risk' ? 'At Risk' : health.active ? 'On Track' : 'No Active Tasks';
+  const healthDetail = health.active ? `${health.active} active${health.overdue ? ` • ${health.overdue} overdue` : health.atRisk ? ` • ${health.atRisk} at risk` : ''}` : '';
+  const content = standardHub ? <><div className="team-member-hub-heading"><Avatar name={employee.full_name} src={duplicatePhoto ? undefined : photo} /><span className={`task-health-dot ${health.health}`} /><small title={designation}>{designation}</small></div><div className="team-member-copy"><b title={employee.full_name}>{employee.full_name}</b><span>{healthDetail || 'No active tasks'}</span></div><span className={`team-focus-control task-health-${health.health}`}>{healthLabel}</span></> : <><Avatar name={employee.full_name} src={duplicatePhoto ? undefined : photo} /><div className="team-member-copy"><b title={employee.full_name}>{employee.full_name}</b><span title={designation}>{designation}</span></div><div className={`team-member-status ${state.tone}`}><span aria-hidden="true" /><div><strong>{state.label}</strong>{state.detail && <small>{state.detail}</small>}</div></div></>;
   return canOpenEmployees ? <Link href={`/admin/employees/${employee.id}`} className={`team-member-card${standardHub ? ` standard-team-card accent-${accent}` : ''}`}>{content}</Link> : <article className="team-member-card">{content}</article>;
 }
 
-function Avatar({ name, src }: { name: string; src?: string | null }) {
-  const initials = employeeAvatarInitials(name);
-  return <div className="team-member-avatar">{src && <img src={src} alt={`${name} profile photo`} onError={(event) => { event.currentTarget.style.display = 'none'; event.currentTarget.nextElementSibling?.removeAttribute('hidden'); }} />}<span hidden={!!src} aria-label={`${name} initials`}>{initials}</span></div>;
-}
-
+function Avatar({ name, src }: { name: string; src?: string | null }) { const initials = employeeAvatarInitials(name); return <div className="team-member-avatar">{src && <img src={src} alt={`${name} profile photo`} onError={(event) => { event.currentTarget.style.display = 'none'; event.currentTarget.nextElementSibling?.removeAttribute('hidden'); }} />}<span hidden={!!src} aria-label={`${name} initials`}>{initials}</span></div>; }
 function TeamAttendanceSkeleton() { return <section className="team-today" aria-label="Loading team attendance"><div className="team-today-heading"><div><h2>Team Today</h2><p>Live attendance overview</p></div></div><div className="team-today-scroll"><div className="team-today-list">{Array.from({ length: 5 }).map((_, index) => <div className="team-member-card team-member-skeleton" key={index}><span className="team-member-avatar" /><div><i /><i /></div><i /></div>)}</div></div></section>; }
