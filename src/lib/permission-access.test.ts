@@ -61,6 +61,13 @@ describe('permission compatibility', () => {
     expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'Clients', 'Operational Documents', 'Leads', 'Tasks', 'Finance Dashboard', 'Income', 'Expenses', 'Payroll', 'Invoices', 'Reports']));
     expect(labels).not.toContain('Roles & Access');
   });
+
+  it('hides employee onboarding from admin navigation', () => {
+    const groups = filterNavigation(adminNavigation, new Set(['onboarding.view']));
+    expect(groups.find(group => group.title === 'ONBOARDING')).toBeUndefined();
+    expect(groups.flatMap(group => group.links.map(link => link.label))).not.toContain('Employee Onboarding');
+  });
+
   it('accepts granular dashboard and finance permissions without legacy aliases', () => {
     expect(permissionAllows(new Set(['admin.access']), adminRouteRequirement('/admin'))).toBe(true);
     expect(permissionAllows(new Set(['finance.dashboard.view']), adminRouteRequirement('/admin/finance'))).toBe(true);
