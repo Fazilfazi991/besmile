@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ModuleIcon } from '@/components/module-icon';
+import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import type { NavigationGroup, NavigationLink } from '@/lib/permission-access';
 
 function isActive(pathname: string, link: NavigationLink) {
@@ -34,11 +35,13 @@ export function PermissionSidebar({ groups, name, subtitle, profileHref }: { gro
   const renderSidebar = (drawer = false) => <aside className="app-sidebar">
     <div className="brand"><img src="/images/bsmile-logo.png" alt="BSmile" /></div>
     <nav ref={drawer ? undefined : navRef}>{groups.map((group) => <div className="nav-group" key={group.title}><p>{group.title}</p>{group.links.map((link) => <Link className={`nav-link${isActive(pathname, link) ? ' active' : ''}`} aria-current={isActive(pathname, link) ? 'page' : undefined} href={link.href} key={link.href} onClick={() => setMobileOpen(false)}><ModuleIcon label={link.label} />{link.label}</Link>)}</div>)}</nav>
-    <div className="sidebar-footer"><Link className="sidebar-user" href={profileHref}><b>{name}</b><small>{subtitle}</small></Link><SignOutButton /></div>
+    <div className="sidebar-footer">
+      {drawer && <div className="drawer-appearance"><p>Dashboard appearance</p><ThemeModeSwitcher /></div>}
+      <Link className="sidebar-user" href={profileHref}><b>{name}</b><small>{subtitle}</small></Link><SignOutButton /></div>
   </aside>;
 
   return <>
-    <button className="mobile-menu-button" type="button" aria-expanded={mobileOpen} aria-controls="workspace-sidebar-drawer" onClick={() => setMobileOpen(true)}>Menu</button>
+    <button className="mobile-menu-button" type="button" aria-expanded={mobileOpen} aria-controls="workspace-sidebar-drawer" onClick={() => setMobileOpen(true)}><span className="mobile-menu-icon" aria-hidden="true"><i /><i /><i /></span><span>BSmile Hub</span></button>
     {renderSidebar()}
     {mobileOpen && <div className="sidebar-drawer" id="workspace-sidebar-drawer" role="dialog" aria-modal="true">
       <button className="sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />
