@@ -1233,9 +1233,14 @@ function VoicePlayer({ src, duration = 0, label }: { src?: string; duration?: nu
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const total = duration || audioRef.current?.duration || 0;
+  const [metadataDuration, setMetadataDuration] = useState(0);
+  const storedDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+  const total = storedDuration || metadataDuration || 0;
+  const progress = total > 0 && Number.isFinite(total) && Number.isFinite(elapsed)
+    ? Math.max(0, Math.min(100, (elapsed / total) * 100))
+    : 0;
   const toggle = () => { const audio = audioRef.current; if (!audio || !src) return; if (audio.paused) void audio.play(); else audio.pause(); };
-  return <div className="chat-voice-message"><audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onEnded={() => setPlaying(false)} onPause={() => setPlaying(false)} onPlay={() => setPlaying(true)} /><button type="button" className="chat-voice-play" onClick={toggle} aria-label={playing ? "Pause voice note" : "Play voice note"} disabled={!src}>{playing ? "❚❚" : "▶"}</button><div className="chat-voice-track" aria-label={label}><span style={{ width: `${total ? Math.min(100, elapsed / total * 100) : 0}%` }} /></div><b>{durationLabel(Math.round(playing ? elapsed : duration || elapsed))}</b></div>;
+  return <div className="chat-voice-message"><audio ref={audioRef} src={src} preload="metadata" onLoadedMetadata={(event) => setMetadataDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)} onTimeUpdate={(event) => setElapsed(Number.isFinite(event.currentTarget.currentTime) ? event.currentTarget.currentTime : 0)} onEnded={() => { setPlaying(false); setElapsed(total || 0); }} onPause={() => setPlaying(false)} onPlay={() => setPlaying(true)} /><button type="button" className="chat-voice-play" onClick={toggle} aria-label={playing ? "Pause voice note" : "Play voice note"} disabled={!src}>{playing ? "❚❚" : "▶"}</button><div className="chat-voice-track" aria-label={label}><span style={{ width: `${progress}%` }} /></div><b>{durationLabel(Math.round(playing ? elapsed : total || elapsed))}</b></div>;
 }
 function MessageFile({ message }: { message: any }) {
   const [url, setUrl] = useState("");
