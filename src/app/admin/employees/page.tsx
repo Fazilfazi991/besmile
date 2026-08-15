@@ -66,7 +66,6 @@ export default function EmployeesPage() {
           <h1 className="text-2xl font-bold">Employees</h1>
           <p className="mt-1 text-sm text-slate-600">Manage employee profiles, status, access, and work activity.</p>
         </div>
-        <Link className="btn btn-primary" href="/admin/employees/new">Add employee</Link>
       </div>
       {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-3">
