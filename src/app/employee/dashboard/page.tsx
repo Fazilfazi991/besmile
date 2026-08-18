@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
+import { attendanceDuration, dateKey } from '@/lib/attendance-rules';
 import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { permissionAllows, type PermissionRequirement } from '@/lib/permission-access';
 
 type DashboardData = Record<string, any>;
 
 const dashboardPermissionCodes = ['attendance.self', 'attendance.view_self', 'attendance.view', 'attendance.manage', 'tasks.view_self', 'tasks.assign', 'leave.self', 'leave.request', 'leave.view', 'leave.manage', 'leave.approve', 'documents.view', 'documents.employee.view', 'patient_documents.view', 'announcements.view', 'announcements.manage', 'notifications.view', 'chat.use', 'crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view', 'sales.view'] as const;
-const todayKey = () => new Date().toISOString().slice(0, 10);
+const todayKey = () => dateKey(new Date(), 'Asia/Kolkata');
 const fmtDate = (value?: string | null) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) : 'Not set';
 const fmtTime = (value?: string | null) => value ? new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : '--';
 const employeeNotificationLink = (link?: string | null) => link?.startsWith('/employee/') ? link : '/employee/notifications';
@@ -26,7 +27,9 @@ export default function EmployeeDashboard() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [attendanceStatus, setAttendanceStatus] = useState('');
+  const [, setClockTick] = useState(0);
   const attendanceRequest = useRef(false);
+  useEffect(() => { const timer = window.setInterval(() => setClockTick(value => value + 1), 60_000); return () => window.clearInterval(timer); }, []);
 
   const load = async (quiet = false) => {
     quiet ? setRefreshing(true) : setLoading(true);
@@ -208,4 +211,4 @@ function Empty({ text }: { text: string }) { return <p className="dashboard-empt
 function DashboardState({ title, detail }: { title: string; detail: string }) { return <section className="dashboard-state"><h2>{title}</h2><p>{detail}</p><a className="button button-primary" href="/sign-in">Sign in</a></section>; }
 function TaskRow({ item, today }: { item: any; today: string }) { const task = item.tasks || {}; const overdue = item.status !== 'completed' && task.due_date && task.due_date < today; return <Link className="list-item" href="/employee/tasks"><div><b>{task.title || 'Untitled task'}</b><small>{task.priority || 'medium'} priority - Due {fmtDate(task.due_date)}</small></div><div className="badge-stack">{overdue && <StatusBadge value="Overdue" />}<StatusBadge value={item.status || 'todo'} /></div></Link>; }
 function relativeTime(value?: string) { if (!value) return 'Recently'; const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000)); return minutes < 60 ? `${minutes || 1}m ago` : minutes < 1440 ? `${Math.floor(minutes / 60)}h ago` : `${Math.floor(minutes / 1440)}d ago`; }
-function workingDuration(attendance: any, activeBreak: any) { if (!attendance?.clock_in) return 'Clock in to start your workday.'; const end = attendance.clock_out ? new Date(attendance.clock_out).getTime() : Date.now(); const openBreak = activeBreak ? Math.max(0, Math.round((Date.now() - new Date(activeBreak.started_at).getTime()) / 60000)) : 0; const totalMinutes = Math.max(0, Math.round((end - new Date(attendance.clock_in).getTime()) / 60000) - (attendance.break_minutes || 0) - openBreak); return `Working duration: ${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`; }
+function workingDuration(attendance: any, activeBreak: any) { if (!attendance?.clock_in) return 'Clock in to start your workday.'; const result = attendanceDuration(attendance, { activeBreakStartedAt: activeBreak?.started_at }); if (result.isIncomplete) return 'Working duration: — (Missing clock-out)'; if (result.needsReview || result.minutes === null) return 'Working duration: — (Requires review)'; return `Working duration: ${Math.floor(result.minutes / 60)}h ${result.minutes % 60}m`; }
