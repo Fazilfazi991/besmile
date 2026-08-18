@@ -2,6 +2,7 @@
 /* The async Supabase query updates state only after it resolves. */
 /* eslint-disable react-hooks/set-state-in-effect, @next/next/no-html-link-for-pages */
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { currentProfile } from '@/lib/auth';
 import { isDemoPatient } from '@/lib/demo-patient';
@@ -13,6 +14,7 @@ const db: any = supabase;
 type PatientListProps = { basePath?: string; canCreate?: boolean; title?: string; description?: string; assignedOnly?: boolean };
 
 export function PatientList({ basePath = '/admin/patients', canCreate = true, title = 'Clients', description = 'Client records and administrative documents.', assignedOnly = false }: PatientListProps) {
+  const params = useSearchParams();
   const [patients, setPatients] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [source, setSource] = useState('');
@@ -46,6 +48,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
       <div><h1 className="text-2xl font-bold">{title}</h1><p className="text-slate-600">{description}</p></div>
       {canCreate && <a className="rounded bg-slate-900 px-4 py-2 text-white" href="/admin/patients/new">Add client</a>}
     </div>
+    {params.get('deleted') === '1' && <p role="status" aria-live="polite" className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Client deleted successfully</p>}
     <form className="card flex gap-3 p-4" onSubmit={event => { event.preventDefault(); void load(); }}>
       <input aria-label="Search clients" className="rounded border p-2" placeholder="Name, ID, phone or email" value={query} onChange={event => setQuery(event.target.value)} />
       <select aria-label="Source" className="rounded border p-2" value={source} onChange={event => setSource(event.target.value)}>
