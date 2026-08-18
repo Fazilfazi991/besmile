@@ -364,11 +364,20 @@ export const employeeRepository = {
       ).values(),
     ];
     const profileIds = people.map((person: any) => person.id);
-    const { data: assignments, error: assignmentError } = profileIds.length ? await r
+    let assignmentResult = profileIds.length ? await r
       .from('task_assignments')
       .select('profile_id,status,tasks!inner(id,status,due_date,start_date,sla_duration,sla_unit,sla_deadline,created_at)')
       .in('profile_id', profileIds)
       .neq('status', 'completed') : { data: [], error: null };
+    if (assignmentResult.error && /start_date|sla_duration|sla_unit|sla_deadline|column/i.test(assignmentResult.error.message || '')) {
+      console.warn('SLA fields unavailable; using legacy task-health query.');
+      assignmentResult = await r
+        .from('task_assignments')
+        .select('profile_id,status,tasks!inner(id,status,due_date,created_at)')
+        .in('profile_id', profileIds)
+        .neq('status', 'completed');
+    }
+    const { data: assignments, error: assignmentError } = assignmentResult;
     if (assignmentError) throw assignmentError;
     const tasksByProfile = new Map<string, any[]>();
     (assignments || []).forEach((assignment: any) => {
