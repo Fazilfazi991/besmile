@@ -32,7 +32,6 @@ export const doctorSchedulingRepository = {
       'doctor_scheduling.create_appointments',
       'doctor_scheduling.update_appointments',
       'doctor_scheduling.cancel_appointments',
-      'online_psychologists.manage',
       'appointments.view',
       'appointments.create',
       'appointments.update',
@@ -57,8 +56,10 @@ export const doctorSchedulingRepository = {
     return permissions;
   },
 
-  async doctors() {
-    const { data, error } = await db().from('outsourced_doctors').select('*,availability:doctor_weekly_availability(*),blocked:doctor_blocked_periods(*)').is('archived_at', null).order('doctor_name');
+  async doctors(includeArchived = false) {
+    let request = db().from('outsourced_doctors').select('*,availability:doctor_weekly_availability(*),blocked:doctor_blocked_periods(*)').order('doctor_name');
+    if (!includeArchived) request = request.is('archived_at', null);
+    const { data, error } = await request;
     if (error) throw error;
     return data || [];
   },
@@ -113,9 +114,10 @@ export const doctorSchedulingRepository = {
     if (error) throw error;
   },
 
-  async archiveDoctor(id: string, actorId: string) {
-    const { error } = await db().from('outsourced_doctors').update({ status: 'unavailable', archived_at: new Date().toISOString(), archived_by: actorId, updated_by: actorId }).eq('id', id).is('archived_at', null);
+  async setClinicianActive(id: string, active: boolean) {
+    const { data, error } = await db().rpc('set_clinician_active', { target_doctor: id, make_active: active });
     if (error) throw error;
+    return data;
   },
 
   async patients(query = '') {
@@ -207,11 +209,6 @@ export const doctorSchedulingRepository = {
     const { data, error } = await db().rpc('update_doctor_appointment_status', { target_appointment: id, next_status: status, status_remarks: remarks || null });
     if (error) throw error;
     return data;
-  },
-
-  async submitPsychologistSessionRecord(appointmentId: string, submittedBy: string) {
-    const { error } = await db().from('psychologist_session_records').insert({ appointment_id: appointmentId, submitted_by: submittedBy });
-    if (error) throw error;
   },
 
   async rescheduleAppointment(id: string, startAt: string, endAt: string, remarks = '') {
