@@ -19,5 +19,12 @@ export function hasLeaveOverlap(candidate:LeaveRequestPeriod,existing:LeaveReque
 }
 
 export function canCancelLeave(status:string,startsOn:string,today:string){return status==='pending'||(status==='approved'&&startsOn>today)}
+
+export function canReviewLeaveRequest(input:{reviewerId?:string|null;requesterId?:string|null;reviewerRole?:string|null;requesterRole?:string|null;status?:string|null}){
+  if(input.status!=='pending'||!input.reviewerId||input.reviewerId===input.requesterId)return false
+  if(input.requesterRole==='general_manager')return ['chairman','director'].includes(input.reviewerRole||'')
+  return true
+}
+
 export function hasSufficientBalance(allocated:number,used:number,requested:number){return allocated-used>=requested}
 export function isRlsError(error:{code?:string;message?:string}){return error.code==='42501'||/row-level security|permission denied/i.test(error.message??'')}

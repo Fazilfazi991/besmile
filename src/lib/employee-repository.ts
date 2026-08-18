@@ -1000,7 +1000,7 @@ export const employeeRepository = {
   async leaveHistory(userId: string) {
     const { data, error } = await required()
       .from("leave_requests")
-      .select("*,leave_types(*),leave_request_attachments(*)")
+        .select("*,leave_types(*),leave_request_attachments(*),leave_approval_events(event_type,comment,created_at)")
       .eq("profile_id", userId)
       .order("created_at", { ascending: false });
     if (error) throw error;

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
 import { employeeRepository } from '@/lib/employee-repository';
 import { currentProfile } from '@/lib/auth';
+import { canReviewLeaveRequest } from '@/lib/leave-rules';
 
 const displayDate = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`)) : '-';
 
@@ -25,7 +26,7 @@ export default function LeaveApprovalsPage() {
       const allowed = await Promise.all(['leave.approve', 'leave.manage', 'leave.review'].map(code => employeeRepository.hasPermission(code)));
       if (!allowed.some(Boolean)) throw new Error('You do not have permission to review leave requests.');
       setProfile(user);
-      setRequests(await adminRepository.leaveRequests());
+      setRequests((await adminRepository.leaveRequests()).filter((request: any) => request.profile_id !== user.id));
       setError('');
     } catch (cause: any) {
       setError(cause.message || 'Leave requests could not be loaded.');
@@ -43,7 +44,7 @@ export default function LeaveApprovalsPage() {
     setBusy(id);
     setError('');
     try {
-      await adminRepository.reviewLeaveRequest(id, status, comments[id] || '', profile.id);
+      await adminRepository.reviewLeaveRequest(id, status, comments[id] || '');
       await load();
     } catch (cause: any) {
       setError(cause.message || 'Leave review could not be saved.');
@@ -58,7 +59,7 @@ export default function LeaveApprovalsPage() {
     {linkedRequestMissing && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">This request is no longer available.</p>}
     <div className="card overflow-hidden">
       <div className="border-b px-5 py-4"><b>{visible.length} {filter === 'pending' ? 'pending ' : ''}request{visible.length === 1 ? '' : 's'}</b></div>
-      {visible.length === 0 ? <p className="p-6 text-sm text-slate-600">No leave requests match this view.</p> : <div className="divide-y">{visible.map(request => <article className={`space-y-3 p-5 ${request.id === requestId ? 'bg-amber-50 ring-2 ring-inset ring-amber-300' : ''}`} id={`leave-request-${request.id}`} key={request.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><b>{request.employee?.full_name || 'Employee'}</b><p className="text-sm text-slate-600">{request.employee?.employee_code || request.employee?.email || 'Employee profile'} - {request.employee?.designation || 'Employee'}</p><p className="mt-2 font-medium">{request.leave_types?.name || request.leave_type || 'Leave'} - {displayDate(request.starts_on)} - {displayDate(request.ends_on)}</p><p className="mt-1 text-sm text-slate-700">{request.reason || 'No reason provided.'}</p><p className="mt-1 text-xs text-slate-500">{Number(request.requested_days || 0)} day(s){request.half_day ? ' - Half day' : ''}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${request.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : request.status === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{request.status}</span></div>{request.status === 'pending' ? <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row"><input aria-label={`Approval comment for ${request.employee?.full_name || request.id}`} className="input min-w-0 flex-1" placeholder="Approval comment (optional)" value={comments[request.id] || ''} onChange={event => setComments({ ...comments, [request.id]: event.target.value })} /><button className="btn btn-primary" disabled={busy === request.id} onClick={() => void review(request.id, 'approved')}>Approve</button><button className="btn border border-rose-300 text-rose-700" disabled={busy === request.id} onClick={() => void review(request.id, 'rejected')}>Reject</button></div> : <p className="border-t pt-3 text-sm text-slate-600"><b>Review comment:</b> {request.approval_comment || '-'}</p>}</article>)}</div>}
+      {visible.length === 0 ? <p className="p-6 text-sm text-slate-600">No leave requests match this view.</p> : <div className="divide-y">{visible.map(request => { const canReview = canReviewLeaveRequest({ reviewerId: profile?.id, reviewerRole: profile?.role, requesterId: request.profile_id, requesterRole: request.employee?.role, status: request.status }); return <article className={`space-y-3 p-5 ${request.id === requestId ? 'bg-amber-50 ring-2 ring-inset ring-amber-300' : ''}`} id={`leave-request-${request.id}`} key={request.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><b>{request.employee?.full_name || 'Employee'}</b><p className="text-sm text-slate-600">{request.employee?.employee_code || request.employee?.email || 'Employee profile'} - {request.employee?.designation || 'Employee'}</p><p className="mt-2 font-medium">{request.leave_types?.name || request.leave_type || 'Leave'} - {displayDate(request.starts_on)} - {displayDate(request.ends_on)}</p><p className="mt-1 text-sm text-slate-700">{request.reason || 'No reason provided.'}</p><p className="mt-1 text-xs text-slate-500">{Number(request.requested_days || 0)} day(s){request.half_day ? ' - Half day' : ''}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${request.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : request.status === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{request.status}</span></div>{canReview ? <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row"><input aria-label={`Approval comment for ${request.employee?.full_name || request.id}`} className="input min-w-0 flex-1" placeholder="Approval comment (optional)" value={comments[request.id] || ''} onChange={event => setComments({ ...comments, [request.id]: event.target.value })} /><button className="btn btn-primary" disabled={busy === request.id} onClick={() => void review(request.id, 'approved')}>Approve</button><button className="btn border border-rose-300 text-rose-700" disabled={busy === request.id} onClick={() => void review(request.id, 'rejected')}>Reject</button></div> : request.status === 'pending' ? <p className="border-t pt-3 text-sm text-slate-600">This request cannot be reviewed from your account.</p> : <p className="border-t pt-3 text-sm text-slate-600"><b>Review comment:</b> {request.approval_comment || '-'}</p>}</article>})}</div>}
     </div>
   </section>;
 }

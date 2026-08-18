@@ -346,6 +346,11 @@ export default function LeavesPage() {
                       <b>Admin comment:</b> {request.approval_comment}
                     </p>
                   )}
+                  {(request.leave_approval_events || []).map((event: any, index: number) => (
+                    <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700" key={`${event.event_type}-${event.created_at || index}`}>
+                      <b>{event.event_type === 'approved' ? 'Approved' : event.event_type === 'rejected' ? 'Rejected' : 'Leave update'}:</b> {event.comment || 'No comment provided.'}
+                    </p>
+                  ))}
                   {request.status === 'pending' && (
                     <button
                       type="button"
