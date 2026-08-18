@@ -56,7 +56,19 @@ export async function POST(request: Request) {
       }
       if (inserted.error) {
         await db.storage.from('employee-documents').remove([storagePath]);
-        throw new Error('Unable to save the generated document history. Apply the official document migration and try again.');
+        // A missing additive column is handled by the compatibility retry above.
+        // Reaching this branch means the shared document write itself failed (for
+        // example, an authorization or data-integrity problem), so do not point
+        // users at a migration that is not the cause. Keep the database detail
+        // on the server for diagnosis without exposing it in the UI.
+        console.error('Official document history insert failed', {
+          code: inserted.error.code,
+          message: inserted.error.message,
+          details: inserted.error.details,
+          hint: inserted.error.hint,
+          userId: user.id,
+        });
+        throw new Error('Unable to save the generated document history. Please try again or contact an administrator.');
       }
       documentId = inserted.data.id;
     }
