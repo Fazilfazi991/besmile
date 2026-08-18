@@ -8,6 +8,7 @@ import { appointmentStatuses, consultationTypes, statusLabels, statusTones, type
 import { EmployeeBanner, EmployeeEmptyState, EmployeeLoading, EmployeeMetric, EmployeeMetricGrid, EmployeePageHeader, EmployeeSection, EmployeeStatusBadge } from '@/components/employee-ui';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
 import { BUSINESS_TIME_ZONE } from '@/lib/business-time';
+import { clinicianLifecycleError } from '@/lib/clinician-lifecycle';
 
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -205,8 +206,9 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       setRemoveCandidate(undefined);
       setNotice('Clinician removed successfully. Historical appointments and payments were preserved.');
       await load();
-    } catch (caught: any) {
-      setError(caught.message || 'Unable to remove clinician.');
+    } catch (caught: unknown) {
+      console.error('Unable to remove clinician', caught);
+      setError(clinicianLifecycleError(caught));
     } finally {
       setSaving('');
     }
@@ -218,8 +220,9 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       await doctorSchedulingRepository.setClinicianActive(doctor.id, true);
       setNotice('Clinician restored successfully.');
       await Promise.all([load(), loadInactiveDoctors()]);
-    } catch (caught: any) {
-      setError(caught.message || 'Unable to restore clinician.');
+    } catch (caught: unknown) {
+      console.error('Unable to restore clinician', caught);
+      setError(clinicianLifecycleError(caught));
     } finally {
       setSaving('');
     }
