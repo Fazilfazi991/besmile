@@ -42,7 +42,7 @@ export default function MyCalendarPage() {
         if (!active) return;
         setProfileId(profile.id);
         await loadCalendar(profile.id);
-      } catch (cause: any) { if (active) setError(cause?.message || 'Unable to load your calendar.'); }
+      } catch (cause: unknown) { console.error('Unable to load My Calendar', cause); if (active) setError('Unable to load your calendar. Please try again.'); }
     })();
     return () => { active = false; };
   }, [loadCalendar]);
@@ -75,14 +75,14 @@ export default function MyCalendarPage() {
       else await calendarMeetingRepository.createMyBlock(profileId, payload);
       await loadCalendar(profileId);
       setDialog(null); setEditingBlock(null);
-    } catch (cause: any) { setFormError(cause?.message || 'Unable to save blocked time.'); }
+    } catch (cause: unknown) { console.error('Unable to save blocked time', cause); setFormError('Unable to save blocked time. Please try again.'); }
     finally { setSaving(false); }
   };
   const removeBlock = async () => {
     if (!profileId || !editingBlock || deleting || !window.confirm('Remove this blocked time?')) return;
     setFormError(''); setDeleting(true);
     try { await calendarMeetingRepository.removeMyBlock(profileId, editingBlock.id); await loadCalendar(profileId); setDialog(null); setEditingBlock(null); }
-    catch (cause: any) { setFormError(cause?.message || 'Unable to remove blocked time.'); }
+    catch (cause: unknown) { console.error('Unable to remove blocked time', cause); setFormError('Unable to remove blocked time. Please try again.'); }
     finally { setDeleting(false); }
   };
 
