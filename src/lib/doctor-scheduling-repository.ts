@@ -22,6 +22,7 @@ export type DoctorPayload = {
   notes?: string | null;
   clinician_type?: 'staff_psychologist' | 'psychology_intern' | 'outsourced';
   profile_id?: string | null;
+  photo_url?: string | null;
 };
 
 export const doctorSchedulingRepository = {
@@ -57,8 +58,10 @@ export const doctorSchedulingRepository = {
     return permissions;
   },
 
-  async doctors() {
-    const { data, error } = await db().from('outsourced_doctors').select('*,availability:doctor_weekly_availability(*),blocked:doctor_blocked_periods(*)').is('archived_at', null).order('doctor_name');
+  async doctors(includeArchived = false) {
+    let request = db().from('outsourced_doctors').select('*,availability:doctor_weekly_availability(*),blocked:doctor_blocked_periods(*)').order('doctor_name');
+    if (!includeArchived) request = request.is('archived_at', null);
+    const { data, error } = await request;
     if (error) throw error;
     return data || [];
   },
@@ -77,10 +80,12 @@ export const doctorSchedulingRepository = {
       notes: clean(payload.notes) || null,
       clinician_type: payload.clinician_type || 'outsourced',
       profile_id: payload.profile_id || null,
+      photo_url: clean(payload.photo_url) || null,
       updated_by: payload.actorId,
     };
+    const { status: _status, ...editableRow } = row;
     const result = payload.id
-      ? await db().from('outsourced_doctors').update(row).eq('id', payload.id).select().single()
+      ? await db().from('outsourced_doctors').update(editableRow).eq('id', payload.id).select().single()
       : await db().from('outsourced_doctors').insert({ ...row, created_by: payload.actorId }).select().single();
     if (result.error) throw result.error;
     return result.data;
@@ -113,9 +118,10 @@ export const doctorSchedulingRepository = {
     if (error) throw error;
   },
 
-  async archiveDoctor(id: string, actorId: string) {
-    const { error } = await db().from('outsourced_doctors').update({ status: 'unavailable', archived_at: new Date().toISOString(), archived_by: actorId, updated_by: actorId }).eq('id', id).is('archived_at', null);
+  async setClinicianActive(id: string, active: boolean) {
+    const { data, error } = await db().rpc('set_clinician_active', { target_doctor: id, make_active: active });
     if (error) throw error;
+    return data;
   },
 
   async patients(query = '') {
