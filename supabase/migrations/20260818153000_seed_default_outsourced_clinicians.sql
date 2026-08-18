@@ -61,7 +61,7 @@ begin
       -- Do not change active/inactive state, account linkage, contact details,
       -- availability, or historical records.  Only repair the default presentation
       -- and classification fields when the matching legacy record is incomplete.
-      update public.outsourced_doctors
+      update public.outsourced_doctors as clinician
       set doctor_name = seed.doctor_name,
           specialization = case when nullif(trim(specialization), '') is null then 'Psychology' else specialization end,
           qualification = case when nullif(trim(qualification), '') is null then seed.designation else qualification end,

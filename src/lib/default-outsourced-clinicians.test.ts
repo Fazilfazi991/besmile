@@ -27,6 +27,7 @@ describe('default outsourced clinicians seed', () => {
     expect(migration).toContain("regexp_replace(clinician.doctor_name");
     expect(migration).toContain('if target_id is null then');
     expect(migration).toContain('self_service_enabled, photo_url, notes');
+    expect(migration).toContain('update public.outsourced_doctors as clinician');
     expect(migration).toContain("case when clinician.clinician_type is null or trim(clinician.clinician_type) = '' then 'outsourced' else clinician.clinician_type end");
     expect(migration).not.toContain('insert into public.profiles');
     expect(migration).not.toContain('insert into auth.users');
