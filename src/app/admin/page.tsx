@@ -12,6 +12,7 @@ import { employeeRepository } from '@/lib/employee-repository';
 import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { TeamAttendanceStrip, type TeamMember } from '@/components/team-attendance-strip';
 import { ModuleIcon } from '@/components/module-icon';
+import { dashboardGreeting } from '@/lib/dashboard-greeting';
 
 const fmtDate = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(new Date(value)) : 'Not scheduled';
 
@@ -50,10 +51,10 @@ export default function ExecutiveDashboard() {
   ];
 
   const displayDate = new Intl.DateTimeFormat('en', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
-  const firstName = profile?.full_name?.trim().split(/\s+/)[0] || 'there';
+  const greeting = dashboardGreeting(profile?.full_name);
   return <section className="executive-dashboard">
     <header className="executive-header"><div><p className="eyebrow">EXECUTIVE COMMAND CENTER</p><h1>{title}</h1><p>Monitor company operations, employees, CRM, finance, and approvals from one place.</p></div><div className="executive-header-actions"><Link className="btn btn-primary" href={securityAdministrator ? '/admin/access' : '/admin/profile'}>{securityAdministrator ? 'Profile & access' : 'My profile'}</Link></div></header>
-    <section className="standard-hub-header"><div><h1>Bsmile Hub</h1><time>{displayDate}</time></div><article><div><p>Good afternoon, {firstName} 👋</p><h2>Bsmile Hub</h2><span>Welcome to Bsmile — The Mind Studio Hub</span></div><b>{displayDate}</b></article></section>
+    <section className="standard-hub-header"><div><h1>Bsmile Hub</h1><time>{displayDate}</time></div><article><div><p>{greeting}</p><h2>Bsmile Hub</h2><span>Welcome to Bsmile — The Mind Studio Hub</span></div><b>{displayDate}</b></article></section>
     {error && <p className="executive-alert">{error} Available sections still show live data.</p>}
 
     <section className="my-attendance-card"><div><p className="eyebrow">MY ATTENDANCE</p><h2>{!todayAttendance ? 'Not clocked in' : todayAttendance.clock_out ? 'Day completed' : activeBreak ? 'On break' : 'Working today'}</h2><p>Clock in: <b>{attendanceTime(todayAttendance?.clock_in)}</b> · Break: <b>{activeBreak ? attendanceTime(activeBreak.started_at) : todayAttendance?.break_minutes ? `${todayAttendance.break_minutes} min` : '--'}</b> · Clock out: <b>{attendanceTime(todayAttendance?.clock_out)}</b></p></div><div className="my-attendance-actions">{!todayAttendance && <button className="btn btn-primary" disabled={refreshingAttendance} onClick={() => void attendanceAction('clockIn')}>Clock in</button>}{todayAttendance && !todayAttendance.clock_out && !activeBreak && <><button className="btn" disabled={refreshingAttendance} onClick={() => void attendanceAction('startBreak')}>Start break</button><button className="btn btn-primary" disabled={refreshingAttendance} onClick={() => void attendanceAction('clockOut')}>Clock out</button></>}{activeBreak && <button className="btn btn-primary" disabled={refreshingAttendance} onClick={() => void attendanceAction('endBreak')}>End break</button>}</div></section>
