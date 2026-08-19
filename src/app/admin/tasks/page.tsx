@@ -1,7 +1,6 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
@@ -17,7 +16,6 @@ const dateLabel = (value?: string | null) => value ? new Date(`${value}T00:00:00
 const initials = (name?: string) => (name || '?').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
 
 export default function AdminTasksPage() {
-  const router = useRouter();
   const [profile, setProfile] = useState<any>();
   const [staff, setStaff] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -31,6 +29,8 @@ export default function AdminTasksPage() {
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>();
   const hasBootstrapped = useRef(false);
 
   const loadTasks = async () => {
@@ -40,9 +40,10 @@ export default function AdminTasksPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [p, canManage] = await Promise.all([currentProfile() as Promise<any>, Promise.all(['tasks.manage', 'tasks.assign'].map(permission => employeeRepository.hasPermission(permission)))]);
-      if (!p || !canManage.some(Boolean)) throw Error('You do not have permission to manage tasks.');
+      const [p, canManage] = await Promise.all([currentProfile() as Promise<any>, employeeRepository.hasPermission('tasks.assign')]);
+      if (!p || !canManage) throw Error('You do not have permission to manage tasks.');
       setProfile(p);
+      setCanDelete(canManage);
       const [employees, allTasks] = await Promise.allSettled([adminRepository.employees('', 0, 100), adminRepository.tasks(filter)]);
       if (employees.status === 'fulfilled') { setStaff(employees.value.data); setAssigneeError(''); }
       else setAssigneeError('Assignee list could not be loaded. Existing tasks are still available.');
@@ -70,22 +71,32 @@ export default function AdminTasksPage() {
     try {
       await adminRepository.createTask({ ...payload, assigneeIds: form.assigneeIds, created_by: profile.id });
       setForm(emptyTask); setAssigneeQuery(''); setCreateOpen(false); setNotice('Task created and assigned.');
-      await loadTasks(); router.refresh();
+      await loadTasks();
     } catch (cause: any) { setError(cause?.message || 'Task could not be created.'); }
     finally { setSaving(false); }
   };
   const saveEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setSaving(true); setError(''); const payload = taskFormPayload(event.currentTarget);
-    try { await adminRepository.updateTask(editing.id, { ...payload, status: editing.status }); await adminRepository.setTaskAssignees(editing.id, editing.assigneeIds); setEditing(null); setNotice('Task updated.'); await loadTasks(); router.refresh(); }
+    try { await adminRepository.updateTask(editing.id, { ...payload, status: editing.status }); await adminRepository.setTaskAssignees(editing.id, editing.assigneeIds); setEditing(null); setNotice('Task updated.'); await loadTasks(); }
     catch (cause: any) { setError(cause?.message || 'Task could not be updated.'); }
     finally { setSaving(false); }
   };
-  const changeStatus = async (task: any) => {
-    const nextStatus = task.status === 'completed' ? 'todo' : 'completed'; const previous = tasks;
+  const changeStatus = async (task: any, nextStatus: 'todo'|'in_progress'|'completed') => {
+    if (task.status === nextStatus) return;
+    const previous = tasks;
     setSaving(true); setError(''); setNotice('');
     setTasks(current => current.map(item => item.id === task.id ? { ...item, status: nextStatus, task_assignments: item.task_assignments.map((assignment: any) => ({ ...assignment, status: nextStatus })) } : item));
-    try { await adminRepository.setTaskStatus(task.id, nextStatus); setNotice(task.status === 'completed' ? 'Task reopened.' : 'Task completed.'); await loadTasks(); router.refresh(); }
+    try { await adminRepository.setTaskStatus(task.id, nextStatus); setNotice(nextStatus === 'completed' ? 'Task completed.' : task.status === 'completed' ? 'Task reopened.' : `Task moved to ${labels[nextStatus]}.`); }
     catch (cause: any) { setTasks(previous); setError(cause?.message || 'Task update failed.'); }
+    finally { setSaving(false); }
+  };
+  const deleteTask = async () => {
+    if (!deleteTarget) return;
+    const previous = tasks;
+    setSaving(true); setError('');
+    setTasks(current => current.filter(task => task.id !== deleteTarget.id));
+    try { await adminRepository.deleteTask(deleteTarget.id); setNotice('Task deleted.'); setDeleteTarget(undefined); }
+    catch (cause: any) { setTasks(previous); setError(cause?.message || 'Task deletion failed.'); }
     finally { setSaving(false); }
   };
 
@@ -100,9 +111,8 @@ export default function AdminTasksPage() {
   const priority = ['high', 'medium', 'low'].map(level => ({ level, count: shown.filter(task => task.priority === level).length }));
   const upcoming = shown.filter(task => task.status !== 'completed' && task.due_date && !isOverdue(task, today)).sort((a, b) => a.due_date.localeCompare(b.due_date)).slice(0, 4);
   const columns = [
-    { id: 'overdue', title: 'Overdue', tone: 'border-rose-100 bg-rose-50/45', dot: 'bg-rose-500', tasks: overdue, empty: 'No overdue tasks' },
-    { id: 'todo', title: 'To Do', tone: 'border-sky-100 bg-sky-50/45', dot: 'bg-sky-500', tasks: shown.filter(task => task.status === 'todo' && !isOverdue(task, today)), empty: 'No tasks to do' },
-    { id: 'in_progress', title: 'In Progress', tone: 'border-amber-100 bg-amber-50/45', dot: 'bg-amber-500', tasks: shown.filter(task => task.status === 'in_progress' && !isOverdue(task, today)), empty: 'No tasks in progress' },
+    { id: 'todo', title: 'To Do', tone: 'border-sky-100 bg-sky-50/45', dot: 'bg-sky-500', tasks: shown.filter(task => task.status === 'todo'), empty: 'No tasks to do' },
+    { id: 'in_progress', title: 'In Progress', tone: 'border-amber-100 bg-amber-50/45', dot: 'bg-amber-500', tasks: shown.filter(task => task.status === 'in_progress'), empty: 'No tasks in progress' },
     { id: 'completed', title: 'Completed', tone: 'border-emerald-100 bg-emerald-50/45', dot: 'bg-emerald-500', tasks: completed, empty: 'No completed tasks' },
   ];
 
@@ -132,15 +142,16 @@ export default function AdminTasksPage() {
 
     <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-5"><input aria-label="Search tasks" className="input h-10 min-w-0" placeholder="⌕  Search tasks" value={filter.query} onChange={event => setFilter({ ...filter, query: event.target.value })} /><select aria-label="Filter by employee" className="input h-10" value={filter.employee} onChange={event => setFilter({ ...filter, employee: event.target.value })}><option value="">All employees</option>{staff.map(person => <option value={person.id} key={person.id}>{person.full_name}</option>)}</select><select aria-label="Filter by status" className="input h-10" value={filter.status} onChange={event => setFilter({ ...filter, status: event.target.value })}><option value="">All statuses</option>{Object.entries(labels).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select><select aria-label="Filter by priority" className="input h-10" value={filter.priority} onChange={event => setFilter({ ...filter, priority: event.target.value })}><option value="">All priorities</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><input aria-label="Filter by due date" type="date" className="input h-10" value={filter.dueDate} onChange={event => setFilter({ ...filter, dueDate: event.target.value })} /></div>
 
-    {!shown.length ? <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center"><b>{tasks.length ? 'No tasks match these filters' : 'No tasks yet'}</b><p className="mt-1 text-sm text-slate-500">{tasks.length ? 'Try changing the filters above.' : 'Create and assign the first task to get started.'}</p>{!tasks.length && <button className="mt-4 text-sm font-semibold text-teal-700" onClick={() => setCreateOpen(true)}>Create New Task</button>}</div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{columns.map(column => <section className={`rounded-2xl border p-3 ${column.tone}`} key={column.id}><header className="flex items-center justify-between px-1 pb-3"><h2 className="flex items-center gap-2 text-sm font-bold text-slate-800"><i className={`h-2.5 w-2.5 rounded-full ${column.dot}`} />{column.title}</h2><span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold text-slate-600">{column.tasks.length}</span></header><div className="space-y-3">{column.tasks.map(task => <TaskCard key={task.id} task={task} saving={saving} onEdit={() => setEditing({ ...task, assigneeIds: task.task_assignments.map((assignment: any) => assignment.profile_id) })} onStatus={() => void changeStatus(task)} />)}{!column.tasks.length && <p className="rounded-xl border border-dashed border-slate-200 bg-white/60 px-3 py-5 text-center text-xs text-slate-500">{column.empty}</p>}</div></section>)}</div>}
+    {!shown.length ? <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center"><b>{tasks.length ? 'No tasks match these filters' : 'No tasks yet'}</b><p className="mt-1 text-sm text-slate-500">{tasks.length ? 'Try changing the filters above.' : 'Create and assign the first task to get started.'}</p>{!tasks.length && <button className="mt-4 text-sm font-semibold text-teal-700" onClick={() => setCreateOpen(true)}>Create New Task</button>}</div> : <div className="flex snap-x gap-4 overflow-x-auto pb-3 md:grid md:grid-cols-3 md:overflow-visible">{columns.map(column => <section onDragOver={event => event.preventDefault()} onDrop={event => { const task = tasks.find(item => item.id === event.dataTransfer.getData('text/task-id')); if (task) void changeStatus(task, column.id as 'todo'|'in_progress'|'completed'); }} className={`w-[min(84vw,390px)] shrink-0 snap-start rounded-2xl border p-3 md:w-auto ${column.tone}`} key={column.id}><header className="flex items-center justify-between px-1 pb-3"><h2 className="flex items-center gap-2 text-sm font-bold text-slate-800"><i className={`h-2.5 w-2.5 rounded-full ${column.dot}`} />{column.title}</h2><span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold text-slate-600">{column.tasks.length}</span></header><div className="space-y-3">{column.tasks.map(task => <TaskCard key={task.id} task={task} saving={saving} canDelete={canDelete} onEdit={() => setEditing({ ...task, assigneeIds: task.task_assignments.map((assignment: any) => assignment.profile_id) })} onMove={status => void changeStatus(task, status)} onDelete={() => setDeleteTarget(task)} />)}{!column.tasks.length && <p className="rounded-xl border border-dashed border-slate-200 bg-white/60 px-3 py-5 text-center text-xs text-slate-500">{column.empty}</p>}</div></section>)}</div>}
 
     {editing && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/30 p-4"><form className="card max-h-[90vh] w-full max-w-xl overflow-auto p-5" onSubmit={saveEdit}><button type="button" className="float-right text-sm underline" onClick={() => setEditing(null)}>Close</button><h2 className="text-xl font-bold">Edit task</h2><div className="mt-4 grid gap-3"><input name="title" required className="input" value={editing.title} onChange={event => setEditing({ ...editing, title: event.target.value })} /><textarea name="description" className="input min-h-20" value={editing.description || ''} onChange={event => setEditing({ ...editing, description: event.target.value })} /><div className="grid gap-3 sm:grid-cols-2"><select name="priority" className="input" value={editing.priority} onChange={event => setEditing({ ...editing, priority: event.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><input name="due_date" required className="input" type="date" value={editing.due_date || ''} onChange={event => setEditing({ ...editing, due_date: event.target.value })} /></div><label className="text-sm">Assignees<div className="mt-1 max-h-48 overflow-auto rounded border">{staff.map(person => <label className="flex gap-2 border-b p-2" key={person.id}><input type="checkbox" checked={editing.assigneeIds.includes(person.id)} onChange={() => setEditing({ ...editing, assigneeIds: editing.assigneeIds.includes(person.id) ? editing.assigneeIds.filter((id: string) => id !== person.id) : [...editing.assigneeIds, person.id] })} />{person.full_name}<small className="text-slate-500">{person.role?.replace('_', ' ')}</small></label>)}</div></label><button disabled={saving || !editing.assigneeIds.length} className="btn btn-primary">{saving ? 'Saving…' : 'Save task'}</button></div></form></div>}
+    {deleteTarget && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/30 p-4"><article className="card w-full max-w-md p-5"><h2 className="text-xl font-bold">Delete task?</h2><p className="mt-2 text-sm text-slate-600">Deleting this task removes it from active task management and its related assignment, comments, and attachments according to the existing database cascade.</p><div className="mt-5 flex justify-end gap-2"><button className="btn border" disabled={saving} onClick={() => setDeleteTarget(undefined)}>Cancel</button><button className="btn bg-rose-700 text-white hover:bg-rose-800" disabled={saving} onClick={() => void deleteTask()}>{saving ? 'Deleting…' : 'Delete Task'}</button></div></article></div>}
   </section>;
 }
 
 function Metric({ icon, label, count, tone }: { icon: string; label: string; count: number; tone: string }) { return <div className="flex items-center gap-2 rounded-xl border border-slate-100 p-2.5"><span className={`grid h-8 w-8 place-items-center rounded-lg text-sm font-bold ${tone}`}>{icon}</span><span><b className="block text-sm leading-none text-slate-900">{count}</b><small className="mt-1 block text-[11px] text-slate-500">{label}</small></span></div>; }
-function TaskCard({ task, saving, onEdit, onStatus }: { task: any; saving: boolean; onEdit: () => void; onStatus: () => void }) {
+function TaskCard({ task, saving, canDelete, onEdit, onMove, onDelete }: { task: any; saving: boolean; canDelete: boolean; onEdit: () => void; onMove: (status: 'todo'|'in_progress'|'completed') => void; onDelete: () => void }) {
   const latest = task.task_comments?.at(-1); const assigned = task.task_assignments?.[0]?.profile; const overdue = isOverdue(task); const completed = task.status === 'completed';
   const priorityTone = task.priority === 'high' ? 'text-rose-700' : task.priority === 'medium' ? 'text-amber-700' : 'text-emerald-700';
-  return <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex items-start justify-between gap-2"><h3 className="min-w-0 text-sm font-bold text-slate-900">{task.title}</h3>{(overdue || completed) && <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${overdue ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>{overdue ? 'Overdue' : 'Completed'}</span>}</div><p className="mt-2 text-xs text-slate-500">Due: {dateLabel(task.due_date)} <span className="mx-1">•</span> <span className={`font-semibold capitalize ${priorityTone}`}>{task.priority}</span></p><p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">{task.description || 'No description provided.'}</p>{assigned && <div className="mt-3 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-white">{initials(assigned.full_name)}</span><span className="min-w-0"><b className="block truncate text-[11px] text-slate-700">{assigned.full_name}</b><small className="block truncate text-[10px] text-slate-500">{assigned.designation || assigned.role?.replace('_', ' ') || 'Assignee'}</small></span></div>}<div className="mt-3 flex items-center justify-between text-[11px] text-slate-500"><span>◌ {task.task_comments?.length || 0} comments</span><span>{latest ? 'Latest update' : 'Created by management'}</span></div>{latest && <p className="mt-2 line-clamp-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">{latest.body}</p>}<div className="mt-3 flex gap-2"><button className="btn flex-1 border px-2 py-1.5 text-[11px]" onClick={onEdit}>Edit / Reassign</button><button disabled={saving} className="btn btn-primary flex-1 px-2 py-1.5 text-[11px]" onClick={onStatus}>{saving ? 'Updating…' : completed ? 'Reopen' : 'Complete'}</button></div></article>;
+  return <article draggable onDragStart={event => event.dataTransfer.setData('text/task-id', task.id)} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex items-start justify-between gap-2"><h3 className="min-w-0 text-sm font-bold text-slate-900">{task.title}</h3><details className="relative shrink-0"><summary className="cursor-pointer list-none rounded px-2 py-1 text-sm hover:bg-slate-100" aria-label={`Actions for ${task.title}`}>⋯</summary><div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border bg-white p-1 shadow-lg"><button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50" onClick={onEdit}>Edit / Reassign</button>{(['todo','in_progress','completed'] as const).filter(status => status !== task.status).map(status => <button disabled={saving} key={status} className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50" onClick={() => onMove(status)}>Move to {labels[status]}</button>)}{canDelete && <button disabled={saving} className="block w-full rounded px-2 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50" onClick={onDelete}>Delete</button>}</div></details></div>{(overdue || completed) && <span className={`mt-2 inline-block rounded-full px-2 py-1 text-[10px] font-semibold ${overdue ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>{overdue ? 'Overdue' : 'Completed'}</span>}<p className="mt-2 text-xs text-slate-500">Due: {dateLabel(task.due_date)} <span className="mx-1">•</span> <span className={`font-semibold capitalize ${priorityTone}`}>{task.priority}</span></p><p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">{task.description || 'No description provided.'}</p>{assigned && <div className="mt-3 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-white">{initials(assigned.full_name)}</span><span className="min-w-0"><b className="block truncate text-[11px] text-slate-700">{assigned.full_name}</b><small className="block truncate text-[10px] text-slate-500">{assigned.designation || assigned.role?.replace('_', ' ') || 'Assignee'}</small></span></div>}<div className="mt-3 flex items-center justify-between text-[11px] text-slate-500"><span>◌ {task.task_comments?.length || 0} comments</span><span>{latest ? 'Latest update' : 'Created by management'}</span></div>{latest && <p className="mt-2 line-clamp-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">{latest.body}</p>}</article>;
 }

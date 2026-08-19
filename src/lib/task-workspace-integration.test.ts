@@ -14,10 +14,10 @@ describe('task workspace integration', () => {
   });
 
   it('keeps GM task and assignee failures separate after successful mutations', () => {
-    expect(adminPage).toContain("['tasks.manage', 'tasks.assign']");
+    expect(adminPage).toContain("employeeRepository.hasPermission('tasks.assign')");
     expect(adminPage).toContain('Promise.allSettled');
     expect(adminPage).toContain('Assignee list could not be loaded');
-    expect(adminPage).toContain('router.refresh()');
+    expect(adminPage).not.toContain('router.refresh()');
   });
 
   it('enforces active employee ownership and canonical task transitions in RLS', () => {

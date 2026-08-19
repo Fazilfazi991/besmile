@@ -84,7 +84,7 @@ export default function TasksPage() {
       setComments((current) => ({ ...current, [id]: "" }));
       setUpdateOpen(null);
       setNotice(value === "completed" ? "Task completed successfully." : `Task moved to ${labels[value]}.`);
-      await loadTasks(profile);
+      if (comment.trim()) await loadTasks(profile);
     } catch (cause: any) {
       setTasks(previous);
       setTaskError(cause?.message || "Task update could not be saved. Your previous status was restored.");
@@ -245,13 +245,28 @@ export default function TasksPage() {
         )}
       </div>
       {shown.length ? (
-        <div className="space-y-3">
-          {shown.map((item) => {
+        <div className="flex snap-x gap-3 overflow-x-auto pb-3 md:grid md:grid-cols-3 md:overflow-visible">
+          {(['todo', 'in_progress', 'completed'] as const).map((columnStatus) => (
+            <section
+              className="w-[min(84vw,390px)] shrink-0 snap-start rounded-xl border border-slate-200 bg-slate-50/70 p-3 md:w-auto"
+              key={columnStatus}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                const assignmentId = event.dataTransfer.getData('text/task-assignment-id');
+                if (assignmentId) void update(assignmentId, columnStatus);
+              }}
+            >
+              <header className="mb-3 flex items-center justify-between px-1">
+                <h2 className="text-sm font-bold text-slate-800">{labels[columnStatus]}</h2>
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-slate-600">{shown.filter((item) => item.status === columnStatus).length}</span>
+              </header>
+              <div className="space-y-3">
+          {shown.filter((item) => item.status === columnStatus).map((item) => {
             const task = item.tasks;
             const latest = task.task_comments?.at(-1);
             const overdue = isOverdue(task, today);
             return (
-              <article className="card p-4" key={item.id}>
+              <article draggable onDragStart={(event) => event.dataTransfer.setData('text/task-assignment-id', item.id)} className="card p-4" key={item.id}>
                 <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_184px]">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -379,6 +394,10 @@ export default function TasksPage() {
               </article>
             );
           })}
+              {!shown.some((item) => item.status === columnStatus) && <p className="rounded-lg border border-dashed border-slate-200 bg-white/70 px-3 py-5 text-center text-xs text-slate-500">No {labels[columnStatus].toLowerCase()} tasks.</p>}
+              </div>
+            </section>
+          ))}
         </div>
       ) : (
         <div className="card grid place-items-center gap-2 p-8 text-center">
