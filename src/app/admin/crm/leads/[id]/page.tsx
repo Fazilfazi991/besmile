@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 
 const dateInput = (value?: string | null) =>
   value ? String(value).slice(0, 10) : "";
@@ -31,6 +32,9 @@ export default function LeadDetail() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveError, setArchiveError] = useState("");
   const load = async () => {
     try {
       const [item, options] = await Promise.all([
@@ -175,14 +179,20 @@ export default function LeadDetail() {
     }
   };
   const archive = async () => {
-    if (!window.confirm("Archive this lead?")) return;
-    setBusy(true);
+    if (archiveBusy) return;
+    setArchiveBusy(true);
+    setArchiveError("");
     try {
       await adminRepository.archiveLead(id);
       window.location.assign("/admin/crm");
     } catch (caught: any) {
-      setError(caught.message);
-      setBusy(false);
+      console.error("Lead archive failed", caught);
+      setArchiveError(
+        /permission|not authorized|42501/i.test(String(caught?.message || ""))
+          ? "You do not have permission to archive this lead."
+          : "We couldn't archive this lead. Please try again.",
+      );
+      setArchiveBusy(false);
     }
   };
 
@@ -205,8 +215,8 @@ export default function LeadDetail() {
         {convertedPatient && <Link className="btn border" href={`/admin/patients/${convertedPatient.slug || convertedPatient.id}`}>Open client</Link>}
         <button
           className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-700"
-          disabled={busy}
-          onClick={() => void archive()}
+          disabled={busy || archiveBusy}
+          onClick={() => { setArchiveError(""); setArchiveOpen(true); }}
         >
           Archive lead
         </button>
@@ -215,6 +225,17 @@ export default function LeadDetail() {
       {message && (
         <p className="rounded bg-emerald-50 p-3 text-emerald-800">{message}</p>
       )}
+      <ConfirmationDialog
+        open={archiveOpen}
+        title="Archive lead?"
+        description={`Archive ${lead.full_name || "this lead"}? The lead will no longer appear in active CRM lists.`}
+        confirmLabel="Archive lead"
+        destructive
+        pending={archiveBusy}
+        error={archiveError}
+        onClose={() => { if (!archiveBusy) { setArchiveOpen(false); setArchiveError(""); } }}
+        onConfirm={archive}
+      />
       {convertedPatient && <div className="rounded border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><b>Converted to Client</b><p className="mt-1 text-sm">Client ID: {convertedPatient.patient_number}</p></div>}
       <form onSubmit={saveLead} className="card grid gap-3 p-5 md:grid-cols-2">
         <h2 className="font-bold md:col-span-2">Lead details</h2>
