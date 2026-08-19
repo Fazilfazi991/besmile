@@ -12,7 +12,7 @@ export const permissionCatalogue = [
   'documents.employee.manage','documents.administration.manage','documents.operational_client.manage',
   'ideas.view','ideas.create','ideas.edit_own','ideas.comment','ideas.support',
   'customer_feedback.view',
-  'doctor_scheduling.view','doctor_scheduling.manage_doctors','doctor_scheduling.create_appointments','doctor_scheduling.update_appointments','doctor_scheduling.cancel_appointments',
+  'doctor_scheduling.view','doctor_scheduling.manage_doctors','clinician.availability.manage_all','doctor_scheduling.create_appointments','doctor_scheduling.update_appointments','doctor_scheduling.cancel_appointments',
   'online_psychologists.manage',
   'appointments.view','appointments.create','appointments.update','appointments.reschedule','appointments.cancel','appointments.delete','appointments.update_status',
 ] as const;

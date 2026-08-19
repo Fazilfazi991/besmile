@@ -30,6 +30,7 @@ export const doctorSchedulingRepository = {
     const codes = [
       'doctor_scheduling.view',
       'doctor_scheduling.manage_doctors',
+      'clinician.availability.manage_all',
       'doctor_scheduling.create_appointments',
       'doctor_scheduling.update_appointments',
       'doctor_scheduling.cancel_appointments',
