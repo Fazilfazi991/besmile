@@ -5,12 +5,15 @@ import { FinanceEmpty, inr } from "@/components/finance-ui";
 import { adminRepository } from "@/lib/admin-repository";
 import { downloadReportCsv } from "@/lib/report-export";
 import {
+  ambiguousLegacyExpenseTransactions,
   financeReportCsvRows,
   financeReportFilename,
   financeReportLabels,
   financeReportSummary,
   FinanceReportKind,
   FinanceReportTransaction,
+  profitLossCsvRows,
+  profitLossLabel,
   reportPageSize,
   reportTransactions,
 } from "@/lib/finance-reporting";
@@ -25,6 +28,7 @@ const csvHeaders = [
   "Payment method",
   "Amount",
 ];
+const profitLossCsvHeaders = ["Period", "Line item", "Amount"];
 const today = () => new Date().toISOString().slice(0, 10);
 const startOfMonth = (date: string) => `${date.slice(0, 7)}-01`;
 const previousMonth = () => {
@@ -75,15 +79,21 @@ export default function FinanceReports() {
     (page - 1) * reportPageSize,
     page * reportPageSize,
   );
+  const ambiguousLegacyRows = useMemo(
+    () => ambiguousLegacyExpenseTransactions(transactions, from, to),
+    [transactions, from, to],
+  );
   const exportCsv = async () => {
-    if (kind === "profit_loss" || csvBusy) return;
+    if (csvBusy) return;
     setCsvBusy(true);
     setError("");
     try {
       await downloadReportCsv(
         financeReportFilename(kind, from, to),
-        csvHeaders,
-        financeReportCsvRows(rows),
+        kind === "profit_loss" ? profitLossCsvHeaders : csvHeaders,
+        kind === "profit_loss"
+          ? profitLossCsvRows(summary, from, to)
+          : financeReportCsvRows(rows),
       );
     } catch (caught) {
       setError(
@@ -115,15 +125,13 @@ export default function FinanceReports() {
             Review live ledger activity by income and expense category.
           </p>
         </div>
-        {kind !== "profit_loss" && (
-          <button
-            className="btn border"
-            disabled={csvBusy || loading}
-            onClick={() => void exportCsv()}
-          >
-            {csvBusy ? "Generating CSV…" : "Download CSV"}
-          </button>
-        )}
+        <button
+          className="btn border"
+          disabled={csvBusy || loading}
+          onClick={() => void exportCsv()}
+        >
+          {csvBusy ? "Generating CSV…" : "Download CSV"}
+        </button>
       </div>
       {error && (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
@@ -182,11 +190,19 @@ export default function FinanceReports() {
         <Metric label="Maintenance" value={summary.maintenance} />
         <Metric label="Total expenses" value={summary.totalExpenses} />
         <Metric
-          label="Net"
+          label={kind === "profit_loss" ? profitLossLabel(summary.net) : "Net"}
           value={summary.net}
           tone={summary.net < 0 ? "text-rose-700" : "text-emerald-700"}
         />
       </div>
+      {kind === "profit_loss" && ambiguousLegacyRows.length > 0 && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {ambiguousLegacyRows.length} ambiguous legacy expense{" "}
+          {ambiguousLegacyRows.length === 1 ? "record is" : "records are"} shown
+          in the supporting detail below but excluded from the three-category
+          Total Expenses calculation.
+        </p>
+      )}
       <div className="card min-w-0 max-w-full overflow-x-auto">
         <table className="min-w-[860px] w-full text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">

@@ -77,6 +77,10 @@ export const canonicalExpenseCategory = (name?: string | null) => {
 
 export const isIncomeTransaction = (transaction: FinanceReportTransaction) =>
   ["income", "invoice_payment"].includes(transaction.transaction_type);
+export const isExpenseTransaction = (transaction: FinanceReportTransaction) =>
+  ["expense", "payroll_payment", "psychologist_payment"].includes(
+    transaction.transaction_type,
+  );
 export const isInRange = (
   transaction: FinanceReportTransaction,
   from: string,
@@ -152,7 +156,7 @@ export const financeReportSummary = (
 };
 
 export const financeReportFilename = (
-  kind: Exclude<FinanceReportKind, "profit_loss">,
+  kind: FinanceReportKind,
   from: string,
   to: string,
 ) => {
@@ -179,3 +183,46 @@ export const financeReportCsvRows = (
     "Payment method": transaction.payment_method || "",
     Amount: Number(transaction.amount || 0),
   }));
+
+export const profitLossLabel = (net: number) =>
+  net > 0 ? "Net Profit" : net < 0 ? "Net Loss" : "Net Position";
+
+export const profitLossCsvRows = (
+  summary: ReturnType<typeof financeReportSummary>,
+  from: string,
+  to: string,
+) => [
+  {
+    Period: `${from || "All dates"} – ${to || "All dates"}`,
+    "Line item": "Total Income",
+    Amount: summary.income,
+  },
+  {
+    Period: "",
+    "Line item": "Capital Expense",
+    Amount: summary.capitalExpense,
+  },
+  {
+    Period: "",
+    "Line item": "Monthly Expense",
+    Amount: summary.monthlyExpense,
+  },
+  { Period: "", "Line item": "Maintenance", Amount: summary.maintenance },
+  { Period: "", "Line item": "Total Expenses", Amount: summary.totalExpenses },
+  {
+    Period: "",
+    "Line item": profitLossLabel(summary.net),
+    Amount: summary.net,
+  },
+];
+
+export const ambiguousLegacyExpenseTransactions = (
+  transactions: FinanceReportTransaction[],
+  from: string,
+  to: string,
+) =>
+  filteredFinanceTransactions(transactions, from, to).filter(
+    (transaction) =>
+      isExpenseTransaction(transaction) &&
+      !canonicalExpenseCategory(transaction.expense_category?.name),
+  );

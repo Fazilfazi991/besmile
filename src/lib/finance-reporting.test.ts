@@ -2,11 +2,14 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  ambiguousLegacyExpenseTransactions,
   financeReportCsvRows,
   financeReportSummary,
   filteredFinanceTransactions,
   reportPageSize,
   reportTransactions,
+  profitLossCsvRows,
+  profitLossLabel,
 } from "./finance-reporting";
 import { reportCsv } from "./report-export";
 
@@ -146,5 +149,70 @@ describe("finance reporting", () => {
     );
     expect(reportPage).toContain("min-w-0 max-w-full overflow-x-auto");
     expect(reportPage).toContain("reportPageSize");
+  });
+
+  it("makes P&L totals match every individual report without double counting", () => {
+    const summary = financeReportSummary(rows, "2026-08-01", "2026-08-31");
+    const total = (kind: any) =>
+      reportTransactions(rows, kind, "2026-08-01", "2026-08-31").reduce(
+        (sum, row) => sum + Number(row.amount),
+        0,
+      );
+    expect(summary.income).toBe(total("income"));
+    expect(summary.capitalExpense).toBe(total("capital_expense"));
+    expect(summary.monthlyExpense).toBe(total("monthly_expense"));
+    expect(summary.maintenance).toBe(total("maintenance"));
+    expect(summary.totalExpenses).toBe(
+      summary.capitalExpense + summary.monthlyExpense + summary.maintenance,
+    );
+    expect(summary.net).toBe(summary.income - summary.totalExpenses);
+    expect(
+      reportTransactions(rows, "profit_loss", "", "").filter(
+        (row) => row.id === "invoice",
+      ),
+    ).toHaveLength(1);
+    expect(
+      reportTransactions(rows, "profit_loss", "", "").filter(
+        (row) => row.id === "salary" || row.id === "psychologist",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("labels positive, negative, and zero P&L accurately and exports the filtered totals", () => {
+    expect(profitLossLabel(1)).toBe("Net Profit");
+    expect(profitLossLabel(-1)).toBe("Net Loss");
+    expect(profitLossLabel(0)).toBe("Net Position");
+    const summary = financeReportSummary(rows, "2026-08-04", "2026-08-07");
+    expect(profitLossCsvRows(summary, "2026-08-04", "2026-08-07")).toEqual(
+      expect.arrayContaining([
+        {
+          Period: "2026-08-04 – 2026-08-07",
+          "Line item": "Total Income",
+          Amount: 500,
+        },
+        { Period: "", "Line item": "Total Expenses", Amount: 1200 },
+        { Period: "", "Line item": "Net Loss", Amount: -700 },
+      ]),
+    );
+  });
+
+  it("keeps current, previous, custom, and ambiguous legacy P&L data consistent", () => {
+    expect(financeReportSummary(rows, "2026-08-01", "2026-08-31").net).toBe(
+      150,
+    );
+    expect(financeReportSummary(rows, "2026-07-01", "2026-07-31")).toEqual({
+      income: 0,
+      capitalExpense: 0,
+      monthlyExpense: 0,
+      maintenance: 0,
+      totalExpenses: 0,
+      net: 0,
+    });
+    expect(
+      financeReportSummary(rows, "2026-08-05", "2026-08-05").capitalExpense,
+    ).toBe(700);
+    expect(
+      ambiguousLegacyExpenseTransactions(rows, "", "").map((row) => row.id),
+    ).toEqual(["ambiguous"]);
   });
 });
