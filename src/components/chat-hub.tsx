@@ -18,7 +18,7 @@ import { upsertChatMessage } from "@/lib/chat-message-state";
 import { chatEmojiGroups, insertEmojiAtCursor } from "@/lib/chat-composer";
 import "./chat-hub-fixes.css";
 
-type Tab = "all" | "personal" | "group" | "unread";
+type Tab = "all" | "unread" | "mentions";
 
 const time = (value?: string) =>
   value
@@ -35,6 +35,21 @@ const size = (value?: number) =>
       : `${(value / 1024 / 1024).toFixed(1)} MB`;
 const durationLabel = (seconds = 0) =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+const retentionLabel = (seconds = 0) => ({ 0: "Off", 86400: "24 hours", 604800: "7 days", 2592000: "30 days" }[seconds] || "Off");
+const dateLabel = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  }).format(date);
+};
 type VoicePreview = { file: File; url: string; duration: number };
 
 export function ChatHub() {
@@ -62,6 +77,12 @@ export function ChatHub() {
   const [selectedPerson, setSelectedPerson] = useState<any>();
   const [people, setPeople] = useState<any[]>([]);
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [reactionTarget, setReactionTarget] = useState<string | null>(null);
+  const [actionTarget, setActionTarget] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<any>(null);
+  const [editingMessage, setEditingMessage] = useState<any>(null);
+  const [mentionProfileIds, setMentionProfileIds] = useState<string[]>([]);
+  const [retentionSaving, setRetentionSaving] = useState(false);
   const [group, setGroup] = useState({
     title: "",
     description: "",
@@ -140,6 +161,7 @@ export function ChatHub() {
         await employeeRepository.markConversationRead(
           conversationId,
           profileId,
+          page.data.at(-1)?.id,
         );
         setConversations((list) =>
           list.map((item) =>
@@ -178,6 +200,18 @@ export function ChatHub() {
               conversationId,
               profileId,
             );
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (event: any) => {
+          setMessages((rows) => upsertChatMessage(rows, event.new as any));
         },
       )
       .subscribe();
@@ -225,8 +259,8 @@ export function ChatHub() {
           `${item.latest_message?.body || ""} ${item.latest_message?.message_type === "voice" ? "Voice message" : item.latest_message?.attachment_name || ""}`.toLowerCase();
         return (
           (tab === "all" ||
-            item.chat_conversations.conversation_type === tab ||
-            (tab === "unread" && item.unread_count > 0)) &&
+            (tab === "unread" && item.unread_count > 0) ||
+            (tab === "mentions" && item.mention_count > 0)) &&
           `${name} ${preview}`.includes(query.toLowerCase())
         );
       }),
@@ -243,6 +277,19 @@ export function ChatHub() {
           ),
     [messages, messageQuery],
   );
+  const mentionMatch = text.match(/(?:^|\s)@([^\s@]*)$/);
+  const mentionTerm = mentionMatch?.[1].toLowerCase() || "";
+  const mentionCandidates = (active?.chat_conversations?.chat_members || [])
+    .filter((member: any) => member.profile_id !== profile?.id)
+    .filter((member: any) => (member.profiles?.full_name || "").toLowerCase().includes(mentionTerm))
+    .slice(0, 6);
+  const chooseMention = (member: any) => {
+    const name = member.profiles?.full_name || "Member";
+    const index = text.lastIndexOf("@");
+    setText(`${text.slice(0, index)}@${name} ${text.slice(index + 1 + mentionTerm.length)}`);
+    setMentionProfileIds((ids) => ids.includes(member.profile_id) ? ids : [...ids, member.profile_id]);
+    requestAnimationFrame(() => textRef.current?.focus());
+  };
 
   const send = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -253,6 +300,23 @@ export function ChatHub() {
       (!text.trim() && !file && !voicePreview)
     )
       return;
+    if (editingMessage) {
+      if (!text.trim()) return;
+      setSending(true);
+      setError("");
+      try {
+        const saved = await employeeRepository.editChatMessage(editingMessage.id, text, mentionProfileIds);
+        setMessages((rows) => upsertChatMessage(rows, saved));
+        setText("");
+        setEditingMessage(null);
+        setMentionProfileIds([]);
+      } catch (cause: any) {
+        setError(cause.message || "Message could not be edited. Please try again.");
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
     const channelId = active.chat_conversations?.channel_id;
     if (!channelId) {
       setError(
@@ -273,6 +337,8 @@ export function ChatHub() {
       attachment_type: voicePreview?.file.type,
       message_type: voicePreview ? "voice" : file ? "attachment" : "text",
       voice_duration_seconds: voicePreview?.duration,
+      reply_to_message_id: replyingTo?.id || null,
+      mention_profile_ids: mentionProfileIds,
       status: "sending",
     };
     setSending(true);
@@ -290,10 +356,14 @@ export function ChatHub() {
         client_message_id: clientMessageId,
         file: draftVoice?.file || draftFile,
         voice_duration_seconds: draftVoice?.duration,
+        reply_to_message_id: replyingTo?.id || null,
+        mention_profile_ids: mentionProfileIds,
       });
       setMessages((rows) => upsertChatMessage(rows, saved));
       setText("");
       setFile(null);
+      setReplyingTo(null);
+      setMentionProfileIds([]);
       if (draftVoice) URL.revokeObjectURL(draftVoice.url);
       setVoicePreview(null);
     } catch (cause: any) {
@@ -481,6 +551,54 @@ export function ChatHub() {
     setActive(item);
     setDetails(false);
     setMessageQuery("");
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setMentionProfileIds([]);
+  };
+  const resizeComposer = (element: HTMLTextAreaElement) => {
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 120)}px`;
+  };
+  const react = async (messageId: string, emoji: string) => { try { await employeeRepository.toggleChatReaction(messageId, emoji); setReactionTarget(null); if (active) { const page = await employeeRepository.chatMessagePage(active.conversation_id); setMessages(page.data); } } catch { setError('Reaction could not be saved. Please try again.'); } };
+  const beginReply = (message: any) => {
+    setEditingMessage(null);
+    setReplyingTo(message);
+    setActionTarget(null);
+    requestAnimationFrame(() => textRef.current?.focus());
+  };
+  const beginEdit = (message: any) => {
+    setReplyingTo(null);
+    setFile(null);
+    discardVoice();
+    setEditingMessage(message);
+    setText(message.body || "");
+    setMentionProfileIds((message.mentions || []).map((mention: any) => mention.profile_id));
+    setActionTarget(null);
+    requestAnimationFrame(() => {
+      if (textRef.current) {
+        resizeComposer(textRef.current);
+        textRef.current.focus();
+      }
+    });
+  };
+  const deleteMessage = async (messageId: string) => {
+    try {
+      const saved = await employeeRepository.deleteChatMessage(messageId);
+      setMessages((rows) => upsertChatMessage(rows, saved));
+      setActionTarget(null);
+    } catch (cause: any) {
+      setError(cause.message || "Message could not be deleted. Please try again.");
+    }
+  };
+  const changeRetention = async (seconds: number) => {
+    if (!active || retentionSaving) return;
+    setRetentionSaving(true);
+    try {
+      await employeeRepository.setChatDisappearingMessages(active.conversation_id, seconds);
+      setActive((current: any) => ({ ...current, chat_conversations: { ...current.chat_conversations, disappearing_message_seconds: seconds } }));
+      setConversations((rows) => rows.map((item) => item.conversation_id === active.conversation_id ? { ...item, chat_conversations: { ...item.chat_conversations, disappearing_message_seconds: seconds } } : item));
+    } catch (cause: any) { setError(cause.message || "Disappearing message setting could not be updated."); }
+    finally { setRetentionSaving(false); }
   };
   if (loading)
     return (
@@ -548,20 +666,18 @@ export function ChatHub() {
           </div>
           <input
             className="input chat-search"
-            placeholder="Search conversations"
+            placeholder="Search conversations..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
           <div className="chat-tabs">
-            {(["all", "personal", "group", "unread"] as Tab[]).map((value) => (
+            {(["all", "unread", "mentions"] as Tab[]).map((value) => (
               <button
                 className={tab === value ? "active" : ""}
                 onClick={() => setTab(value)}
                 key={value}
               >
-                {value === "personal"
-                  ? "Direct"
-                  : value[0].toUpperCase() + value.slice(1)}
+                {value[0].toUpperCase() + value.slice(1)}
               </button>
             ))}
           </div>
@@ -655,14 +771,28 @@ export function ChatHub() {
                 </div>
                 <div className="chat-header-actions">
                   <button
+                    aria-label="Search messages"
+                    title="Search messages"
                     onClick={() =>
                       setMessageQuery((value) => (value ? "" : " "))
                     }
                   >
-                    Search
+                    <span aria-hidden="true">⌕</span>
                   </button>
-                  <button onClick={() => setDetails((value) => !value)}>
-                    Details
+                  <button
+                    aria-label="Conversation details"
+                    title="Conversation details"
+                    onClick={() => setDetails((value) => !value)}
+                  >
+                    <span aria-hidden="true">i</span>
+                  </button>
+                  <button
+                    className="chat-more-button"
+                    aria-label="More conversation options"
+                    title="More conversation options"
+                    onClick={() => setDetails((value) => !value)}
+                  >
+                    <span aria-hidden="true">•••</span>
                   </button>
                 </div>
               </header>
@@ -689,18 +819,34 @@ export function ChatHub() {
                     {loadingEarlierMessages ? "Loading..." : "Load earlier messages"}
                   </button>
                 )}
-                {matchingMessages.map((message, index) => (
-                  <Message
-                    key={message.id}
-                    message={message}
-                    own={message.sender_id === profile.id}
-                    sender={
-                      isGroup &&
-                      message.sender_id !== profile.id &&
-                      messages[index - 1]?.sender_id !== message.sender_id
-                    }
-                  />
-                ))}
+                {matchingMessages.map((message, index) => {
+                  const previous = matchingMessages[index - 1];
+                  const showDate = !previous ||
+                    new Date(previous.created_at).toDateString() !==
+                      new Date(message.created_at).toDateString();
+                  const showSender = isGroup && message.sender_id !== profile.id &&
+                    (!previous || previous.sender_id !== message.sender_id ||
+                      new Date(message.created_at).getTime() - new Date(previous.created_at).getTime() > 300000);
+                  return (
+                    <div className="chat-message-group" key={message.id}>
+                      {showDate && <div className="chat-date-divider"><span>{dateLabel(message.created_at)}</span></div>}
+                      <Message
+                        message={message}
+                        own={message.sender_id === profile.id}
+                        sender={showSender}
+                        reactionOpen={reactionTarget === message.id}
+                        onReactionOpen={() => setReactionTarget(reactionTarget === message.id ? null : message.id)}
+                        onReact={(emoji) => void react(message.id, emoji)}
+                        actionOpen={actionTarget === message.id}
+                        onActionOpen={() => setActionTarget(actionTarget === message.id ? null : message.id)}
+                        onReply={() => beginReply(message)}
+                        onEdit={() => beginEdit(message)}
+                        onDelete={() => void deleteMessage(message.id)}
+                        read={Boolean(!isGroup && message.sender_id === profile.id && members.find((member: any) => member.profile_id !== profile.id)?.last_read_at && new Date(members.find((member: any) => member.profile_id !== profile.id).last_read_at) >= new Date(message.created_at))}
+                      />
+                    </div>
+                  );
+                })}
                 {!messages.length && (
                   <Empty
                     title="No messages yet"
@@ -718,6 +864,15 @@ export function ChatHub() {
                 className={`chat-composer ${recording || voicePreview ? "voice-active" : ""}`}
                 onSubmit={send}
               >
+                {(replyingTo || editingMessage) && (
+                  <div className="chat-compose-context">
+                    <span>
+                      <b>{editingMessage ? "Editing message" : `Replying to ${replyingTo?.sender?.full_name || "member"}`}</b>
+                      <small>{messageSnippet(editingMessage || replyingTo)}</small>
+                    </span>
+                    <button type="button" aria-label="Cancel message action" onClick={() => { setReplyingTo(null); setEditingMessage(null); setMentionProfileIds([]); setText(""); }}>×</button>
+                  </div>
+                )}
                 {file && (
                   <span className="chat-file-chip">
                     {file.name}
@@ -765,7 +920,7 @@ export function ChatHub() {
                         onClick={() => setEmojiOpen((value) => !value)}
                         disabled={sending}
                       >
-                        ☺
+                        <span aria-hidden="true">☺</span>
                       </button>
                       {emojiOpen && (
                         <div
@@ -797,10 +952,11 @@ export function ChatHub() {
                       ref={textRef}
                       className="input"
                       rows={1}
-                      placeholder="Write a message"
+                      placeholder={editingMessage ? "Edit message" : "Type a message"}
                       value={text}
                       onChange={(event) => {
                         setText(event.target.value);
+                        resizeComposer(event.currentTarget);
                         textSelectionRef.current = {
                           start: event.target.selectionStart,
                           end: event.target.selectionEnd,
@@ -813,10 +969,21 @@ export function ChatHub() {
                         };
                       }}
                       onKeyDown={submitKey}
+                      onInput={(event) => resizeComposer(event.currentTarget)}
                       disabled={
                         sending || !active.chat_conversations?.channel_id
                       }
                     />
+                    {mentionMatch && mentionCandidates.length > 0 && (
+                      <div className="chat-mention-picker" role="listbox" aria-label="Mention a participant">
+                        {mentionCandidates.map((member: any) => (
+                          <button type="button" role="option" key={member.profile_id} onClick={() => chooseMention(member)}>
+                            <Avatar name={member.profiles?.full_name} />
+                            <span><b>{member.profiles?.full_name}</b><small>{member.profiles?.designation || "Participant"}</small></span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
                 <input
@@ -837,7 +1004,8 @@ export function ChatHub() {
                     !active.chat_conversations?.channel_id
                   }
                 >
-                  Attach
+                  <span aria-hidden="true">⌇</span>
+                  <span className="chat-action-label">Attach</span>
                 </button>
                 {!recording && !voicePreview && (
                   <button
@@ -851,7 +1019,7 @@ export function ChatHub() {
                       !active.chat_conversations?.channel_id
                     }
                   >
-                    🎤
+                    <span aria-hidden="true">♩</span>
                   </button>
                 )}
                 <button
@@ -863,7 +1031,7 @@ export function ChatHub() {
                     (!text.trim() && !file && !voicePreview)
                   }
                 >
-                  {sending ? "Sending..." : "Send"}
+                  <span aria-hidden="true">➤</span> {sending ? "Sending..." : "Send"}
                 </button>
                 <small>
                   {voicePreview
@@ -883,7 +1051,7 @@ export function ChatHub() {
           <aside className="chat-details-panel">
             <div className="chat-details-heading">
               <h2>Conversation details</h2>
-              <button onClick={() => setDetails(false)}>Close</button>
+              <button aria-label="Close conversation details" onClick={() => setDetails(false)}>Close</button>
             </div>
             <Avatar name={chatName(active, profile.id)} large />
             <h3>{chatName(active, profile.id)}</h3>
@@ -944,20 +1112,21 @@ export function ChatHub() {
                   {other(active, profile.id)?.department?.name ||
                     "No department"}
                 </p>
-                <div className="chat-detail-section">
-                  <b>Shared files</b>
-                  {messages
-                    .filter((message) => message.attachment_name)
-                    .slice(-6)
-                    .map((message) => (
-                      <MessageFile key={message.id} message={message} />
-                    ))}
-                  {!messages.some((message) => message.attachment_name) && (
-                    <small>No files shared yet.</small>
-                  )}
-                </div>
               </>
             )}
+            <div className="chat-detail-section">
+              <b>Shared files</b>
+              {messages.filter((message) => message.attachment_name && !message.expired_at && !message.deleted_at).slice(-6).map((message) => (
+                <MessageFile key={message.id} message={message} />
+              ))}
+              {!messages.some((message) => message.attachment_name && !message.expired_at && !message.deleted_at) && <small>No files shared yet.</small>}
+            </div>
+            <div className="chat-detail-section">
+              <b>Disappearing messages</b>
+              {(!isGroup || isAdmin) ? <select className="input" value={active.chat_conversations.disappearing_message_seconds || 0} disabled={retentionSaving} onChange={(event) => void changeRetention(Number(event.target.value))}>
+                <option value={0}>Off</option><option value={86400}>24 hours</option><option value={604800}>7 days</option><option value={2592000}>30 days</option>
+              </select> : <small>{retentionLabel(active.chat_conversations.disappearing_message_seconds || 0)}</small>}
+            </div>
           </aside>
         )}
       </div>
@@ -1144,6 +1313,20 @@ function messagePreview(message: any) {
     return `Voice message · ${durationLabel(message.voice_duration_seconds)}`;
   return message.body || message.attachment_name || "No messages yet";
 }
+function messageSnippet(message: any) {
+  if (!message) return "";
+  if (message.expired_at) return "Original message expired";
+  if (message.deleted_at) return "Original message deleted";
+  if (message.message_type === "voice") return "Voice message";
+  if (message.attachment_name) return `File: ${message.attachment_name}`;
+  return (message.body || "Message").replace(/\s+/g, " ").slice(0, 120);
+}
+function renderMentionText(message: any) {
+  const names = (message.mentions || []).map((mention: any) => mention.profiles?.full_name).filter(Boolean);
+  if (!names.length) return message.body;
+  const parts = message.body.split(new RegExp(`(@(?:${names.map((name: string) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}))`, "g"));
+  return parts.map((part: string, index: number) => names.includes(part.slice(1)) ? <mark className="chat-mention" key={index}>{part}</mark> : part);
+}
 function other(item: any, userId: string) {
   return (item.chat_conversations?.chat_members || []).find(
     (member: any) => member.profile_id !== userId,
@@ -1169,27 +1352,64 @@ function Message({
   message,
   own,
   sender,
+  reactionOpen,
+  onReactionOpen,
+  onReact,
+  actionOpen,
+  onActionOpen,
+  onReply,
+  onEdit,
+  onDelete,
+  read,
 }: {
   message: any;
   own: boolean;
   sender: boolean;
+  reactionOpen: boolean;
+  onReactionOpen: () => void;
+  onReact: (emoji: string) => void;
+  actionOpen: boolean;
+  onActionOpen: () => void;
+  onReply: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  read: boolean;
 }) {
   return (
-    <article className={`chat-message ${own ? "own" : ""}`}>
-      {sender && (
-        <b className="chat-sender">{message.sender?.full_name || "Member"}</b>
-      )}
+    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${(message.deleted_at || message.expired_at) ? "deleted" : ""}`}>
+      {sender && <b className="chat-sender">{message.sender?.full_name || "Member"}</b>}
       <div>
-        {message.body && <p>{message.body}</p>}
-        {message.message_type === "voice" ? (
+        {message.reply_to_message_id && (
+          <button
+            type="button"
+            className="chat-reply-quote"
+            onClick={() => document.getElementById(`chat-message-${message.reply_to_message_id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+          >
+            <b>{message.reply_to?.expired_at ? "Original message expired" : message.reply_to?.deleted_at ? "Original message deleted" : message.reply_to?.sender?.full_name || "Original message"}</b>
+            <span>{messageSnippet(message.reply_to)}</span>
+          </button>
+        )}
+        {(message.deleted_at || message.expired_at) ? <p className="chat-deleted-copy">{message.expired_at ? "This message expired" : "This message was deleted"}</p> : message.body && <p>{renderMentionText(message)}</p>}
+        {!message.deleted_at && !message.expired_at && message.message_type === "voice" ? (
           <VoiceMessage message={message} />
         ) : (
-          message.attachment_name && <MessageFile message={message} />
+          !message.deleted_at && !message.expired_at && message.attachment_name && <MessageFile message={message} />
         )}
         <time>
           {time(message.created_at)}
-          {own && " - Sent"}
+          {message.edited_at && !message.deleted_at && " · Edited"}
+          {own && (read ? "  Read" : "  Sent")}
         </time>
+        {message.message_type !== "system" && <button className="chat-reaction-button" type="button" aria-label="React to message" title="React to message" onClick={onReactionOpen}>☺</button>}
+        {message.message_type !== "system" && reactionOpen && <div className="chat-reaction-picker" role="dialog" aria-label="Choose reaction">{['👍','❤️','😂','😮','😢','🎉'].map(emoji => <button type="button" key={emoji} onClick={() => onReact(emoji)}>{emoji}</button>)}</div>}
+        {!message.deleted_at && message.message_type !== "system" && <button className="chat-message-more" type="button" aria-label="Message actions" onClick={onActionOpen}>•••</button>}
+        {actionOpen && <div className="chat-message-actions" role="menu">
+          <button type="button" onClick={onReply}>Reply</button>
+          <button type="button" onClick={() => void navigator.clipboard?.writeText(message.body || "")}>Copy</button>
+          {own && message.message_type === "text" && <button type="button" onClick={onEdit}>Edit</button>}
+          {own && <button type="button" className="danger" onClick={onDelete}>Delete</button>}
+        </div>}
+        {message.reactions?.length ? <div className="chat-reactions">{Object.entries(message.reactions.reduce((all: any, reaction: any) => ({ ...all, [reaction.emoji]: (all[reaction.emoji] || 0) + 1 }), {})).map(([emoji, count]) => <span key={emoji}>{emoji} {String(count)}</span>)}</div> : null}
       </div>
     </article>
   );
