@@ -75,7 +75,7 @@ describe('official document generator', () => {
     expect(result.pageCount).toBeGreaterThanOrEqual(3);
   }, 30_000);
 
-  it('protects the report endpoint and migrates every existing print export to branded PDF', () => {
+  it('protects the report endpoint and keeps the redesigned Finance Reports CSV-based', () => {
     const route = readFileSync(resolve(process.cwd(), 'src/app/api/documents/official/report/route.ts'), 'utf8');
     const operational = readFileSync(resolve(process.cwd(), 'src/components/operational-reports.tsx'), 'utf8');
     const finance = readFileSync(resolve(process.cwd(), 'src/app/admin/finance/reports/page.tsx'), 'utf8');
@@ -84,9 +84,11 @@ describe('official document generator', () => {
     expect(route).toContain('db.auth.getUser()');
     expect(route).toContain('canGenerateOfficialReport(db, input.reportType)');
     expect(route).toContain('record_official_report_generation');
-    for (const file of [operational, finance, invoice, payroll]) {
+    for (const file of [operational, invoice, payroll]) {
       expect(file).toContain('downloadOfficialReport');
       expect(file).not.toContain('window.print()');
     }
+    expect(finance).toContain('downloadReportCsv');
+    expect(finance).not.toContain('window.print()');
   });
 });
