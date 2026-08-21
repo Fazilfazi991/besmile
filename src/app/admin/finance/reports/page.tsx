@@ -62,7 +62,6 @@ export default function FinanceReports() {
       )
       .finally(() => setLoading(false));
   }, []);
-  useEffect(() => setPage(1), [kind, from, to]);
   const summary = useMemo(
     () => financeReportSummary(transactions, from, to),
     [transactions, from, to],
@@ -95,6 +94,7 @@ export default function FinanceReports() {
     }
   };
   const setPeriod = (period: "current" | "previous") => {
+    setPage(1);
     if (period === "current") {
       setFrom(startOfMonth(today()));
       setTo(today());
@@ -135,7 +135,10 @@ export default function FinanceReports() {
           aria-label="Finance report"
           className="input"
           value={kind}
-          onChange={(event) => setKind(event.target.value as FinanceReportKind)}
+          onChange={(event) => {
+            setKind(event.target.value as FinanceReportKind);
+            setPage(1);
+          }}
         >
           {(Object.keys(financeReportLabels) as FinanceReportKind[]).map(
             (value) => (
@@ -156,14 +159,20 @@ export default function FinanceReports() {
           className="input"
           type="date"
           value={from}
-          onChange={(event) => setFrom(event.target.value)}
+          onChange={(event) => {
+            setFrom(event.target.value);
+            setPage(1);
+          }}
         />
         <input
           aria-label="Report end date"
           className="input"
           type="date"
           value={to}
-          onChange={(event) => setTo(event.target.value)}
+          onChange={(event) => {
+            setTo(event.target.value);
+            setPage(1);
+          }}
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
