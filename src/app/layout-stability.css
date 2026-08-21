@@ -1,0 +1,40 @@
+/*
+ * Shared application-layout contract.
+ *
+ * This file deliberately loads after the legacy/global styles.  It gives every
+ * authenticated route the same shell boundaries without replacing module-level
+ * layouts or changing any permission/navigation behavior.
+ */
+
+:root {
+  --app-content-standard: 1180px;
+  --app-content-wide: 1440px;
+  --app-page-padding: clamp(14px, 2.25vw, 28px);
+  --app-section-gap: clamp(14px, 2vw, 22px);
+  --app-header-height: 58px;
+}
+
+html { max-inline-size: 100%; scrollbar-gutter: stable; }
+body { min-inline-size: 0; max-inline-size: 100%; overflow-x: clip; }
+.app-shell, .app-main, .app-content, .app-content > *, .app-topbar, .topbar-actions { min-inline-size: 0; }
+.app-main { max-inline-size: 100%; }
+.app-topbar { min-block-size: var(--app-header-height); }
+.app-content { inline-size: min(100%, var(--app-content-standard)); padding-inline: var(--app-page-padding); padding-block: var(--app-section-gap) calc(var(--app-section-gap) + 12px); }
+.app-content:has(table[class*='min-w-']), .app-content:has(.data-page) { inline-size: min(100%, var(--app-content-wide)); }
+.app-content:has(.chat-hub), .app-content:has(.page-workspace) { inline-size: 100%; max-inline-size: none; }
+.page-standard, .page-wide, .page-workspace { min-inline-size: 0; }
+.page-standard { max-inline-size: var(--app-content-standard); margin-inline: auto; }
+.page-wide { max-inline-size: var(--app-content-wide); margin-inline: auto; }
+.page-workspace { min-block-size: calc(100dvh - var(--app-header-height) - (var(--app-section-gap) * 2)); }
+.app-content :where(.card, .panel, .employee-section, .overflow-x-auto, .overflow-auto) { min-inline-size: 0; max-inline-size: 100%; }
+.app-content :where(.overflow-x-auto, .overflow-auto) { overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; }
+.app-content :where(table) { border-collapse: collapse; }
+:where([role='dialog']):not(.sidebar-drawer) { max-inline-size: 100vw; max-block-size: 100dvh; }
+:where([role='dialog']):not(.sidebar-drawer) > :where(.card, form, section, article, div) { max-inline-size: calc(100vw - 2rem); max-block-size: min(90dvh, 900px); }
+.employee-page-header, .page-header, .employee-page-header > *, .page-header > * { min-inline-size: 0; }
+@media (max-width: 900px) { .app-content { padding-inline: clamp(14px, 4vw, 20px); } }
+@media (max-width: 700px) {
+  .app-content :where(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: 16px; }
+  .app-content :where(.overflow-x-auto, .overflow-auto) { scrollbar-width: thin; }
+  :where([role='dialog']):not(.sidebar-drawer) > :where(.card, form, section, article, div) { max-inline-size: calc(100vw - 1.5rem); max-block-size: calc(100dvh - 1.5rem); }
+}
