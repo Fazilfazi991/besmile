@@ -4,11 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FinanceEmpty, inr } from '@/components/finance-ui';
 import { adminRepository } from '@/lib/admin-repository';
 import { downloadOfficialReport } from '@/lib/official-report-download';
-
-function csv(rows: any[]) {
-  const quote = (value: any) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-  return rows.map(row => row.map(quote).join(',')).join('\n');
-}
+import { downloadReportCsv } from '@/lib/report-export';
 
 export default function FinanceReports() {
   const [data, setData] = useState<any>();
@@ -16,6 +12,7 @@ export default function FinanceReports() {
   const [to, setTo] = useState('');
   const [type, setType] = useState<'all' | 'income' | 'expense' | 'ledger' | 'invoices' | 'payroll'>('all');
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [csvBusy, setCsvBusy] = useState(false);
   const [pdfError, setPdfError] = useState('');
 
   useEffect(() => { void adminRepository.financeReport().then(setData); }, []);
@@ -24,23 +21,19 @@ export default function FinanceReports() {
     if (!data) return [];
     if (type === 'invoices') return data.invoices.map((item: any) => [item.issue_date, item.invoice_number, item.customer_name, item.status, item.finance_invoice_payments?.reduce((total: number, payment: any) => total + Number(payment.amount), 0) || 0]);
     if (type === 'payroll') return data.payroll.map((item: any) => [item.payroll_run?.period_start, item.profile?.full_name, item.payment_status, Number(item.basic_salary) + Number(item.allowances) - Number(item.deductions), item.payment_date || '']);
-    return data.transactions.filter((item: any) => (type === 'all' || type === 'ledger' || item.transaction_type === type) && (!from || item.transaction_date >= from) && (!to || item.transaction_date <= to)).map((item: any) => [item.transaction_date, item.transaction_type, item.account?.name, item.income_category?.name || item.expense_category?.name || '', item.counterparty_name || item.description || '', item.amount]);
+    return data.transactions.filter((item: any) => (type === 'all' || type === 'ledger' || (type === 'expense' ? ['expense', 'payroll_payment', 'psychologist_payment'].includes(item.transaction_type) : item.transaction_type === type)) && (!from || item.transaction_date >= from) && (!to || item.transaction_date <= to)).map((item: any) => [item.transaction_date, item.transaction_type, item.account?.name, item.income_category?.name || item.expense_category?.name || '', item.counterparty_name || item.description || '', item.amount]);
   }, [data, type, from, to]);
 
   const headers = type === 'invoices' ? ['Issue date', 'Invoice', 'Customer', 'Status', 'Paid'] : type === 'payroll' ? ['Period', 'Employee', 'Payment status', 'Net salary', 'Payment date'] : ['Date', 'Type', 'Account', 'Category', 'Description', 'Amount'];
   const amountIndex = type === 'payroll' ? 3 : rows[0]?.length - 1;
   const total = rows.reduce((sum: number, row: any) => sum + Number(row[amountIndex] || 0), 0);
-  const exportCsv = () => {
-    const blob = new Blob([csv([headers, ...rows])], { type: 'text/csv' });
-    const anchor = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    anchor.href = url;
-    anchor.download = `finance-${type}-report.csv`;
-    anchor.style.display = 'none';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+  const exportCsv = async () => {
+    if (csvBusy) return;
+    setCsvBusy(true); setPdfError('');
+    try {
+      await downloadReportCsv(`finance-${type}-report.csv`, headers, rows.map((row: any[]) => Object.fromEntries(headers.map((header, index) => [header, row[index]]))));
+    } catch (error) { setPdfError(error instanceof Error ? error.message : 'Unable to generate CSV.'); }
+    finally { setCsvBusy(false); }
   };
   const exportPdf = async () => {
     setPdfBusy(true); setPdfError('');
@@ -54,7 +47,7 @@ export default function FinanceReports() {
   return <section className="space-y-4">
     <div className="flex flex-wrap justify-between">
       <div><h1 className="text-2xl font-bold">Finance reports</h1><p className="text-sm text-slate-500">Live reports with CSV and print exports.</p></div>
-      <div className="flex gap-2"><button className="btn border" onClick={exportCsv}>Export CSV</button><button className="btn border" disabled={pdfBusy} onClick={() => void exportPdf()}>{pdfBusy ? 'Generating PDF...' : 'Download PDF'}</button></div>
+      <div className="flex gap-2"><button className="btn border" disabled={csvBusy || pdfBusy} onClick={() => void exportCsv()}>{csvBusy ? 'Generating CSV...' : 'Export CSV'}</button><button className="btn border" disabled={csvBusy || pdfBusy} onClick={() => void exportPdf()}>{pdfBusy ? 'Generating PDF...' : 'Download PDF'}</button></div>
     </div>
     {pdfError && <p className="text-sm text-rose-700">{pdfError}</p>}
     <div className="card flex flex-wrap gap-2 p-3">

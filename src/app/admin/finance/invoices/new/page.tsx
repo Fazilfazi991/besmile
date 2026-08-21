@@ -5,8 +5,7 @@ import { currentProfile } from '@/lib/auth';
 import { adminRepository } from '@/lib/admin-repository';
 import { inr } from '@/components/finance-ui';
 import { invoiceTotal, invoiceValidationMessage } from '@/lib/finance-rules';
-
-type InvoiceItem = { description: string; quantity: number; rate: number };
+import { invoiceDraftLineTotal, invoiceDraftValues, newInvoiceItemDraft, type InvoiceItemDraft } from '@/lib/invoice-item-input';
 
 const initialForm = {
   customer_name: '', customer_phone: '', customer_email: '',
@@ -16,13 +15,14 @@ const initialForm = {
 
 export default function NewInvoice() {
   const [form, setForm] = useState<any>(initialForm);
-  const [items, setItems] = useState<InvoiceItem[]>([{ description: '', quantity: 1, rate: 0 }]);
+  const [items, setItems] = useState<InvoiceItemDraft[]>([newInvoiceItemDraft()]);
   const [saving, setSaving] = useState<'draft' | 'sent' | null>(null);
   const [error, setError] = useState('');
-  const subtotal = useMemo(() => items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.rate || 0), 0), [items]);
-  const total = invoiceTotal(items, Number(form.discount || 0), Number(form.tax || 0));
+  const numericItems = useMemo(() => invoiceDraftValues(items), [items]);
+  const subtotal = useMemo(() => numericItems.reduce((sum, item) => sum + (Number.isFinite(item.quantity) && Number.isFinite(item.rate) ? item.quantity * item.rate : 0), 0), [numericItems]);
+  const total = invoiceTotal(numericItems, Number(form.discount || 0), Number(form.tax || 0));
 
-  function updateItem(index: number, patch: Partial<InvoiceItem>) {
+  function updateItem(index: number, patch: Partial<InvoiceItemDraft>) {
     setItems(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
   }
 
@@ -30,7 +30,7 @@ export default function NewInvoice() {
     event?.preventDefault();
     setError('');
     if (!form.customer_name.trim()) return setError('Customer name is required.');
-    const validation = invoiceValidationMessage(items, Number(form.discount), Number(form.tax));
+    const validation = invoiceValidationMessage(numericItems, Number(form.discount), Number(form.tax));
     if (validation) return setError(validation);
     if (form.due_date && form.due_date < form.issue_date) return setError('Due date cannot be earlier than the invoice date.');
     setSaving(status);
@@ -46,7 +46,7 @@ export default function NewInvoice() {
         invoice_number: `INV-${Date.now()}`,
         created_by: profile.id,
         status,
-      }, items.map(item => ({ ...item, description: item.description.trim() })));
+      }, numericItems.map(item => ({ ...item, description: item.description.trim() })));
       // The atomic RPC has confirmed persistence; use a full navigation so the
       // operator cannot be left on a completed form if client routing stalls.
       window.location.assign(`/admin/finance/invoices/${invoice.id}`);
@@ -79,12 +79,12 @@ export default function NewInvoice() {
             <div className="grid grid-cols-[minmax(240px,1fr)_110px_140px_130px_76px] gap-3 border-b border-slate-200 pb-2 text-xs font-bold uppercase tracking-wide text-slate-500"><span>Description</span><span>Quantity</span><span>Rate (₹)</span><span className="text-right">Amount</span><span aria-label="Actions" /></div>
             <div className="space-y-3 pt-3">{items.map((item, index) => <div className="grid grid-cols-[minmax(240px,1fr)_110px_140px_130px_76px] items-center gap-3" key={index}>
               <input className="input" aria-label={`Item ${index + 1} description`} placeholder="Service or item description" value={item.description} onChange={event => updateItem(index, { description: event.target.value })} />
-              <input className="input" aria-label={`Item ${index + 1} quantity`} type="number" min="1" step="0.01" value={item.quantity} onChange={event => updateItem(index, { quantity: Number(event.target.value) })} />
-              <input className="input" aria-label={`Item ${index + 1} rate`} type="number" min="0" step="0.01" value={item.rate} onChange={event => updateItem(index, { rate: Number(event.target.value) })} />
-              <output className="text-right text-sm font-bold">{inr(Number(item.quantity || 0) * Number(item.rate || 0))}</output>
+              <input className="input" aria-label={`Item ${index + 1} quantity`} type="text" inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" value={item.quantity} onChange={event => updateItem(index, { quantity: event.target.value })} />
+              <input className="input" aria-label={`Item ${index + 1} rate`} type="text" inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" value={item.rate} onChange={event => updateItem(index, { rate: event.target.value })} />
+              <output className="text-right text-sm font-bold">{inr(invoiceDraftLineTotal(item))}</output>
               <button type="button" className="btn border text-sm" disabled={items.length === 1} onClick={() => setItems(current => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
             </div>)}</div>
-            <button type="button" className="btn mt-4 border text-sm" onClick={() => setItems(current => [...current, { description: '', quantity: 1, rate: 0 }])}>+ Add item</button>
+            <button type="button" className="btn mt-4 border text-sm" onClick={() => setItems(current => [...current, newInvoiceItemDraft()])}>+ Add item</button>
           </div>
         </div>
       </section>
