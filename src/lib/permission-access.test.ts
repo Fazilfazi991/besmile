@@ -46,7 +46,7 @@ describe('permission compatibility', () => {
       'chat.use', 'ideas.view',
     ]);
     const labels = filterNavigation(employeeNavigation, administrationAdmin).flatMap(group => group.links.map(link => link.label));
-    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'CRM Dashboard', 'Leads', 'Follow-ups', 'Clients', 'Employees', 'Operational Documents', 'Attendance', 'Leave', 'Chat', 'Profile']));
+    expect(labels).toEqual(expect.arrayContaining(['Dashboard', 'CRM Dashboard', 'Leads', 'Follow-ups', 'Clients', 'Employees', 'Operational Documents', 'My Attendance', 'Leave', 'Chat', 'Profile']));
     expect(labels).not.toEqual(expect.arrayContaining(['Finance Dashboard', 'Payroll', 'Roles & Access', 'Task Assignment Access']));
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/finance'))).toBe(false);
     expect(permissionAllows(administrationAdmin, adminRouteRequirement('/admin/access'))).toBe(false);
