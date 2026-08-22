@@ -633,25 +633,6 @@ export function ChatHub() {
 
   return (
     <section className={`chat-hub ${active ? "chat-open" : ""}`}>
-      <header className="employee-page-header chat-page-header">
-        <div>
-          <p className="eyebrow">COMMUNICATION</p>
-          <h1>Internal Chat</h1>
-          <p>
-            Private conversations and team communication for active employees.
-          </p>
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setMode("chooser");
-            setSelectedPerson(undefined);
-            setNewChat(true);
-          }}
-        >
-          + New conversation
-        </button>
-      </header>
       {error && <p className="employee-banner dashboard-error">{error}</p>}
       <div className="chat-layout">
         <aside className="chat-conversation-panel">
