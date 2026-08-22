@@ -29,6 +29,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [doctors, setDoctors] = useState<any[]>([]);
   const [paymentRates, setPaymentRates] = useState<Record<string, number>>({});
+  const [managedPayoutRates, setManagedPayoutRates] = useState<Record<string, number>>({});
   const [patients, setPatients] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>();
@@ -70,6 +71,10 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         const rates = await doctorSchedulingRepository.psychologistPaymentRates();
         setPaymentRates(Object.fromEntries(rates.map((rate: any) => [rate.doctor_id, Number(rate.psychologist_fee)])));
       } else setPaymentRates({});
+      if (perms['psychologist_payout_settings.manage']) {
+        const payoutSettings = await doctorSchedulingRepository.managedPsychologistPayoutSettings();
+        setManagedPayoutRates(Object.fromEntries(payoutSettings.map((setting: any) => [setting.doctor_id, Number(setting.default_session_payout)])));
+      } else setManagedPayoutRates({});
       setDoctors(doctorRows);
       setPatients(patientRows);
       setAppointments(appointmentRows);
@@ -111,6 +116,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const ownClinician = doctors.find(item => item.profile_id === profile?.id);
   const manageableDoctors = canManageDoctors || canManageAllAvailability ? doctors : ownClinician ? [ownClinician] : [];
   const canManageAvailability = canManageDoctors || canManageAllAvailability || Boolean(ownClinician && canManageOwnAvailability);
+  const canManagePayoutSettings = permissions['psychologist_payout_settings.manage'];
   const canCreate = can(permissions, 'doctor_scheduling.create_appointments', 'appointments.create');
   const canUpdate = can(permissions, 'doctor_scheduling.update_appointments', 'appointments.update', 'appointments.update_status', 'appointments.reschedule');
   const canCancel = can(permissions, 'doctor_scheduling.cancel_appointments', 'appointments.cancel');
@@ -121,7 +127,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const currentPsychologistFee = currentDoctor?.clinician_type === 'outsourced' ? paymentRates[currentDoctor.id] : undefined;
 
   const editDoctor = (doctor: any) => {
-    setDoctorForm({ id: doctor.id, doctor_name: doctor.doctor_name, specialization: doctor.specialization, qualification: doctor.qualification, phone: doctor.phone, email: doctor.email || '', consultation_duration_minutes: doctor.consultation_duration_minutes, status: doctor.status, notes: doctor.notes || '', clinician_type: doctor.clinician_type || 'outsourced', profile_id: doctor.profile_id || null });
+    setDoctorForm({ id: doctor.id, doctor_name: doctor.doctor_name, specialization: doctor.specialization, qualification: doctor.qualification, phone: doctor.phone, email: doctor.email || '', consultation_duration_minutes: doctor.consultation_duration_minutes, status: doctor.status, notes: doctor.notes || '', clinician_type: doctor.clinician_type || 'outsourced', profile_id: doctor.profile_id || null, psychologist_session_payout: managedPayoutRates[doctor.id] ?? '' });
     const grouped: Record<number, { start_time: string; end_time: string }[]> = {};
     for (const range of doctor.availability || []) grouped[range.day_of_week] = [...(grouped[range.day_of_week] || []), { start_time: range.start_time.slice(0, 5), end_time: range.end_time.slice(0, 5) }];
     setAvailability(grouped);
@@ -129,7 +135,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     setDoctorFormOpen(true);
   };
 
-  const startDoctor = () => { setDoctorForm(emptyDoctor); setAvailability({}); setDoctorFormErrors({}); setError(''); setNotice(''); setDoctorFormOpen(true); };
+  const startDoctor = () => { setDoctorForm({ ...emptyDoctor, psychologist_session_payout: 800 }); setAvailability({}); setDoctorFormErrors({}); setError(''); setNotice(''); setDoctorFormOpen(true); };
 
   const clearDoctorFormError = (field: string) => setDoctorFormErrors(current => {
     if (!current[field] && !current._form) return current;
@@ -146,6 +152,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     if (message === 'Phone number is required.') return { phone: message };
     if (message === 'Enter a valid email address.' || message.includes('outsourced_doctors_email_format')) return { email: 'Enter a valid email address.' };
     if (message.includes('Consultation duration')) return { consultation_duration_minutes: message };
+    if (message.includes('Psychologist session payout')) return { psychologist_session_payout: message };
     if (message.includes('Notes must')) return { notes: message };
     if (message.includes('availability') || message.includes('time') || message.includes('range') || message.includes('overlap')) return { availability: message };
     if (/duplicate|unique|already exists/i.test(message)) return { email: 'A clinician with this email already exists.' };
@@ -162,7 +169,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       return;
     }
     const ranges = Object.entries(availability).flatMap(([day, rows]) => rows.map(row => ({ day_of_week: Number(day), start_time: row.start_time, end_time: row.end_time })));
-    const availabilityError = validateAvailabilityRanges(ranges, Number(doctorForm.consultation_duration_minutes));
+    const availabilityError = canManageAvailability ? validateAvailabilityRanges(ranges, Number(doctorForm.consultation_duration_minutes)) : null;
     if (availabilityError) {
       setDoctorFormErrors({ availability: availabilityError });
       return;
@@ -171,13 +178,18 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     try {
       const doctor = canManageDoctors
         ? await doctorSchedulingRepository.saveDoctor({ ...doctorForm, consultation_duration_minutes: Number(doctorForm.consultation_duration_minutes), actorId: profile.id })
-        : ownClinician && doctorForm.id === ownClinician.id ? ownClinician : null;
-      if (!doctor) throw new Error('You can only update your own availability.');
-      await doctorSchedulingRepository.replaceAvailability(doctor.id, profile.id, ranges, Number(doctorForm.consultation_duration_minutes));
+        : doctors.find(item => item.id === doctorForm.id) || (ownClinician && doctorForm.id === ownClinician.id ? ownClinician : null);
+      if (!doctor || (!canManageAvailability && !canManagePayoutSettings)) throw new Error('You can only update your own availability.');
+      if (canManagePayoutSettings && doctor.clinician_type === 'outsourced') {
+        const payout = Number(doctorForm.psychologist_session_payout);
+        if (!Number.isFinite(payout) || payout <= 0) throw new Error('Psychologist session payout must be greater than zero.');
+        await doctorSchedulingRepository.setPsychologistPayoutSetting(doctor.id, payout);
+      }
+      if (canManageAvailability) await doctorSchedulingRepository.replaceAvailability(doctor.id, profile.id, ranges, Number(doctorForm.consultation_duration_minutes));
       setDoctorForm(emptyDoctor);
       setAvailability({});
       setDoctorFormOpen(false);
-      setNotice(canManageDoctors ? 'Clinician profile and availability saved.' : 'Your availability was saved.');
+      setNotice(canManageDoctors ? 'Clinician profile, payout setting, and availability saved.' : canManagePayoutSettings ? 'Psychologist payout setting and availability saved.' : 'Your availability was saved.');
       await load();
     } catch (caught: any) {
       const message = caught.message || 'Unable to save psychologist.';
@@ -289,7 +301,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
 
     {tab === 'Doctors' && <div className="doctor-two-column">
       <EmployeeSection title={workspace === 'clinician' ? 'My Availability' : 'Clinicians'} description="Staff, interns, and outsourced psychologists share the same scheduling calendar." action={canManageDoctors ? <button className="btn btn-primary" type="button" onClick={startDoctor}>Add Clinician</button> : undefined}>
-        {doctors.length ? <div className="doctor-list">{doctors.map(doctor => { const canEdit = canManageDoctors || canManageAllAvailability || (canManageOwnAvailability && doctor.profile_id === profile?.id); return <article key={doctor.id}><div><b>{doctor.doctor_name}</b><small>{doctor.specialization} - {doctor.qualification}</small><small>{label(doctor.clinician_type || 'outsourced')} - {doctor.consultation_duration_minutes} min</small><small>{availabilitySummary(doctor.availability || [])}</small></div><EmployeeStatusBadge tone={doctor.status === 'active' ? 'success' : 'danger'}>{label(doctor.status)}</EmployeeStatusBadge>{canEdit && <div className="doctor-actions"><button className="btn border" type="button" onClick={() => editDoctor(doctor)}>{canManageDoctors ? 'Edit' : 'Edit availability'}</button>{canManageDoctors && <button className="btn border" type="button" disabled={saving === doctor.id} onClick={() => void archiveDoctor(doctor)}>Archive</button>}</div>}</article>; })}</div> : <div className="doctor-empty"><EmployeeEmptyState title="No clinicians available" detail="A scheduling manager can add an external clinician record; an account is only needed for internal clinician self-service." />{canManageDoctors && <button className="btn btn-primary" type="button" onClick={startDoctor}>Add First Clinician</button>}</div>}
+        {doctors.length ? <div className="doctor-list">{doctors.map(doctor => { const canEdit = canManageDoctors || canManageAllAvailability || canManagePayoutSettings || (canManageOwnAvailability && doctor.profile_id === profile?.id); return <article key={doctor.id}><div><b>{doctor.doctor_name}</b><small>{doctor.specialization} - {doctor.qualification}</small><small>{label(doctor.clinician_type || 'outsourced')} - {doctor.consultation_duration_minutes} min</small><small>{availabilitySummary(doctor.availability || [])}</small></div><EmployeeStatusBadge tone={doctor.status === 'active' ? 'success' : 'danger'}>{label(doctor.status)}</EmployeeStatusBadge>{canEdit && <div className="doctor-actions"><button className="btn border" type="button" onClick={() => editDoctor(doctor)}>{canManageDoctors ? 'Edit' : canManagePayoutSettings ? 'Edit payout setting' : 'Edit availability'}</button>{canManageDoctors && <button className="btn border" type="button" disabled={saving === doctor.id} onClick={() => void archiveDoctor(doctor)}>Archive</button>}</div>}</article>; })}</div> : <div className="doctor-empty"><EmployeeEmptyState title="No clinicians available" detail="A scheduling manager can add an external clinician record; an account is only needed for internal clinician self-service." />{canManageDoctors && <button className="btn btn-primary" type="button" onClick={startDoctor}>Add First Clinician</button>}</div>}
       </EmployeeSection>
       {canManageAvailability && <EmployeeSection title="Blocked Dates" description="Block a future full date or a specific unavailable time range.">
         <form className="block-form" onSubmit={addBlock}>
@@ -302,7 +314,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         <div className="blocked-list">{manageableDoctors.flatMap(doctor => (doctor.blocked || []).map((block: any) => ({ ...block, doctor }))).map(block => <article key={block.id}><div><b>{block.doctor.doctor_name}</b><small>{fmtDate(block.blocked_date)} · {block.start_time ? `${block.start_time.slice(0, 5)} to ${block.end_time.slice(0, 5)}` : 'Full day'}</small>{block.reason && <small>{block.reason}</small>}</div>{(canManageDoctors || canManageAllAvailability || block.doctor.profile_id === profile?.id) && <button type="button" onClick={async () => { await doctorSchedulingRepository.removeBlockedPeriod(block.id); await load(); }}>Remove</button>}</article>)}{!manageableDoctors.some(doctor => doctor.blocked?.length) && <p className="blocked-empty">No blocked dates yet.</p>}</div>
       </EmployeeSection>}
     </div>}
-    {tab === 'Doctors' && canManageAvailability && doctorFormOpen && <DoctorEditor form={doctorForm} availability={availability} errors={doctorFormErrors} saving={saving === 'doctor'} readOnlyIdentity={!canManageDoctors} onChange={setDoctorForm} onClearError={clearDoctorFormError} onAvailabilityChange={setAvailability} onClose={() => { setDoctorFormErrors({}); setDoctorFormOpen(false); }} onSubmit={saveDoctor} />}
+    {tab === 'Doctors' && (canManageAvailability || canManagePayoutSettings) && doctorFormOpen && <DoctorEditor form={doctorForm} availability={availability} errors={doctorFormErrors} saving={saving === 'doctor'} readOnlyIdentity={!canManageDoctors} canManagePayoutSettings={canManagePayoutSettings} canManageAvailability={canManageAvailability} onChange={setDoctorForm} onClearError={clearDoctorFormError} onAvailabilityChange={setAvailability} onClose={() => { setDoctorFormErrors({}); setDoctorFormOpen(false); }} onSubmit={saveDoctor} />}
 
     {tab === 'Appointments' && <div className="doctor-two-column">
       <EmployeeSection title={reschedule ? 'Reschedule Appointment' : 'Create Appointment'} description="Select client, psychologist, date, then an available slot.">
@@ -500,7 +512,7 @@ function DoctorFieldError({ errors, name }: { errors: Record<string, string>; na
   return errors?.[name] ? <small className="field-error" id={`doctor-${name}-error`}>{errors[name]}</small> : null;
 }
 
-function DoctorEditor({ form, availability, errors, saving, readOnlyIdentity, onChange, onClearError, onAvailabilityChange, onClose, onSubmit }: any) {
+function DoctorEditor({ form, availability, errors, saving, readOnlyIdentity, canManagePayoutSettings, canManageAvailability, onChange, onClearError, onAvailabilityChange, onClose, onSubmit }: any) {
   const formRef = useRef<HTMLFormElement>(null);
   const errorKeys = Object.keys(errors || {});
 
@@ -537,15 +549,16 @@ function DoctorEditor({ form, availability, errors, saving, readOnlyIdentity, on
       <label>Consultation duration (minutes)<input {...errorProps('consultation_duration_minutes')} disabled={readOnlyIdentity} type="number" min="5" max="240" value={form.consultation_duration_minutes} onChange={event => field('consultation_duration_minutes', Number(event.target.value))} /><DoctorFieldError errors={errors} name="consultation_duration_minutes" /></label>
       <label>Status<select {...errorProps('status')} disabled={readOnlyIdentity} value={form.status} onChange={event => field('status', event.target.value)}><option value="active">Active</option><option value="unavailable">Unavailable</option></select><DoctorFieldError errors={errors} name="status" /></label>
       <label>Short notes<textarea {...errorProps('notes')} disabled={readOnlyIdentity} value={form.notes || ''} onChange={event => field('notes', event.target.value)} /><DoctorFieldError errors={errors} name="notes" /></label>
-      <section className={`availability-editor${errors?.availability ? ' availability-error' : ''}`} aria-describedby={errors?.availability ? 'doctor-availability-error' : undefined}>
+      {canManagePayoutSettings && form.clinician_type === 'outsourced' && <label>Psychologist Session Payout<input {...errorProps('psychologist_session_payout')} type="number" min="0.01" step="0.01" value={form.psychologist_session_payout ?? ''} onChange={event => field('psychologist_session_payout', event.target.value)} /><small>INR per completed session. This rate is snapshotted on new appointments.</small><DoctorFieldError errors={errors} name="psychologist_session_payout" /></label>}
+      {canManageAvailability && <section className={`availability-editor${errors?.availability ? ' availability-error' : ''}`} aria-describedby={errors?.availability ? 'doctor-availability-error' : undefined}>
         <h3>Weekly availability</h3>{errors?.availability && <small className="field-error" id="doctor-availability-error">{errors.availability}</small>}
         {days.map((day, index) => <div key={day}><b>{day}</b><span>{(availability[index] || []).map((range: any, rangeIndex: number) => {
           const invalid = !!range.start_time && !!range.end_time && range.end_time <= range.start_time;
           const updateRange = (name: 'start_time' | 'end_time', value: string) => { onAvailabilityChange(updateAvailability(availability, index, rangeIndex, name, value)); onClearError('availability'); };
           return <span key={`${day}-${rangeIndex}`}><input aria-label={`${day} start time`} type="time" value={range.start_time} onChange={event => updateRange('start_time', event.target.value)} /><input aria-label={`${day} end time`} aria-invalid={invalid || undefined} aria-describedby={invalid ? `doctor-availability-${index}-${rangeIndex}-error` : undefined} className={invalid ? 'input-error' : undefined} min={range.start_time || undefined} type="time" value={range.end_time} onChange={event => updateRange('end_time', event.target.value)} />{invalid && <small className="field-error" id={`doctor-availability-${index}-${rangeIndex}-error`}>End time must be later than start time.</small>}<button type="button" onClick={() => { onAvailabilityChange(removeAvailability(availability, index, rangeIndex)); onClearError('availability'); }}>Remove</button></span>;
         })}</span><button type="button" onClick={() => { onAvailabilityChange(addAvailability(availability, index)); onClearError('availability'); }}>Add range</button></div>)}
-      </section>
-      <footer><button className="btn border" type="button" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : readOnlyIdentity ? 'Save availability' : 'Save clinician'}</button></footer>
+      </section>}
+      <footer><button className="btn border" type="button" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : readOnlyIdentity ? canManagePayoutSettings ? 'Save payout setting' : 'Save availability' : 'Save clinician'}</button></footer>
     </form>
   </div>;
 }

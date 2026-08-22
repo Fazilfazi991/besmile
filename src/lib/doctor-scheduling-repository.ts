@@ -44,6 +44,7 @@ export const doctorSchedulingRepository = {
       'clinician.schedule.view_own',
       'clinician.availability.manage_own',
       'clinician.appointments.view_own',
+      'psychologist_payout_settings.manage',
     ];
     const [allowed, clinician] = await Promise.all([
       grantedPermissions(db(), codes),
@@ -68,6 +69,21 @@ export const doctorSchedulingRepository = {
     const { data, error } = await db().rpc('appointment_psychologist_payment_rates');
     if (error) throw error;
     return data || [];
+  },
+
+  async managedPsychologistPayoutSettings() {
+    const { data, error } = await db().rpc('managed_psychologist_payout_settings');
+    if (error) throw error;
+    return data || [];
+  },
+
+  async setPsychologistPayoutSetting(doctorId: string, payout: number) {
+    const { data, error } = await db().rpc('set_psychologist_payout_setting', {
+      target_doctor: doctorId,
+      target_payout: payout,
+    });
+    if (error) throw error;
+    return data;
   },
 
   async saveDoctor(payload: DoctorPayload & { id?: string; actorId: string }) {
