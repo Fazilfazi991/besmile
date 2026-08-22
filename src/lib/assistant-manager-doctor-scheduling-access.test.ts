@@ -6,6 +6,7 @@ const patientVisibilityGrant = readFileSync(new URL('../../supabase/migrations/2
 const availabilityGrant = readFileSync(new URL('../../supabase/migrations/20260819140000_global_clinician_availability_management.sql', import.meta.url), 'utf8');
 const operationalRls = readFileSync(new URL('../../supabase/migrations/20260822100000_assistant_manager_operational_scheduling.sql', import.meta.url), 'utf8');
 const schedulingUi = readFileSync(new URL('../../src/components/doctor-scheduling.tsx', import.meta.url), 'utf8');
+const schedulingRepository = readFileSync(new URL('../../src/lib/doctor-scheduling-repository.ts', import.meta.url), 'utf8');
 
 describe('Assistant Manager appointment scheduling access', () => {
   it('grants only the designation-scoped appointment workflow capabilities', () => {
@@ -39,5 +40,6 @@ describe('Assistant Manager appointment scheduling access', () => {
     expect(operationalRls).toContain('drop policy if exists "doctor scheduling blocked manage"');
     expect(operationalRls).not.toContain("public.has_permission('finance.manage')");
     expect(schedulingUi).toContain('canManageDoctors || canManageAllAvailability || block.doctor.profile_id === profile?.id');
+    expect(schedulingRepository).toContain("'clinician.availability.manage_all'");
   });
 });
