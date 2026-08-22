@@ -1383,8 +1383,13 @@ function Message({
   const unavailable = Boolean(message.deleted_at || expired);
   const replyExpired = isChatMessageLogicallyExpired(message.reply_to || {}, now);
   return (
-    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${unavailable ? "deleted" : ""}`}>
-      {sender && <b className="chat-sender">{message.sender?.full_name || "Member"}</b>}
+    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${sender ? "has-sender" : ""} ${unavailable ? "deleted" : ""}`}>
+      {sender && (
+        <div className="chat-message-author">
+          <Avatar name={message.sender?.full_name} />
+          <b className="chat-sender">{message.sender?.full_name || "Member"}</b>
+        </div>
+      )}
       <div>
         {message.reply_to_message_id && (
           <button
