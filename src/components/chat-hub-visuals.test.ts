@@ -52,8 +52,8 @@ describe('chat visual density', () => {
   });
 
   it('keeps message actions quiet until intentional hover or focus', () => {
-    expect(styles).toContain('.chat-message>div:hover .chat-reaction-button');
-    expect(styles).toContain('.chat-message>div:hover .chat-message-more');
+    expect(styles).toContain('.chat-message-bubble:hover .chat-reaction-button');
+    expect(styles).toContain('.chat-message-bubble:hover .chat-message-more');
     expect(styles).toContain('.chat-message-more,.chat-hub .chat-reaction-button{opacity:1}');
   });
 

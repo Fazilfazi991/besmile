@@ -1387,10 +1387,13 @@ function Message({
       {sender && (
         <div className="chat-message-author">
           <Avatar name={message.sender?.full_name} />
-          <b className="chat-sender">{message.sender?.full_name || "Member"}</b>
+          <span>
+            <b className="chat-sender">{message.sender?.full_name || "Member"}</b>
+            <time>{time(message.created_at)}</time>
+          </span>
         </div>
       )}
-      <div>
+      <div className="chat-message-bubble">
         {message.reply_to_message_id && (
           <button
             type="button"
@@ -1407,7 +1410,7 @@ function Message({
         ) : (
           !unavailable && message.attachment_name && <MessageFile message={message} />
         )}
-        <time>
+        <time className="chat-message-meta">
           {time(message.created_at)}
           {message.edited_at && !message.deleted_at && " · Edited"}
           {own && (read ? "  Read" : "  Sent")}
