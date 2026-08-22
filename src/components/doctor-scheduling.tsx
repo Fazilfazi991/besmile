@@ -22,11 +22,13 @@ const fmtDate = (value: string | Date) => new Intl.DateTimeFormat('en', { day: '
 const fmtTime = (value: string | Date) => new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(new Date(value));
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const can = (permissions: Record<string, boolean>, ...codes: string[]) => codes.some(code => permissions[code]);
+const psychologistFee = (amount: unknown) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(amount));
 
 export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, workspace = 'employee' }: { initialPatientId?: string; initialAppointmentId?: string; workspace?: 'admin' | 'employee' | 'clinician' }) {
   const [profile, setProfile] = useState<any>();
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [doctors, setDoctors] = useState<any[]>([]);
+  const [paymentRates, setPaymentRates] = useState<Record<string, number>>({});
   const [patients, setPatients] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>();
@@ -64,6 +66,10 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       ]);
       setProfile(me);
       setPermissions(perms);
+      if (can(perms, 'doctor_scheduling.create_appointments', 'appointments.create')) {
+        const rates = await doctorSchedulingRepository.psychologistPaymentRates();
+        setPaymentRates(Object.fromEntries(rates.map((rate: any) => [rate.doctor_id, Number(rate.psychologist_fee)])));
+      } else setPaymentRates({});
       setDoctors(doctorRows);
       setPatients(patientRows);
       setAppointments(appointmentRows);
@@ -112,6 +118,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const filteredAppointments = useMemo(() => appointments.filter(item => (!doctorFilter || item.doctor_id === doctorFilter) && (!patientFilter || item.patient_id === patientFilter) && (!statusFilter || item.status === statusFilter)), [appointments, doctorFilter, patientFilter, statusFilter]);
   const visibleDays = useMemo(() => daysForView(cursor, view), [cursor, view]);
   const currentDoctor = doctors.find(item => item.id === appointmentForm.doctor_id);
+  const currentPsychologistFee = currentDoctor?.clinician_type === 'outsourced' ? paymentRates[currentDoctor.id] : undefined;
 
   const editDoctor = (doctor: any) => {
     setDoctorForm({ id: doctor.id, doctor_name: doctor.doctor_name, specialization: doctor.specialization, qualification: doctor.qualification, phone: doctor.phone, email: doctor.email || '', consultation_duration_minutes: doctor.consultation_duration_minutes, status: doctor.status, notes: doctor.notes || '', clinician_type: doctor.clinician_type || 'outsourced', profile_id: doctor.profile_id || null });
@@ -302,6 +309,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         {canCreate || reschedule ? <form className="appointment-form" onSubmit={submitAppointment}>
           <select className="input" required value={appointmentForm.patient_id} disabled={!!reschedule} onChange={e => setAppointmentForm({ ...appointmentForm, patient_id: e.target.value })}><option value="">Select client</option>{patients.map(patient => <option value={patient.id} key={patient.id}>{patient.full_name} {patient.patient_number ? `- ${patient.patient_number}` : ''}</option>)}</select>
           <select className="input" required value={appointmentForm.doctor_id} disabled={!!reschedule} onChange={e => setAppointmentForm({ ...appointmentForm, doctor_id: e.target.value, slot: '' })}><option value="">Select psychologist</option>{doctors.filter(doctor => doctor.status === 'active' || doctor.id === appointmentForm.doctor_id).map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.doctor_name} - {doctor.specialization}</option>)}</select>
+          {currentDoctor?.clinician_type === 'outsourced' && <p className="text-sm text-slate-600"><b>Psychologist fee</b> {currentPsychologistFee ? psychologistFee(currentPsychologistFee) : 'Payment rate needs configuration before this appointment can be scheduled.'}</p>}
           <input className="input" required type="date" value={appointmentForm.date} onChange={e => setAppointmentForm({ ...appointmentForm, date: e.target.value, slot: '' })} />
           <select className="input" value={appointmentForm.consultation_type} onChange={e => setAppointmentForm({ ...appointmentForm, consultation_type: e.target.value })}>{consultationTypes.map(type => <option value={type} key={type}>{label(type)}</option>)}</select>
           <div className="slot-picker">{currentDoctor ? slots.length ? slots.map(slot => <button type="button" className={appointmentForm.slot === slot.startAt ? 'active' : ''} onClick={() => setAppointmentForm({ ...appointmentForm, slot: slot.startAt })} key={slot.startAt}>{slot.label}</button>) : <p>No available slots for this psychologist and date.</p> : <p>Select a psychologist to view slots.</p>}</div>
@@ -322,6 +330,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
 export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/admin/doctor-scheduling' }: { patientId: string; scheduleBasePath?: string }) {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
+  const [paymentRates, setPaymentRates] = useState<Record<string, number>>({});
   const [allowed, setAllowed] = useState(false);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [formOpen, setFormOpen] = useState(false);
@@ -347,6 +356,10 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
         ]);
         setAppointments(appointmentRows);
         setDoctors(doctorRows);
+        if (can(nextPermissions, 'doctor_scheduling.create_appointments', 'appointments.create')) {
+          const rates = await doctorSchedulingRepository.psychologistPaymentRates();
+          setPaymentRates(Object.fromEntries(rates.map((rate: any) => [rate.doctor_id, Number(rate.psychologist_fee)])));
+        } else setPaymentRates({});
       }
     } catch (caught: any) {
       setError(caught.message || 'Unable to load appointments.');
@@ -453,6 +466,7 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
   const upcoming = appointments.filter(item => new Date(item.start_at) >= new Date() && !['cancelled', 'completed', 'no_show'].includes(item.status)).sort((a, b) => new Date(a.start_at).valueOf() - new Date(b.start_at).valueOf());
   const previous = appointments.filter(item => new Date(item.start_at) < new Date() || ['cancelled', 'completed', 'no_show'].includes(item.status)).sort((a, b) => new Date(b.start_at).valueOf() - new Date(a.start_at).valueOf());
   const selectedDoctor = doctors.find(doctor => doctor.id === form.doctor_id);
+  const selectedPsychologistFee = selectedDoctor?.clinician_type === 'outsourced' ? paymentRates[selectedDoctor.id] : undefined;
 
   return <div className="patient-appointments space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">Appointments</h2>{canCreate && <button className="btn btn-primary" type="button" onClick={() => openForm('create')}>Schedule Appointment</button>}</div>
@@ -463,6 +477,7 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
         <header><div><h3>{mode === 'create' ? 'Schedule Appointment' : mode === 'edit' ? 'Edit Appointment' : 'Reschedule Appointment'}</h3><p>Client is preselected from this profile.</p></div><button type="button" onClick={() => setFormOpen(false)}>Close</button></header>
         <label>Client<input className="input" value="Current client" readOnly /></label>
         <label>Psychologist<select className="input" required value={form.doctor_id} onChange={event => setForm({ ...form, doctor_id: event.target.value, slot: '' })}><option value="">Select psychologist</option>{doctors.filter(doctor => doctor.status === 'active' || doctor.id === form.doctor_id).map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.doctor_name} - {doctor.specialization}</option>)}</select></label>
+        {selectedDoctor?.clinician_type === 'outsourced' && <p className="text-sm text-slate-600"><b>Psychologist fee</b> {selectedPsychologistFee ? psychologistFee(selectedPsychologistFee) : 'Payment rate needs configuration before this appointment can be scheduled.'}</p>}
         <label>Appointment date<input className="input" required type="date" value={form.date} onChange={event => setForm({ ...form, date: event.target.value, slot: '' })} /></label>
         <label>Consultation type<select className="input" value={form.consultation_type} onChange={event => setForm({ ...form, consultation_type: event.target.value })}>{consultationTypes.map(type => <option value={type} key={type}>{label(type)}</option>)}</select></label>
         <label>Status<select className="input" value={form.status} disabled={mode === 'reschedule'} onChange={event => setForm({ ...form, status: event.target.value })}>{appointmentStatuses.map(status => <option value={status} key={status}>{statusLabels[status]}</option>)}</select></label>

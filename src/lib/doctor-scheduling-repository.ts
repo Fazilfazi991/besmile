@@ -64,6 +64,12 @@ export const doctorSchedulingRepository = {
     return data || [];
   },
 
+  async psychologistPaymentRates() {
+    const { data, error } = await db().rpc('appointment_psychologist_payment_rates');
+    if (error) throw error;
+    return data || [];
+  },
+
   async saveDoctor(payload: DoctorPayload & { id?: string; actorId: string }) {
     const message = validateDoctorPayload(payload);
     if (message) throw new Error(message);
