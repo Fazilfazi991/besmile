@@ -15,7 +15,7 @@ describe('disappearing message lifecycle', () => {
     expect(migration).toContain("attachment_cleanup_state=case when attachment_path is null then 'not_required' else 'pending' end");
   });
   it('uses the project cron convention and a machine-only storage worker', () => {
-    expect(readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8')).toContain('"0 * * * *"');
+    expect(readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8')).toContain('"0 2 * * *"');
     expect(worker).toContain('x-chat-expiry-worker-secret');
     expect(worker).toContain('CRON_SECRET');
     expect(worker).toContain('SUPABASE_SERVICE_ROLE_KEY');

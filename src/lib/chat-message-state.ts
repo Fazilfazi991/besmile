@@ -1,5 +1,21 @@
 export type ChatMessage = { id:string; client_message_id?:string; created_at?:string; [key:string]:unknown };
 
+type ChatMessageAvailability = {
+  deleted_at?: string | null;
+  expires_at?: string | null;
+  expired_at?: string | null;
+};
+
+// expires_at is the visibility cutoff. expired_at only records that the
+// cleanup worker has normalized the already-expired message.
+export function isChatMessageLogicallyExpired(message: ChatMessageAvailability, now = Date.now()) {
+  return Boolean(message.expired_at || (message.expires_at && new Date(message.expires_at).getTime() <= now));
+}
+
+export function isChatMessageActive(message: ChatMessageAvailability, now = Date.now()) {
+  return !message.deleted_at && !isChatMessageLogicallyExpired(message, now);
+}
+
 export function upsertChatMessage(current:ChatMessage[], incoming:ChatMessage){
   const byId=current.findIndex(message=>message.id===incoming.id);
   const byClient=incoming.client_message_id?current.findIndex(message=>message.client_message_id===incoming.client_message_id):-1;

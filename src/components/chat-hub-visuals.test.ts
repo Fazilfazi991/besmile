@@ -39,7 +39,7 @@ describe('chat visual density', () => {
   it('keeps the details drawer and shared files available without narrowing the thread', () => {
     expect(styles).toContain('position:absolute;z-index:8;top:0;right:0;bottom:0;width:294px');
     expect(component).toContain('<b>Shared files</b>');
-    expect(component).toContain('messages.filter((message) => message.attachment_name && !message.expired_at && !message.deleted_at).slice(-6)');
+    expect(component).toContain('messages.filter((message) => message.attachment_name && isChatMessageActive(message, logicalNow)).slice(-6)');
   });
 
   it('bounds the mobile-safe composer input', () => {

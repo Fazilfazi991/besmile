@@ -14,7 +14,7 @@ import {
 import { currentProfile } from "@/lib/auth";
 import { employeeRepository } from "@/lib/employee-repository";
 import { supabase } from "@/lib/supabase";
-import { upsertChatMessage } from "@/lib/chat-message-state";
+import { isChatMessageActive, isChatMessageLogicallyExpired, upsertChatMessage } from "@/lib/chat-message-state";
 import { chatEmojiGroups, insertEmojiAtCursor } from "@/lib/chat-composer";
 import "./chat-hub-fixes.css";
 
@@ -83,6 +83,7 @@ export function ChatHub() {
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [mentionProfileIds, setMentionProfileIds] = useState<string[]>([]);
   const [retentionSaving, setRetentionSaving] = useState(false);
+  const [logicalNow, setLogicalNow] = useState(() => Date.now());
   const [group, setGroup] = useState({
     title: "",
     description: "",
@@ -250,6 +251,17 @@ export function ChatHub() {
     },
     [voicePreview],
   );
+  useEffect(() => {
+    const nextExpiry = messages.reduce<number | undefined>((nearest, message) => {
+      if (message.expired_at || !message.expires_at) return nearest;
+      const expiresAt = new Date(message.expires_at).getTime();
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return nearest;
+      return nearest === undefined || expiresAt < nearest ? expiresAt : nearest;
+    }, undefined);
+    if (nextExpiry === undefined) return;
+    const timer = window.setTimeout(() => setLogicalNow(Date.now()), Math.max(0, nextExpiry - Date.now()) + 25);
+    return () => window.clearTimeout(timer);
+  }, [messages]);
 
   const visible = useMemo(
     () =>
@@ -271,11 +283,12 @@ export function ChatHub() {
       !messageQuery
         ? messages
         : messages.filter((message) =>
+            isChatMessageActive(message, logicalNow) &&
             `${message.body || ""} ${message.attachment_name || ""} ${message.sender?.full_name || ""}`
               .toLowerCase()
               .includes(messageQuery.toLowerCase()),
           ),
-    [messages, messageQuery],
+    [messages, messageQuery, logicalNow],
   );
   const mentionMatch = text.match(/(?:^|\s)@([^\s@]*)$/);
   const mentionTerm = mentionMatch?.[1].toLowerCase() || "";
@@ -842,6 +855,7 @@ export function ChatHub() {
                         onReply={() => beginReply(message)}
                         onEdit={() => beginEdit(message)}
                         onDelete={() => void deleteMessage(message.id)}
+                        now={logicalNow}
                         read={Boolean(!isGroup && message.sender_id === profile.id && members.find((member: any) => member.profile_id !== profile.id)?.last_read_at && new Date(members.find((member: any) => member.profile_id !== profile.id).last_read_at) >= new Date(message.created_at))}
                       />
                     </div>
@@ -1116,10 +1130,10 @@ export function ChatHub() {
             )}
             <div className="chat-detail-section">
               <b>Shared files</b>
-              {messages.filter((message) => message.attachment_name && !message.expired_at && !message.deleted_at).slice(-6).map((message) => (
+              {messages.filter((message) => message.attachment_name && isChatMessageActive(message, logicalNow)).slice(-6).map((message) => (
                 <MessageFile key={message.id} message={message} />
               ))}
-              {!messages.some((message) => message.attachment_name && !message.expired_at && !message.deleted_at) && <small>No files shared yet.</small>}
+              {!messages.some((message) => message.attachment_name && isChatMessageActive(message, logicalNow)) && <small>No files shared yet.</small>}
             </div>
             <div className="chat-detail-section">
               <b>Disappearing messages</b>
@@ -1309,13 +1323,14 @@ function chatName(item: any, userId?: string) {
 }
 function messagePreview(message: any) {
   if (!message) return "No messages yet";
+  if (isChatMessageLogicallyExpired(message)) return "Message expired";
   if (message.message_type === "voice")
     return `Voice message · ${durationLabel(message.voice_duration_seconds)}`;
   return message.body || message.attachment_name || "No messages yet";
 }
 function messageSnippet(message: any) {
   if (!message) return "";
-  if (message.expired_at) return "Original message expired";
+  if (isChatMessageLogicallyExpired(message)) return "Original message expired";
   if (message.deleted_at) return "Original message deleted";
   if (message.message_type === "voice") return "Voice message";
   if (message.attachment_name) return `File: ${message.attachment_name}`;
@@ -1361,6 +1376,7 @@ function Message({
   onEdit,
   onDelete,
   read,
+  now,
 }: {
   message: any;
   own: boolean;
@@ -1374,9 +1390,13 @@ function Message({
   onEdit: () => void;
   onDelete: () => void;
   read: boolean;
+  now: number;
 }) {
+  const expired = isChatMessageLogicallyExpired(message, now);
+  const unavailable = Boolean(message.deleted_at || expired);
+  const replyExpired = isChatMessageLogicallyExpired(message.reply_to || {}, now);
   return (
-    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${(message.deleted_at || message.expired_at) ? "deleted" : ""}`}>
+    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${unavailable ? "deleted" : ""}`}>
       {sender && <b className="chat-sender">{message.sender?.full_name || "Member"}</b>}
       <div>
         {message.reply_to_message_id && (
@@ -1385,31 +1405,31 @@ function Message({
             className="chat-reply-quote"
             onClick={() => document.getElementById(`chat-message-${message.reply_to_message_id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
           >
-            <b>{message.reply_to?.expired_at ? "Original message expired" : message.reply_to?.deleted_at ? "Original message deleted" : message.reply_to?.sender?.full_name || "Original message"}</b>
+            <b>{replyExpired ? "Original message expired" : message.reply_to?.deleted_at ? "Original message deleted" : message.reply_to?.sender?.full_name || "Original message"}</b>
             <span>{messageSnippet(message.reply_to)}</span>
           </button>
         )}
-        {(message.deleted_at || message.expired_at) ? <p className="chat-deleted-copy">{message.expired_at ? "This message expired" : "This message was deleted"}</p> : message.body && <p>{renderMentionText(message)}</p>}
-        {!message.deleted_at && !message.expired_at && message.message_type === "voice" ? (
+        {unavailable ? <p className="chat-deleted-copy">{expired ? "This message expired" : "This message was deleted"}</p> : message.body && <p>{renderMentionText(message)}</p>}
+        {!unavailable && message.message_type === "voice" ? (
           <VoiceMessage message={message} />
         ) : (
-          !message.deleted_at && !message.expired_at && message.attachment_name && <MessageFile message={message} />
+          !unavailable && message.attachment_name && <MessageFile message={message} />
         )}
         <time>
           {time(message.created_at)}
           {message.edited_at && !message.deleted_at && " · Edited"}
           {own && (read ? "  Read" : "  Sent")}
         </time>
-        {message.message_type !== "system" && <button className="chat-reaction-button" type="button" aria-label="React to message" title="React to message" onClick={onReactionOpen}>☺</button>}
-        {message.message_type !== "system" && reactionOpen && <div className="chat-reaction-picker" role="dialog" aria-label="Choose reaction">{['👍','❤️','😂','😮','😢','🎉'].map(emoji => <button type="button" key={emoji} onClick={() => onReact(emoji)}>{emoji}</button>)}</div>}
-        {!message.deleted_at && message.message_type !== "system" && <button className="chat-message-more" type="button" aria-label="Message actions" onClick={onActionOpen}>•••</button>}
-        {actionOpen && <div className="chat-message-actions" role="menu">
+        {!unavailable && message.message_type !== "system" && <button className="chat-reaction-button" type="button" aria-label="React to message" title="React to message" onClick={onReactionOpen}>☺</button>}
+        {!unavailable && message.message_type !== "system" && reactionOpen && <div className="chat-reaction-picker" role="dialog" aria-label="Choose reaction">{['👍','❤️','😂','😮','😢','🎉'].map(emoji => <button type="button" key={emoji} onClick={() => onReact(emoji)}>{emoji}</button>)}</div>}
+        {!unavailable && message.message_type !== "system" && <button className="chat-message-more" type="button" aria-label="Message actions" onClick={onActionOpen}>•••</button>}
+        {!unavailable && actionOpen && <div className="chat-message-actions" role="menu">
           <button type="button" onClick={onReply}>Reply</button>
           <button type="button" onClick={() => void navigator.clipboard?.writeText(message.body || "")}>Copy</button>
           {own && message.message_type === "text" && <button type="button" onClick={onEdit}>Edit</button>}
           {own && <button type="button" className="danger" onClick={onDelete}>Delete</button>}
         </div>}
-        {message.reactions?.length ? <div className="chat-reactions">{Object.entries(message.reactions.reduce((all: any, reaction: any) => ({ ...all, [reaction.emoji]: (all[reaction.emoji] || 0) + 1 }), {})).map(([emoji, count]) => <span key={emoji}>{emoji} {String(count)}</span>)}</div> : null}
+        {!unavailable && message.reactions?.length ? <div className="chat-reactions">{Object.entries(message.reactions.reduce((all: any, reaction: any) => ({ ...all, [reaction.emoji]: (all[reaction.emoji] || 0) + 1 }), {})).map(([emoji, count]) => <span key={emoji}>{emoji} {String(count)}</span>)}</div> : null}
       </div>
     </article>
   );

@@ -10,6 +10,7 @@ import { documentFileValidationMessage } from "./document-file-rules";
 import { taskStatuses, type TaskStatus } from "./task-rules";
 import { operationalEmployeeStatuses } from "./employee-status";
 import { attendanceRpcError } from "./attendance-geofence";
+import { isChatMessageActive } from "./chat-message-state";
 const db = supabase as any;
 const required = () => {
   if (!db) throw new Error("Supabase is not configured.");
@@ -776,35 +777,35 @@ export const employeeRepository = {
       ? await r
           .from("chat_messages")
           .select(
-            "id,conversation_id,body,message_type,voice_duration_seconds,attachment_name,created_at,sender_id",
+            "id,conversation_id,body,message_type,voice_duration_seconds,attachment_name,created_at,sender_id,deleted_at,expires_at,expired_at",
           )
           .in("conversation_id", conversationIds)
           .order("created_at", { ascending: false })
       : { data: [], error: null };
     if (messages.error && /voice_duration_seconds|column/i.test(messages.error.message || "")) {
-      messages = await r.from("chat_messages").select("id,conversation_id,body,message_type,attachment_name,created_at,sender_id").in("conversation_id", conversationIds).order("created_at", { ascending: false });
+      messages = await r.from("chat_messages").select("id,conversation_id,body,message_type,attachment_name,created_at,sender_id,deleted_at,expires_at,expired_at").in("conversation_id", conversationIds).order("created_at", { ascending: false });
     }
     if (messages.error) throw messages.error;
     const { data: mentionRows, error: mentionError } = await r
       .from("chat_message_mentions")
-      .select("conversation_id,message:chat_messages(created_at,deleted_at)")
+      .select("conversation_id,message:chat_messages(created_at,deleted_at,expires_at,expired_at)")
       .eq("profile_id", userId);
     if (mentionError) throw mentionError;
     return (data || [])
       .map((item: any) => {
         const latest = (messages.data || []).find(
-          (message: any) => message.conversation_id === item.conversation_id,
+          (message: any) => message.conversation_id === item.conversation_id && isChatMessageActive(message),
         );
         const unread = (messages.data || []).filter(
           (message: any) =>
             message.conversation_id === item.conversation_id &&
-            message.sender_id !== userId &&
+            message.sender_id !== userId && isChatMessageActive(message) &&
             (!item.last_read_at ||
               new Date(message.created_at) > new Date(item.last_read_at)),
         ).length;
         const mentions = (mentionRows || []).filter((mention: any) =>
           mention.conversation_id === item.conversation_id &&
-          !mention.message?.deleted_at &&
+          mention.message && isChatMessageActive(mention.message) &&
           (!item.last_read_at || new Date(mention.message?.created_at) > new Date(item.last_read_at)),
         ).length;
         return {
@@ -837,7 +838,7 @@ export const employeeRepository = {
     let request = required()
       .from("chat_messages")
       .select(
-        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name)),reply_to:chat_messages!chat_messages_reply_to_message_id_fkey(id,body,message_type,attachment_name,deleted_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name))",
+        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name)),reply_to:chat_messages!chat_messages_reply_to_message_id_fkey(id,body,message_type,attachment_name,deleted_at,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name))",
       )
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
@@ -921,6 +922,7 @@ export const employeeRepository = {
       .eq("attachment_path", path)
       .is("expired_at", null)
       .is("deleted_at", null)
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .maybeSingle();
     if (messageError) throw messageError;
     if (!message) throw new Error("This attachment is no longer available.");
@@ -943,7 +945,11 @@ export const employeeRepository = {
     return (data || []).map((person: any) => ({ ...person, department: person.department_name ? { name: person.department_name } : null }));
   },
   async toggleChatReaction(messageId: string, emoji: string) {
-    const db = required(); const { data: existing, error: findError } = await db.from('chat_message_reactions').select('message_id').eq('message_id', messageId).eq('emoji', emoji).maybeSingle();
+    const db = required();
+    const { data: message, error: messageError } = await db.from('chat_messages').select('id,deleted_at,expires_at,expired_at').eq('id', messageId).maybeSingle();
+    if (messageError) throw messageError;
+    if (!message || !isChatMessageActive(message)) throw new Error('This message is no longer available for reactions.');
+    const { data: existing, error: findError } = await db.from('chat_message_reactions').select('message_id').eq('message_id', messageId).eq('emoji', emoji).maybeSingle();
     if (findError) throw findError;
     const result = existing ? await db.from('chat_message_reactions').delete().eq('message_id', messageId).eq('emoji', emoji) : await db.from('chat_message_reactions').insert({ message_id: messageId, profile_id: (await db.auth.getUser()).data.user?.id, emoji });
     if (result.error) throw result.error; return !existing;
