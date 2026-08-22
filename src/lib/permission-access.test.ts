@@ -107,6 +107,24 @@ describe('permission compatibility', () => {
     expect(permissionAllows(granted, adminRouteRequirement('/admin/finance'))).toBe(false);
   });
 
+  it('shows psychologist payments to employees with only its canonical view permission', () => {
+    const paymentViewer = new Set(['psychologist_payments.view']);
+    const labels = filterNavigation(employeeNavigation, paymentViewer).flatMap((group) => group.links.map((link) => link.label));
+
+    expect(labels).toContain('Psychologist Payments');
+    expect(labels).not.toEqual(expect.arrayContaining(['Finance Dashboard', 'Payroll', 'Reports']));
+    expect(permissionAllows(paymentViewer, adminRouteRequirement('/admin/finance/psychologist-payments'))).toBe(true);
+    expect(permissionAllows(paymentViewer, adminRouteRequirement('/admin/finance'))).toBe(false);
+    expect(permissionAllows(paymentViewer, adminRouteRequirement('/admin/finance/payroll'))).toBe(false);
+    expect(permissionAllows(paymentViewer, adminRouteRequirement('/admin/finance/reports'))).toBe(false);
+  });
+
+  it('hides psychologist payments when its canonical view permission is absent', () => {
+    const labels = filterNavigation(employeeNavigation, new Set(['psychologist_payments.settle'])).flatMap((group) => group.links.map((link) => link.label));
+    expect(labels).not.toContain('Psychologist Payments');
+    expect(permissionAllows(new Set(['psychologist_payments.settle']), adminRouteRequirement('/admin/finance/psychologist-payments'))).toBe(false);
+  });
+
   it('keeps customer feedback behind its dedicated permission in navigation and direct routes', () => {
     expect(permissionCatalogue).toContain('customer_feedback.view');
     expect(permissionAllows(new Set(['customer_feedback.view']), adminRouteRequirement('/admin/customer-feedback'))).toBe(true);
