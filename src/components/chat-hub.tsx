@@ -840,8 +840,14 @@ export function ChatHub() {
                   const showSender = isGroup && message.sender_id !== profile.id &&
                     (!previous || previous.sender_id !== message.sender_id ||
                       new Date(message.created_at).getTime() - new Date(previous.created_at).getTime() > 300000);
+                  const continuesSenderGroup = Boolean(
+                    previous &&
+                    !showDate &&
+                    previous.sender_id === message.sender_id &&
+                    new Date(message.created_at).getTime() - new Date(previous.created_at).getTime() <= 300000,
+                  );
                   return (
-                    <div className="chat-message-group" key={message.id}>
+                    <div className={`chat-message-group ${continuesSenderGroup ? "is-continuation" : "is-new-sender"}`} key={message.id}>
                       {showDate && <div className="chat-date-divider"><span>{dateLabel(message.created_at)}</span></div>}
                       <Message
                         message={message}
