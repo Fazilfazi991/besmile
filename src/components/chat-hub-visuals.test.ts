@@ -61,6 +61,8 @@ describe('chat visual density', () => {
     expect(styles).toContain('@media(max-width:760px)');
     expect(styles).toContain('.chat-hub.chat-open .chat-conversation-panel,.chat-hub:not(.chat-open) .chat-message-panel{display:none}');
     expect(styles).toContain('width:100vw');
+    expect(styles).not.toContain('.chat-header-actions button:nth-child(2),.chat-hub .chat-more-button{display:none!important}');
+    expect(component).toContain('aria-label="Conversation details"');
     expect(styles).toContain('@media(max-width:1180px){.chat-hub .chat-layout{grid-template-columns:296px minmax(0,1fr)}');
   });
 
