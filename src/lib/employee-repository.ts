@@ -838,7 +838,7 @@ export const employeeRepository = {
     let request = required()
       .from("chat_messages")
       .select(
-        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name)),reply_to:chat_messages!chat_messages_reply_to_message_id_fkey(id,body,message_type,attachment_name,deleted_at,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name))",
+        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name))",
       )
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
@@ -848,7 +848,18 @@ export const employeeRepository = {
     const { data, error } = await request;
     if (error) throw error;
     const rows = (data || []).reverse();
-    return { data: rows, hasMore: rows.length === size };
+    const parentIds = [...new Set(rows.map((message: any) => message.reply_to_message_id).filter(Boolean))];
+    if (!parentIds.length) return { data: rows, hasMore: rows.length === size };
+    const { data: parents, error: parentError } = await required()
+      .from("chat_messages")
+      .select("id,body,message_type,attachment_name,deleted_at,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name)")
+      .in("id", parentIds);
+    if (parentError) return { data: rows, hasMore: rows.length === size };
+    const parentsById = new Map((parents || []).map((parent: any) => [parent.id, parent]));
+    return {
+      data: rows.map((message: any) => ({ ...message, reply_to: parentsById.get(message.reply_to_message_id) || null })),
+      hasMore: rows.length === size,
+    };
   },
   async sendMessage(payload: {
     conversation_id: string;
