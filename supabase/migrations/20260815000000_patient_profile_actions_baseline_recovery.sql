@@ -1,3 +1,5 @@
+-- This SQL was originally committed with the duplicate 0039 migration version.
+-- Keeping it as a forward migration makes a clean database reconstruction deterministic.
 insert into public.permissions(code,description) values
  ('patient_sessions.create','Create patient sessions'),('patient_sessions.edit','Edit patient sessions'),('patient_sessions.cancel','Cancel or reschedule patient sessions') on conflict(code) do nothing;
 drop policy if exists "patient sessions write" on public.patient_sessions;
