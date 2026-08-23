@@ -91,4 +91,15 @@ describe('official document generator', () => {
     expect(finance).toContain('downloadReportCsv');
     expect(finance).not.toContain('window.print()');
   });
+
+  it('keeps preview failures visible and validates the returned PDF before rendering', () => {
+    const page = readFileSync(resolve(process.cwd(), 'src/app/admin/documents/generate/page.tsx'), 'utf8');
+    expect(page).toContain('validateOfficialDocumentInput(form)');
+    expect(page).toContain("setPreviewState('loading')");
+    expect(page).toContain("setPreviewState('ready')");
+    expect(page).toContain("setPreviewState('error')");
+    expect(page).toContain('validateDownloadBlob(blob');
+    expect(page).toContain('Preview failed — see the error above.');
+    expect(page).toContain('URL.revokeObjectURL(current)');
+  });
 });

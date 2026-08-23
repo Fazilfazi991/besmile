@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { officialDocumentTypes, type OfficialDocumentInput, type OfficialDocumentType } from '@/lib/official-document-types';
+import { officialDocumentTypes, validateOfficialDocumentInput, type OfficialDocumentInput, type OfficialDocumentType } from '@/lib/official-document-types';
+import { validateDownloadBlob } from '@/lib/browser-download';
 
 type Employee = { id: string; full_name: string; designation?: string | null; joining_date?: string | null; department?: { name?: string } | null };
 type HistoryItem = { id: string; title: string; category: string; file_name: string; created_at: string; storage_path: string };
@@ -40,6 +41,7 @@ export default function OfficialDocumentGeneratorPage() {
   const [notice, setNotice] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewPages, setPreviewPages] = useState(0);
+  const [previewState, setPreviewState] = useState<'initial' | 'loading' | 'ready' | 'error'>('initial');
 
   const loadContext = async () => {
     const response = await fetch('/api/documents/official/context', { cache: 'no-store' });
@@ -89,7 +91,8 @@ export default function OfficialDocumentGeneratorPage() {
 
   const generate = async (mode: 'preview' | 'generate') => {
     if (busy) return;
-    setBusy(mode); setError(''); setNotice(mode === 'preview' ? 'Preparing preview...' : 'Generating and securing PDF...');
+    try { validateOfficialDocumentInput(form); } catch (caught) { setError(caught instanceof Error ? caught.message : 'Complete the required document fields.'); setNotice(''); if (mode === 'preview') setPreviewState('error'); return; }
+    setBusy(mode); setError(''); setNotice(mode === 'preview' ? 'Preparing preview...' : 'Generating and securing PDF...'); if (mode === 'preview') setPreviewState('loading');
     try {
       const response = await fetch('/api/documents/official/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, mode }),
@@ -99,8 +102,9 @@ export default function OfficialDocumentGeneratorPage() {
         throw new Error(data.error || 'Document generation failed.');
       }
       const blob = await response.blob();
+      await validateDownloadBlob(blob, response.headers.get('content-type') || '', /application\/pdf/i);
       const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
+      setPreviewUrl((current) => { if (current) URL.revokeObjectURL(current); return url; });
       setPreviewPages(Number(response.headers.get('X-Document-Pages') || 0));
       const filename = decodeURIComponent(response.headers.get('X-Document-Filename') || 'BSmile_Official_Document.pdf');
       const documentId = response.headers.get('X-Document-Id') || '';
@@ -109,10 +113,11 @@ export default function OfficialDocumentGeneratorPage() {
         if (documentId) await fetch('/api/documents/official/audit-download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documentId }) });
         await loadContext();
         setNotice(`Download ready: ${filename}`);
-      } else setNotice('Preview ready. This is the same PDF that will be downloaded.');
+      } else { setPreviewState('ready'); setNotice('Preview ready. This is the same PDF that will be downloaded.'); }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Document generation failed.');
       setNotice('');
+      if (mode === 'preview') setPreviewState('error');
     } finally { setBusy(''); }
   };
 
@@ -147,7 +152,7 @@ export default function OfficialDocumentGeneratorPage() {
         <article className="card official-actions"><div><b>Steps 4 & 5 - Preview and generate</b><p>Preview renders the exact PDF file. Generation stores an auditable private copy.</p></div><div><button className="btn border" disabled={Boolean(busy)} onClick={() => void generate('preview')}>{busy === 'preview' ? 'Preparing preview...' : 'Preview PDF'}</button><button className="btn btn-primary" disabled={Boolean(busy)} onClick={() => void generate('generate')}>{busy === 'generate' ? 'Generating...' : 'Generate & download'}</button></div></article>
       </div>
 
-      <aside className="official-preview-column"><div className="official-preview-toolbar"><div><b>A4 PDF preview</b><small>{previewPages ? `${previewPages} page${previewPages === 1 ? '' : 's'}` : 'No preview generated'}</small></div>{previewUrl && <a className="btn border" href={previewUrl} target="_blank" rel="noreferrer">Open</a>}</div><div className="official-preview-frame">{previewUrl ? <iframe title="Official document PDF preview" src={previewUrl} /> : <div><img src="/documents/letterhead/BSmile_Letterhead_Blank_A4_300dpi.png" alt="BSmile official letterhead preview" /><span>Select your content, then preview the PDF.</span></div>}</div></aside>
+      <aside className="official-preview-column"><div className="official-preview-toolbar"><div><b>A4 PDF preview</b><small>{previewState === 'loading' ? 'Preparing preview…' : previewState === 'error' ? 'Preview failed — see the error above.' : previewPages ? `${previewPages} page${previewPages === 1 ? '' : 's'}` : 'No preview generated'}</small></div>{previewUrl && <a className="btn border" href={previewUrl} target="_blank" rel="noreferrer">Open</a>}</div><div className="official-preview-frame">{previewUrl ? <iframe title="Official document PDF preview" src={previewUrl} /> : <div><img src="/documents/letterhead/BSmile_Letterhead_Blank_A4_300dpi.png" alt="BSmile official letterhead preview" /><span>{previewState === 'error' ? 'Preview could not be generated. Correct the error and try again.' : 'Select your content, then preview the PDF.'}</span></div>}</div></aside>
     </div>
 
     <article className="card official-history"><div><h2>Generated document history</h2><p>Private copies stored through the existing Documents storage controls.</p></div>{context.history.length ? <div>{context.history.map((item) => <button type="button" key={item.id} onClick={() => void openHistory(item)}><span><b>{item.title}</b><small>{item.category.replace('Official:', '')} - {new Date(item.created_at).toLocaleString()}</small></span><strong>Open</strong></button>)}</div> : <p className="official-history-empty">No official documents have been generated yet.</p>}</article>

@@ -7,13 +7,14 @@ export function reportCsv(headers: string[], rows: ReportRow[]) {
   const quote = (value: unknown) => `"${safeReportCell(value).replaceAll('"', '""')}"`;
   return '\uFEFF' + [headers, ...rows.map(row => headers.map(header => row[header]))].map(row => row.map(quote).join(',')).join('\r\n');
 }
-export function downloadReportCsv(filename: string, headers: string[], rows: ReportRow[]) {
-  download(filename, new Blob([reportCsv(headers, rows)], { type: 'text/csv;charset=utf-8' }));
+export async function downloadReportCsv(filename: string, headers: string[], rows: ReportRow[]) {
+  return downloadBlob(new Blob([reportCsv(headers, rows)], { type: 'text/csv;charset=utf-8' }), filename, /^text\/csv/i);
 }
 export async function downloadReportXlsx(filename: string, headers: string[], rows: ReportRow[]) {
   const XLSX = await import('xlsx');
   const sheet = XLSX.utils.json_to_sheet(rows.map(row => Object.fromEntries(headers.map(header => [header, safeReportCell(row[header])]))), { header: headers });
   const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, sheet, 'Report');
-  XLSX.writeFile(workbook, filename, { bookType: 'xlsx', compression: true });
+  const bytes = XLSX.write(workbook, { type: 'array', bookType: 'xlsx', compression: true });
+  return downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename, /spreadsheetml\.sheet/i);
 }
-function download(filename: string, blob: Blob) { const link = document.createElement('a'); const url = URL.createObjectURL(blob); link.href = url; link.download = filename; link.style.display = 'none'; document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 30_000); }
+import { downloadBlob } from './browser-download';
