@@ -1,8 +1,10 @@
 import {describe,it,expect} from 'vitest';
+import { validateLeaveRequestDates } from './leave-rules';
 import {canCancelLeave,hasLeaveOverlap,hasSufficientBalance,isRlsError,leaveDays} from './leave-rules';
 import {monthlyDays} from './attendance-rules';
 
 describe('leave rules',()=>{
+  it('rejects missing and reversed dates before a database request',()=>{expect(validateLeaveRequestDates('', '2026-08-15')).toBe('Select a start date.');expect(validateLeaveRequestDates('2026-08-15','')).toBe('Select an end date.');expect(validateLeaveRequestDates('2026-08-16','2026-08-15')).toBe('End date cannot be before the start date.');});
   it('excludes weekends and holidays',()=>expect(leaveDays('2026-07-17','2026-07-21',[1,2,3,4,5],new Set(['2026-07-20']))).toBe(2));
   it('calculates a half day',()=>expect(leaveDays('2026-07-21','2026-07-21',[1,2,3,4,5],new Set(),true)).toBe(.5));
   it('rejects invalid ranges and non-working selections',()=>{expect(()=>leaveDays('2026-07-22','2026-07-21',[1,2,3,4,5],new Set())).toThrow();expect(()=>leaveDays('2026-07-19','2026-07-19',[1,2,3,4,5],new Set())).toThrow()});

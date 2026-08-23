@@ -1,5 +1,14 @@
 export type LeaveRequestPeriod={starts_on:string;ends_on:string;half_day?:boolean;status?:string};
 
+export function validateLeaveRequestDates(startsOn:string, endsOn:string) {
+  if (!startsOn) return 'Select a start date.';
+  if (!endsOn) return 'Select an end date.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) return 'Select a start date.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) return 'Select an end date.';
+  if (endsOn < startsOn) return 'End date cannot be before the start date.';
+  return null;
+}
+
 const dateAtNoon=(key:string)=>new Date(`${key}T12:00:00Z`);
 const keyFor=(date:Date)=>date.toISOString().slice(0,10);
 

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
+import { validateLeaveRequestDates } from '@/lib/leave-rules';
 
 const statusClass: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-800',
@@ -28,7 +29,9 @@ function leaveErrorMessage(error: unknown) {
     'message' in error &&
     typeof (error as { message?: unknown }).message === 'string'
   ) {
-    return (error as { message: string }).message;
+    const message = (error as { message: string }).message;
+    if (/invalid input syntax for type date|date.*empty/i.test(message)) return 'Select a start date and an end date.';
+    return message;
   }
   return typeof error === 'string'
     ? error
@@ -89,9 +92,11 @@ export default function LeavesPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    setSubmitting(true);
     setError('');
     setNotice('');
+    const dateError = validateLeaveRequestDates(form.starts_on, form.ends_on);
+    if (dateError) { setError(dateError); return; }
+    setSubmitting(true);
     try {
       if (!profile) throw Error('Your session has expired.');
       await employeeRepository.requestLeave({
