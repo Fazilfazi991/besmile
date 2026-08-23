@@ -21,4 +21,9 @@ describe('chat message reconciliation', () => {
   it('scopes rendered messages to the active conversation', () => {
     expect(messagesForConversation([{id:'a',conversation_id:'one'},{id:'b',conversation_id:'two'}], 'two')).toEqual([{id:'b',conversation_id:'two'}]);
   });
+  it('merges a realtime update without creating a duplicate message', () => {
+    const current = { id: 'db-1', created_at: '2026-07-26T10:00:01Z', body: 'Before' };
+    const updated = { id: 'db-1', created_at: '2026-07-26T10:00:01Z', body: 'After', edited_at: '2026-07-26T10:02:00Z' };
+    expect(upsertChatMessage([current], updated)).toEqual([{ ...updated, status: 'sent' }]);
+  });
 });

@@ -764,7 +764,7 @@ export const employeeRepository = {
     const { data, error } = await r
       .from("chat_members")
       .select(
-        "conversation_id,last_read_at,chat_conversations(*,chat_members(profile_id,profiles(full_name,email,designation,department:departments(name),avatar_url,status)) )",
+        "conversation_id,last_read_at,last_read_message_id,chat_conversations(*,chat_members(profile_id,last_read_at,last_read_message_id,profiles(full_name,email,designation,department:departments(name),avatar_url,status)) )",
       )
       .eq("profile_id", userId)
       .order("last_read_at", { ascending: false });
@@ -785,6 +785,11 @@ export const employeeRepository = {
       messages = await r.from("chat_messages").select("id,conversation_id,body,message_type,attachment_name,created_at,sender_id").in("conversation_id", conversationIds).order("created_at", { ascending: false });
     }
     if (messages.error) throw messages.error;
+    const { data: mentionRows, error: mentionError } = await r
+      .from("chat_message_mentions")
+      .select("conversation_id,message:chat_messages(created_at,deleted_at)")
+      .eq("profile_id", userId);
+    if (mentionError) throw mentionError;
     return (data || [])
       .map((item: any) => {
         const latest = (messages.data || []).find(
@@ -797,10 +802,16 @@ export const employeeRepository = {
             (!item.last_read_at ||
               new Date(message.created_at) > new Date(item.last_read_at)),
         ).length;
+        const mentions = (mentionRows || []).filter((mention: any) =>
+          mention.conversation_id === item.conversation_id &&
+          !mention.message?.deleted_at &&
+          (!item.last_read_at || new Date(mention.message?.created_at) > new Date(item.last_read_at)),
+        ).length;
         return {
           ...item,
           latest_message: latest || null,
           unread_count: unread,
+          mention_count: mentions,
         };
       })
       .sort(
@@ -826,7 +837,7 @@ export const employeeRepository = {
     let request = required()
       .from("chat_messages")
       .select(
-        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,sender:profiles!chat_messages_sender_id_fkey(full_name)",
+        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name))",
       )
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
@@ -836,7 +847,18 @@ export const employeeRepository = {
     const { data, error } = await request;
     if (error) throw error;
     const rows = (data || []).reverse();
-    return { data: rows, hasMore: rows.length === size };
+    const parentIds = [...new Set(rows.map((message: any) => message.reply_to_message_id).filter(Boolean))];
+    if (!parentIds.length) return { data: rows, hasMore: rows.length === size };
+    const { data: parents, error: parentError } = await required()
+      .from("chat_messages")
+      .select("id,body,message_type,attachment_name,deleted_at,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name)")
+      .in("id", parentIds);
+    if (parentError) return { data: rows, hasMore: rows.length === size };
+    const parentsById = new Map((parents || []).map((parent: any) => [parent.id, parent]));
+    return {
+      data: rows.map((message: any) => ({ ...message, reply_to: parentsById.get(message.reply_to_message_id) || null })),
+      hasMore: rows.length === size,
+    };
   },
   async sendMessage(payload: {
     conversation_id: string;
@@ -846,9 +868,11 @@ export const employeeRepository = {
     client_message_id: string;
     file?: File | null;
     voice_duration_seconds?: number;
+    reply_to_message_id?: string | null;
+    mention_profile_ids?: string[];
   }) {
     const r = required();
-    const { file, ...message } = payload;
+    const { file, mention_profile_ids = [], ...message } = payload;
     if (!message.conversation_id || !message.channel_id)
       throw new Error(
         "Message could not be sent because the conversation was not ready. Please reopen the chat and try again.",
@@ -891,39 +915,72 @@ export const employeeRepository = {
         await r.storage.from("chat-attachments").remove([uploadedPath]);
       throw error;
     }
+    if (mention_profile_ids.length) {
+      const mentionSync = await r.rpc("sync_chat_message_mentions", {
+        target_message: data.id,
+        target_conversation: message.conversation_id,
+        target_profiles: mention_profile_ids,
+      });
+      if (mentionSync.error) throw mentionSync.error;
+    }
     return data;
   },
   async chatAttachmentUrl(path: string) {
+    const { data: message, error: messageError } = await required()
+      .from("chat_messages")
+      .select("id")
+      .eq("attachment_path", path)
+      .is("expired_at", null)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (messageError) throw messageError;
+    if (!message) throw new Error("This attachment is no longer available.");
     const { data, error } = await required()
       .storage.from("chat-attachments")
       .createSignedUrl(path, 120);
     if (error) throw error;
     return data.signedUrl;
   },
-  async markConversationRead(conversationId: string, userId: string) {
-    const { error } = await required()
-      .from("chat_members")
-      .update({ last_read_at: new Date().toISOString() })
-      .eq("conversation_id", conversationId)
-      .eq("profile_id", userId);
+  async markConversationRead(conversationId: string, _userId: string, messageId?: string) {
+    const { error } = await required().rpc("mark_chat_conversation_read", {
+      target_conversation: conversationId,
+      target_message: messageId || null,
+    });
     if (error) throw error;
   },
   async chatPeople(query = "") {
-    let request = required()
-      .from("profiles")
-      .select(
-        "id,full_name,email,designation,avatar_url,status,department:departments(name)",
-      )
-      .in("status", operationalEmployeeStatuses)
-      .order("full_name")
-      .limit(30);
-    if (query.trim())
-      request = request.or(
-        `full_name.ilike.%${query.trim()}%,email.ilike.%${query.trim()}%`,
-      );
-    const { data, error } = await request;
+    const { data, error } = await required().rpc('chat_recipient_search', { search_text: query.trim() });
+    if (error) throw error;
+    return (data || []).map((person: any) => ({ ...person, department: person.department_name ? { name: person.department_name } : null }));
+  },
+  async toggleChatReaction(messageId: string, emoji: string) {
+    const db = required(); const { data: existing, error: findError } = await db.from('chat_message_reactions').select('message_id').eq('message_id', messageId).eq('emoji', emoji).maybeSingle();
+    if (findError) throw findError;
+    const result = existing ? await db.from('chat_message_reactions').delete().eq('message_id', messageId).eq('emoji', emoji) : await db.from('chat_message_reactions').insert({ message_id: messageId, profile_id: (await db.auth.getUser()).data.user?.id, emoji });
+    if (result.error) throw result.error; return !existing;
+  },
+  async editChatMessage(messageId: string, body: string, mentionProfileIds: string[] = []) {
+    const { data, error } = await required().rpc("edit_chat_message", {
+      target_message: messageId,
+      next_body: body,
+      mention_profiles: mentionProfileIds,
+    });
     if (error) throw error;
     return data;
+  },
+  async deleteChatMessage(messageId: string) {
+    const { data, error } = await required().rpc("delete_chat_message", {
+      target_message: messageId,
+    });
+    if (error) throw error;
+    return data;
+  },
+  async setChatDisappearingMessages(conversationId: string, seconds: number) {
+    const { error } = await required().rpc("set_chat_disappearing_messages", {
+      target_conversation: conversationId,
+      retention_seconds: seconds,
+    });
+    if (error) throw error;
   },
   async createPersonalChat(_userId: string, otherId: string) {
     const { data, error } = await required().rpc("create_or_get_direct_chat", {
