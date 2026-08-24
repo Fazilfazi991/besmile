@@ -1394,9 +1394,21 @@ function Message({
   const unavailable = Boolean(message.deleted_at || expired);
   const replyExpired = isChatMessageLogicallyExpired(message.reply_to || {}, now);
   return (
-    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${unavailable ? "deleted" : ""}`}>
+    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${actionOpen ? "action-open" : ""} ${unavailable ? "deleted" : ""}`}>
       {sender && <b className="chat-sender">{message.sender?.full_name || "Member"}</b>}
-      <div>
+      <div
+        tabIndex={!unavailable && message.message_type !== "system" ? 0 : undefined}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onActionOpen();
+          }
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          onActionOpen();
+        }}
+      >
         {message.reply_to_message_id && (
           <button
             type="button"
@@ -1424,6 +1436,7 @@ function Message({
         {!unavailable && actionOpen && <div className="chat-message-actions" role="menu">
           <button type="button" onClick={onReply}>Reply</button>
           <button type="button" onClick={() => void navigator.clipboard?.writeText(message.body || "")}>Copy</button>
+          <button type="button" onClick={onReactionOpen}>React</button>
           {own && message.message_type === "text" && <button type="button" onClick={onEdit}>Edit</button>}
           {own && <button type="button" className="danger" onClick={onDelete}>Delete</button>}
         </div>}

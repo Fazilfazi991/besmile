@@ -63,7 +63,7 @@ export function PermissionSidebar({ groups, name, subtitle, profileHref }: { gro
   </aside>; };
 
   return <>
-    <button className="mobile-menu-button" type="button" aria-expanded={mobileOpen} aria-controls="workspace-sidebar-drawer" onClick={() => setMobileOpen(true)}>Menu</button>
+    <button className="mobile-menu-button" type="button" aria-label="Open navigation" title="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-sidebar-drawer" onClick={() => setMobileOpen(true)}><span aria-hidden="true">☰</span></button>
     {renderSidebar()}
     {mobileOpen && <div className="sidebar-drawer" id="workspace-sidebar-drawer" role="dialog" aria-modal="true">
       <button className="sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />
