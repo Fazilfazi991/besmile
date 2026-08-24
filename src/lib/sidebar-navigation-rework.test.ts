@@ -48,6 +48,19 @@ describe('Batch 13 sidebar navigation architecture', () => {
     expect(visible.find(group => group.title === 'CLIENT & CRM')).toBeUndefined();
   });
 
+  it.each([
+    ['director', new Set(['dashboard.view', 'employees.view', 'crm.view_team', 'finance.dashboard.view']), ['Overview', 'Operations', 'CRM', 'Finance', 'Data & Settings']],
+    ['general_manager', new Set(['dashboard.view', 'employees.view', 'tasks.assign', 'leave.review']), ['Overview', 'Operations', 'Work Management', 'Data & Settings']],
+    ['assistant_manager', new Set(['dashboard.view', 'admin.shell', 'doctor_scheduling.view', 'psychologist_payments.view']), ['Overview', 'Work Management', 'Finance', 'Data & Settings']],
+    ['psychologist', new Set(['dashboard.view', 'attendance.self', 'tasks.view_self', 'doctor_scheduling.view']), ['Overview', 'Work Management', 'Data & Settings']],
+    ['guest_sales', new Set(['dashboard.view', 'crm.view_assigned']), ['Overview', 'Work Management', 'CRM', 'Data & Settings']],
+    ['intern', new Set(['dashboard.view', 'tasks.view_self']), ['Overview', 'Work Management', 'Data & Settings']],
+  ] as const)('keeps %s sidebar sections limited to its effective permission cards', (role, permissions, expectedSections) => {
+    const sections = sectionNavigation(filterNavigation(navigationForProfile(role), permissions));
+    expect(sections.map(section => section.title)).toEqual(expectedSections);
+    expect(sections.every(section => section.links.length > 0)).toBe(true);
+  });
+
   it('reflects direct grants and direct revokes from the canonical permission set', () => {
     const effectivePermissions = new Set(['dashboard.view']);
     expect(labels(filterNavigation(adminNavigation, effectivePermissions))).not.toContain('Finance Dashboard');
