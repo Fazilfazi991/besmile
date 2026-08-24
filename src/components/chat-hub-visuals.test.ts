@@ -59,6 +59,10 @@ describe('chat visual density', () => {
     expect(styles).toContain('width: min(180px,calc(100vw - 16px));');
     expect(styles).toContain('chat-message-actions .chat-action-quick-reactions { position: absolute;');
     expect(component).toContain('headerBottom + reactionStripHeight + 8');
+    expect(component).toContain('actionOpen ? "action-open" : ""');
+    expect(component).toContain('tabIndex={!message.deleted_at');
+    expect(styles).toContain('pointer-events: none');
+    expect(styles).toContain('chat-message.action-open .chat-message-menu-trigger');
   });
 
   it('keeps the details drawer and shared files available without narrowing the thread', () => {

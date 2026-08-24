@@ -1476,6 +1476,13 @@ function Message({
     <div
       ref={bubbleRef}
       className="chat-message-bubble"
+      tabIndex={!message.deleted_at && !message.expired_at && message.message_type !== "system" ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openActionMenu();
+        }
+      }}
       onContextMenu={(event) => {
         event.preventDefault();
         openActionMenu();
@@ -1508,7 +1515,7 @@ function Message({
     </div>
   );
   return (
-    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${sender ? "group-start" : ""} ${(message.deleted_at || message.expired_at) ? "deleted" : ""}`}>
+    <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${sender ? "group-start" : ""} ${actionOpen ? "action-open" : ""} ${(message.deleted_at || message.expired_at) ? "deleted" : ""}`}>
       {sender && (
         <div className="chat-message-media">
           <Avatar name={message.sender?.full_name || "Member"} />
