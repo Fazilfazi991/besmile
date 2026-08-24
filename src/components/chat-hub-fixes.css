@@ -125,9 +125,6 @@
 
 @media (max-width:1180px) { .chat-hub .chat-layout { grid-template-columns: 292px minmax(0,1fr); } .chat-hub .chat-messages { padding-inline: 28px; } }
 @media (max-width:760px) {
-  .app-shell:has(.chat-hub) { position: relative; }
-  .app-shell:has(.chat-hub) .mobile-menu-button { position: absolute; z-index: 6; top: 10px; left: 12px; display: grid; width: 38px; min-height: 38px; height: 38px; place-items: center; border: 0; border-radius: 8px; background: transparent; padding: 0; box-shadow: none; color: #087a64; font-size: 20px; line-height: 1; }
-  .app-shell:has(.chat-hub) .mobile-menu-button:hover,.app-shell:has(.chat-hub) .mobile-menu-button:focus-visible { background: #edf8f5; outline: 0; }
   .chat-hub { height: calc(100dvh - 104px); min-height: 0; }
   .chat-hub .chat-layout { display: block; border-radius: 0; }
   .chat-hub .chat-conversation-panel,.chat-hub .chat-message-panel { height: 100%; }
