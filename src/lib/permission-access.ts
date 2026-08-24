@@ -67,7 +67,7 @@ export function sectionNavigation(groups: readonly NavigationGroup[]): Navigatio
     if (href.includes('/crm')) return 'CRM';
     if (href.includes('/employees') || href.includes('/patients') || href.includes('/documents')) return 'Operations';
     if (href.includes('/access') || href.includes('/profile') || href.includes('/ideas/categories')) return 'Data & Settings';
-    if (/^(Chat|Teams|Announcements|Notifications|Customer Feedback)$/.test(label) || href.includes('/tasks') || href.includes('/attendance') || href.includes('/leave') || href.includes('/calendar') || href.includes('/meetings') || href.includes('/ideas') || href.includes('/doctor-scheduling')) return 'Work Management';
+    if (/^(Chat|Teams|Announcements|Notifications|Customer Feedback)$/.test(label) || href.includes('/tasks') || href.includes('/attendance') || href.includes('/leave') || href.includes('/calendar') || href.includes('/holidays') || href.includes('/meetings') || href.includes('/ideas') || href.includes('/doctor-scheduling')) return 'Work Management';
     return 'Data & Settings';
   };
   for (const link of groups.flatMap((group) => group.links)) sections.find((section) => section.title === sectionFor(link))!.links.push(link);
