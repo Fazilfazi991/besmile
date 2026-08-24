@@ -51,6 +51,24 @@ describe('chat visual density', () => {
     expect(styles).toContain('env(safe-area-inset-bottom)');
   });
 
+  it('keeps normal, recording, and voice-preview composer states in the real message workflow', () => {
+    expect(component).toContain('className="chat-composer-main"');
+    expect(component).toContain('className="chat-recording" aria-live="polite"');
+    expect(component).toContain('toggleRecordingPause');
+    expect(component).toContain('cancelRecording');
+    expect(component).toContain('className="chat-voice-preview"');
+    expect(styles).toContain('.chat-hub .chat-recording,.chat-hub .chat-voice-preview');
+    expect(styles).toContain('env(safe-area-inset-bottom)');
+  });
+
+  it('presents existing voice, files, and reactions as compact Teams media', () => {
+    expect(component).toContain('const fileKind =');
+    expect(component).toContain('className="chat-voice-message"');
+    expect(component).toContain('className="chat-reactions"');
+    expect(styles).toContain('.chat-hub .chat-attachment{grid-template-columns:38px');
+    expect(styles).toContain('.chat-hub .chat-voice-message{display:flex');
+  });
+
   it('keeps message actions quiet until intentional hover or focus', () => {
     expect(styles).toContain('.chat-message>div:hover .chat-reaction-button');
     expect(styles).toContain('.chat-message>div:hover .chat-message-more');

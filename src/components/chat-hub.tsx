@@ -66,6 +66,7 @@ export function ChatHub() {
   const [file, setFile] = useState<File | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingPaused, setRecordingPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [voicePreview, setVoicePreview] = useState<VoicePreview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,7 +100,9 @@ export function ChatHub() {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const recordingStartedRef = useRef(0);
+  const recordingElapsedRef = useRef(0);
+  const recordingResumedAtRef = useRef(0);
+  const discardRecordingRef = useRef(false);
   const messageRequest = useRef(0);
   const profileRef = useRef<any>(undefined);
   const activeRef = useRef<any>(undefined);
@@ -442,6 +445,19 @@ export function ChatHub() {
     streamRef.current = null;
     recorderRef.current = null;
     setRecording(false);
+    setRecordingPaused(false);
+  };
+  const recordedSeconds = () =>
+    recordingElapsedRef.current +
+    (recorderRef.current?.state === "recording"
+      ? Math.floor((Date.now() - recordingResumedAtRef.current) / 1000)
+      : 0);
+  const startRecordingTimer = () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = setInterval(
+      () => setRecordingSeconds(recordedSeconds()),
+      1000,
+    );
   };
   const startRecording = async () => {
     setError("");
@@ -466,9 +482,12 @@ export function ChatHub() {
       chunksRef.current = [];
       streamRef.current = stream;
       recorderRef.current = recorder;
-      recordingStartedRef.current = Date.now();
+      recordingElapsedRef.current = 0;
+      recordingResumedAtRef.current = Date.now();
+      discardRecordingRef.current = false;
       setRecordingSeconds(0);
       setRecording(true);
+      setRecordingPaused(false);
       setEmojiOpen(false);
       recorder.ondataavailable = (event) => {
         if (event.data.size) chunksRef.current.push(event.data);
@@ -478,14 +497,12 @@ export function ChatHub() {
         setError("Recording was interrupted. Please try again.");
       };
       recorder.onstop = () => {
-        const duration = Math.max(
-          1,
-          Math.round((Date.now() - recordingStartedRef.current) / 1000),
-        );
+        const duration = Math.max(1, recordedSeconds());
         const mimeType =
           recorder.mimeType || chunksRef.current[0]?.type || "audio/webm";
         const blob = new Blob(chunksRef.current, { type: mimeType });
         releaseRecorder();
+        if (discardRecordingRef.current) return;
         if (!blob.size) {
           setError(
             "No audio was captured. Check your microphone and try again.",
@@ -504,13 +521,7 @@ export function ChatHub() {
         });
       };
       recorder.start(250);
-      recordingTimerRef.current = setInterval(
-        () =>
-          setRecordingSeconds(
-            Math.floor((Date.now() - recordingStartedRef.current) / 1000),
-          ),
-        1000,
-      );
+      startRecordingTimer();
     } catch (cause: any) {
       releaseRecorder();
       setError(
@@ -523,7 +534,31 @@ export function ChatHub() {
     }
   };
   const stopRecording = () => {
-    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    if (["recording", "paused"].includes(recorderRef.current?.state || ""))
+      recorderRef.current?.stop();
+  };
+  const toggleRecordingPause = () => {
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+    if (recorder.state === "recording") {
+      recordingElapsedRef.current = recordedSeconds();
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+      recorder.pause();
+      setRecordingSeconds(recordingElapsedRef.current);
+      setRecordingPaused(true);
+      return;
+    }
+    if (recorder.state === "paused") {
+      recordingResumedAtRef.current = Date.now();
+      recorder.resume();
+      setRecordingPaused(false);
+      startRecordingTimer();
+    }
+  };
+  const cancelRecording = () => {
+    discardRecordingRef.current = true;
+    stopRecording();
   };
   const discardVoice = () => {
     if (voicePreview) URL.revokeObjectURL(voicePreview.url);
@@ -889,29 +924,38 @@ export function ChatHub() {
                   </small>
                 )}
                 {recording ? (
-                  <div className="chat-recording">
-                    <span>
-                      <i />
-                      Recording · {durationLabel(recordingSeconds)}
-                    </span>
+                  <div className="chat-recording" aria-live="polite">
                     <button
                       type="button"
-                      className="btn border"
-                      onClick={stopRecording}
+                      className="chat-recording-cancel"
+                      onClick={cancelRecording}
                     >
-                      Stop
+                      <span aria-hidden="true">×</span> Cancel
+                    </button>
+                    <div className="chat-recording-status">
+                      <span className="chat-recording-time">
+                        <i /> {durationLabel(recordingSeconds)}
+                      </span>
+                      <span className="chat-recording-waveform" aria-hidden="true">
+                        {Array.from({ length: 15 }, (_, index) => <i key={index} />)}
+                      </span>
+                      <button type="button" className="chat-recording-pause" onClick={toggleRecordingPause} aria-label={recordingPaused ? "Resume recording" : "Pause recording"}>
+                        {recordingPaused ? "▶" : "Ⅱ"}
+                      </button>
+                    </div>
+                    <button type="button" className="chat-recording-send" onClick={stopRecording} aria-label="Finish recording">
+                      <span aria-hidden="true">➤</span>
                     </button>
                   </div>
                 ) : voicePreview ? (
                   <div className="chat-voice-preview">
                     <audio src={voicePreview.url} controls preload="metadata" />
                     <span>{durationLabel(voicePreview.duration)}</span>
-                    <button type="button" onClick={discardVoice}>
-                      Delete
-                    </button>
+                    <button type="button" className="chat-voice-discard" onClick={discardVoice}>Discard</button>
+                    <button type="submit" className="chat-voice-send" disabled={sending || !active.chat_conversations?.channel_id}><span aria-hidden="true">➤</span> Send</button>
                   </div>
                 ) : (
-                  <>
+                  <div className="chat-composer-main">
                     <div className="chat-emoji-wrap" ref={emojiRef}>
                       <button
                         type="button"
@@ -985,60 +1029,38 @@ export function ChatHub() {
                         ))}
                       </div>
                     )}
-                  </>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      hidden
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={(event) => setFile(event.target.files?.[0] || null)}
+                    />
+                    <button
+                      type="button"
+                      className="chat-attach"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={sending || !!file || !active.chat_conversations?.channel_id}
+                      aria-label="Attach file"
+                    >
+                      <span aria-hidden="true">⌇</span>
+                      <span className="chat-action-label">Attach</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="chat-mic"
+                      aria-label="Record voice message"
+                      onClick={() => void startRecording()}
+                      disabled={sending || !!file || !active.chat_conversations?.channel_id}
+                    >
+                      <span aria-hidden="true">♩</span>
+                    </button>
+                    <button className="btn btn-primary" disabled={sending || !active.chat_conversations?.channel_id || (!text.trim() && !file)}>
+                      <span aria-hidden="true">➤</span> {sending ? "Sending..." : "Send"}
+                    </button>
+                  </div>
                 )}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  hidden
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                  onChange={(event) => setFile(event.target.files?.[0] || null)}
-                />
-                <button
-                  type="button"
-                  className="chat-attach"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={
-                    sending ||
-                    recording ||
-                    !!voicePreview ||
-                    !active.chat_conversations?.channel_id
-                  }
-                >
-                  <span aria-hidden="true">⌇</span>
-                  <span className="chat-action-label">Attach</span>
-                </button>
-                {!recording && !voicePreview && (
-                  <button
-                    type="button"
-                    className="chat-mic"
-                    aria-label="Record voice message"
-                    onClick={() => void startRecording()}
-                    disabled={
-                      sending ||
-                      !!file ||
-                      !active.chat_conversations?.channel_id
-                    }
-                  >
-                    <span aria-hidden="true">♩</span>
-                  </button>
-                )}
-                <button
-                  className="btn btn-primary"
-                  disabled={
-                    sending ||
-                    !active.chat_conversations?.channel_id ||
-                    recording ||
-                    (!text.trim() && !file && !voicePreview)
-                  }
-                >
-                  <span aria-hidden="true">➤</span> {sending ? "Sending..." : "Send"}
-                </button>
-                <small>
-                  {voicePreview
-                    ? "Preview your voice message before sending."
-                    : "Images, PDF, Word, Excel, or voice up to 10 MB"}
-                </small>
+                {!recording && !voicePreview && <small className="chat-composer-tip"><b>Enter</b> to send, <b>Shift + Enter</b> for new line</small>}
               </form>
             </>
           ) : (
@@ -1450,19 +1472,27 @@ function MessageFile({ message }: { message: any }) {
         .catch(() => undefined);
   }, [message.attachment_path]);
   const image = message.attachment_type?.startsWith("image/");
+  const fileKind = message.attachment_type === "application/pdf" || message.attachment_name?.toLowerCase().endsWith(".pdf")
+    ? "PDF"
+    : message.attachment_type?.includes("word") || message.attachment_name?.match(/\.docx?$/i)
+      ? "DOC"
+      : message.attachment_type?.includes("sheet") || message.attachment_name?.match(/\.xlsx?$/i)
+        ? "XLS"
+        : "FILE";
   return (
     <a
       className="chat-attachment"
       href={url || undefined}
       target="_blank"
       rel="noreferrer"
+      aria-label={`Open or download ${message.attachment_name}`}
     >
       {image && url ? (
         // Signed, user-uploaded chat attachments are intentionally rendered directly.
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={message.attachment_name} />
       ) : (
-        <span>FILE</span>
+        <span>{fileKind}</span>
       )}
       <b>{message.attachment_name}</b>
       <small>{size(message.attachment_size)}</small>
