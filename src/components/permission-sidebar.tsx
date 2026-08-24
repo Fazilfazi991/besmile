@@ -5,12 +5,13 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ModuleIcon } from '@/components/module-icon';
+import { useMobileNavigation } from '@/components/mobile-navigation';
 import { activeNavigationHref, sectionNavigation, type NavigationGroup } from '@/lib/permission-access';
 
 export function PermissionSidebar({ groups, name, subtitle, profileHref }: { groups: readonly NavigationGroup[]; name: string; subtitle: string; profileHref: string }) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { mobileOpen, setMobileOpen } = useMobileNavigation();
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const storageKey = useMemo(() => `bsmile-sidebar-scroll:${profileHref}`, [profileHref]);
   const collapsedStorageKey = useMemo(() => `bsmile-sidebar-collapsed:${profileHref}`, [profileHref]);
@@ -46,7 +47,7 @@ export function PermissionSidebar({ groups, name, subtitle, profileHref }: { gro
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileOpen(false); };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [mobileOpen]);
+  }, [mobileOpen, setMobileOpen]);
 
   const toggleDesktop = () => setDesktopCollapsed((current) => {
     localStorage.setItem(collapsedStorageKey, current ? '0' : '1');
@@ -63,7 +64,6 @@ export function PermissionSidebar({ groups, name, subtitle, profileHref }: { gro
   </aside>; };
 
   return <>
-    <button className="mobile-menu-button" type="button" aria-label="Open navigation" title="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-sidebar-drawer" onClick={() => setMobileOpen(true)}><span aria-hidden="true">☰</span></button>
     {renderSidebar()}
     {mobileOpen && <div className="sidebar-drawer" id="workspace-sidebar-drawer" role="dialog" aria-modal="true">
       <button className="sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />
