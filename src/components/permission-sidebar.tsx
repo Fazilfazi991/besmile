@@ -17,7 +17,11 @@ export function PermissionSidebar({ groups, name, subtitle, profileHref }: { gro
   const activeHref = activeNavigationHref(pathname, groups);
   const sections = useMemo(() => sectionNavigation(groups), [groups]);
   const activeSection = useMemo(() => sections.find((section) => section.links.some((link) => link.href === activeHref))?.title, [activeHref, sections]);
-  const [openSection, setOpenSection] = useState<string | null>(activeSection || null);
+  const [sectionState, setSectionState] = useState<{ pathname: string; section: string | null }>(() => ({ pathname, section: activeSection || null }));
+  // A route change always takes precedence over a previous manual toggle.
+  // This avoids an effect-driven state update while keeping direct loads,
+  // back/forward, and card navigation open on the active section.
+  const openSection = sectionState.pathname === pathname ? sectionState.section : activeSection || null;
 
   useEffect(() => {
     const nav = navRef.current;
@@ -44,10 +48,6 @@ export function PermissionSidebar({ groups, name, subtitle, profileHref }: { gro
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [mobileOpen]);
 
-  useEffect(() => {
-    setOpenSection(activeSection || null);
-  }, [activeSection, pathname]);
-
   const toggleDesktop = () => setDesktopCollapsed((current) => {
     localStorage.setItem(collapsedStorageKey, current ? '0' : '1');
     return !current;
@@ -56,7 +56,7 @@ export function PermissionSidebar({ groups, name, subtitle, profileHref }: { gro
   const renderSidebar = (drawer = false) => { const collapsed = desktopCollapsed && !drawer; return <aside className={`app-sidebar${collapsed ? ' sidebar-collapsed' : ''}`} aria-label="Primary navigation">
     <div className="brand"><img src="/images/bsmile-logo.png" alt="BSmile" />{drawer ? <button className="sidebar-drawer-close" type="button" aria-label="Close navigation" onClick={() => setMobileOpen(false)}>×</button> : <button className="sidebar-collapse-button" type="button" aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} aria-expanded={!collapsed} title={collapsed ? 'Expand navigation' : 'Collapse navigation'} onClick={toggleDesktop}>{collapsed ? '›' : '‹'}</button>}</div>
     <nav ref={drawer ? undefined : navRef} className="section-navigation">{sections.map((section) => { const isOpen = !collapsed && openSection === section.title; const containsActive = activeSection === section.title; return <section className={`nav-section${isOpen ? ' is-open' : ''}${containsActive ? ' contains-active' : ''}`} key={section.title}>
-      <button className="nav-section-trigger" type="button" aria-expanded={isOpen} onClick={() => !collapsed && setOpenSection((current) => current === section.title ? null : section.title)} title={collapsed ? section.title : undefined} aria-label={collapsed ? section.title : undefined}><ModuleIcon label={section.title} /><span className="nav-section-label">{section.title}</span><span className="nav-section-chevron" aria-hidden="true">⌄</span></button>
+      <button className="nav-section-trigger" type="button" aria-expanded={isOpen} onClick={() => !collapsed && setSectionState({ pathname, section: openSection === section.title ? null : section.title })} title={collapsed ? section.title : undefined} aria-label={collapsed ? section.title : undefined}><ModuleIcon label={section.title} /><span className="nav-section-label">{section.title}</span><span className="nav-section-chevron" aria-hidden="true">⌄</span></button>
       {!collapsed && isOpen && <div className="nav-card-grid">{section.links.map((link) => { const active = activeHref === link.href; return <Link className={`nav-card${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} href={link.href} key={link.href} onClick={() => setMobileOpen(false)}><ModuleIcon label={link.label} /><span>{link.label}</span></Link>; })}</div>}
     </section>; })}</nav>
     <div className="sidebar-footer"><Link className="sidebar-user" href={profileHref} aria-label="My Profile" title={collapsed ? 'My Profile' : undefined} onClick={() => setMobileOpen(false)}><ModuleIcon label="My Profile" className="sidebar-profile-icon" /><span className="sidebar-user-copy"><b>{name}</b><small>{subtitle}</small></span></Link><SignOutButton /></div>
