@@ -991,17 +991,19 @@ export function ChatHub() {
               <h2>Conversation details</h2>
               <button aria-label="Close conversation details" onClick={() => setDetails(false)}>Close</button>
             </div>
-            <Avatar name={chatName(active, profile.id)} large />
-            <h3>{chatName(active, profile.id)}</h3>
+            <section className="chat-detail-summary">
+              <DetailConversationAvatar item={active} userId={profile.id} />
+              <div>
+                <h3 title={chatName(active, profile.id)}>{chatName(active, profile.id)}</h3>
+                <p>{active.chat_conversations.description || (isGroup ? "No group description." : [other(active, profile.id)?.designation, other(active, profile.id)?.department?.name].filter(Boolean).join(" · ") || "Direct conversation")}</p>
+              </div>
+            </section>
             {isGroup ? (
               <>
-                <p>
-                  {active.chat_conversations.description ||
-                    "No group description."}
-                </p>
                 <div className="chat-detail-section">
-                  <div>
+                  <div className="chat-detail-section-heading">
                     <b>Members</b>
+                    <span className="chat-detail-count"><SectionIcon group />{members.length} {members.length === 1 ? "member" : "members"}</span>
                     {isAdmin && !active.chat_conversations.is_system_group && (
                       <button
                         onClick={() => {
@@ -1044,13 +1046,10 @@ export function ChatHub() {
                 )}
               </>
             ) : (
-              <>
-                <p>
-                  {other(active, profile.id)?.designation || "Employee"} -{" "}
-                  {other(active, profile.id)?.department?.name ||
-                    "No department"}
-                </p>
-              </>
+              <div className="chat-detail-section">
+                <div className="chat-detail-section-heading"><b>Member</b><span className="chat-detail-count"><SectionIcon group />{members.length} {members.length === 1 ? "member" : "members"}</span></div>
+                <Member member={{ profiles: other(active, profile.id), profile_id: other(active, profile.id)?.id }} admin={false} own={false} conversationId={active.conversation_id} refresh={() => undefined} report={setError} />
+              </div>
             )}
             <div className="chat-detail-section">
               <b>Shared files</b>
@@ -1061,9 +1060,13 @@ export function ChatHub() {
             </div>
             <div className="chat-detail-section">
               <b>Disappearing messages</b>
-              {(!isGroup || isAdmin) ? <select className="input" value={active.chat_conversations.disappearing_message_seconds || 0} disabled={retentionSaving} onChange={(event) => void changeRetention(Number(event.target.value))}>
-                <option value={0}>Off</option><option value={86400}>24 hours</option><option value={604800}>7 days</option><option value={2592000}>30 days</option>
-              </select> : <small>{retentionLabel(active.chat_conversations.disappearing_message_seconds || 0)}</small>}
+              <div className="chat-retention-card">
+                <span className="chat-retention-icon"><TimerIcon /></span>
+                <span><b>Disappearing messages</b><small>{retentionLabel(active.chat_conversations.disappearing_message_seconds || 0)}</small></span>
+                {(!isGroup || isAdmin) ? <select value={active.chat_conversations.disappearing_message_seconds || 0} disabled={retentionSaving} onChange={(event) => void changeRetention(Number(event.target.value))} aria-label="Disappearing message duration">
+                  <option value={0}>Off</option><option value={86400}>24 hours</option><option value={604800}>7 days</option><option value={2592000}>30 days</option>
+                </select> : <span className="chat-retention-chevron" aria-hidden="true">›</span>}
+              </div>
             </div>
           </aside>
         )}
@@ -1276,6 +1279,15 @@ function ConversationAvatar({ item, userId }: { item: any; userId: string }) {
   const person = other(item, userId);
   return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.avatar_url} />;
 }
+function DetailConversationAvatar({ item, userId }: { item: any; userId: string }) {
+  const conversation = item.chat_conversations || item;
+  if (conversation.conversation_type === "group")
+    return conversation.is_system_group
+      ? <GroupAvatar className="chat-detail-summary-avatar chat-detail-system-avatar" />
+      : <Avatar name={chatName(item, userId)} className="chat-detail-summary-avatar" />;
+  const person = other(item, userId);
+  return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.avatar_url} className="chat-detail-summary-avatar" />;
+}
 function MessageIcon() {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5.5h14v10H11l-4.5 3v-3H5z" /></svg>;
 }
@@ -1299,6 +1311,9 @@ function MicrophoneIcon() {
 }
 function SendIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="m4 4 16 8-16 8 3-8-3-8Z" /><path d="M7 12h13" /></svg>;
+}
+function TimerIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="7.5" /><path d="M12 9v4l2.8 1.7M9 3h6" /></svg>;
 }
 function messagePreview(message: any) {
   if (!message) return "No messages yet";
@@ -1477,7 +1492,7 @@ function Member({ member, admin, own, conversationId, refresh, report }: any) {
   const person = member.profiles || member;
   return (
     <div className="chat-member">
-      <Avatar name={person.full_name} />
+      <Avatar name={person.full_name} imageUrl={person.avatar_url} />
       <span>
         <b>
           {person.full_name || "Member"}

@@ -39,9 +39,19 @@ describe('chat visual density', () => {
   });
 
   it('keeps the details drawer and shared files available without narrowing the thread', () => {
-    expect(styles).toContain('position:absolute;z-index:8;top:0;right:0;bottom:0;width:320px');
+    expect(styles).toContain('position:absolute;z-index:8;top:0;right:0;bottom:0;width:456px');
     expect(component).toContain('<b>Shared files</b>');
     expect(component).toContain('messages.filter((message) => message.attachment_name && isChatMessageActive(message, logicalNow)).slice(-6)');
+  });
+
+  it('keeps the drawer data-driven while giving summary, members, and retention dedicated layouts', () => {
+    expect(component).toContain('className="chat-detail-summary"');
+    expect(component).toContain('<DetailConversationAvatar item={active} userId={profile.id} />');
+    expect(component).toContain('imageUrl={person.avatar_url}');
+    expect(component).toContain('className="chat-retention-card"');
+    expect(component).toContain('onClick={() => setDetails(false)}');
+    expect(styles).toContain('grid-template-columns:48px minmax(0,1fr) auto');
+    expect(styles).toContain('.chat-hub .chat-details-panel .chat-attachment{display:grid');
   });
 
   it('bounds the mobile-safe composer input', () => {
