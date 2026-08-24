@@ -342,6 +342,7 @@ export const employeeRepository = {
         )
         .eq("is_employee", true)
         .eq("workforce_visible", true)
+        .neq("role", "director")
         .eq("status", "active")
         .order("full_name"),
       r
@@ -409,6 +410,7 @@ export const employeeRepository = {
         )
         .eq("is_employee", true)
         .eq("workforce_visible", true)
+        .neq("role", "director")
         .in("status", operationalEmployeeStatuses)
         .order("full_name"),
       r

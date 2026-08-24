@@ -100,14 +100,16 @@ export const ideaRepository = {
   async updateIdea(id: string, payload: IdeaPayload) {
     const message = validateIdeaPayload(payload);
     if (message) throw new Error(message);
-    const { error } = await db().from('ideas').update({
+    const { data, error } = await db().from('ideas').update({
       title: clean(payload.title),
       problem_or_opportunity: clean(payload.problem_or_opportunity),
       proposed_solution: clean(payload.proposed_solution),
       expected_benefit: clean(payload.expected_benefit),
       category_id: payload.category_id,
-    }).eq('id', id);
+    }).eq('id', id).select('id,title,updated_at').single();
     if (error) throw error;
+    if (!data) throw new Error('The idea was not updated. Please try again.');
+    return data;
   },
 
   async toggleSupport(idea: any, profileId: string) {
@@ -135,18 +137,16 @@ export const ideaRepository = {
   async notifyMentions(ideaId: string, profileId: string, content: string, commentId: string) {
     const mentionText = content.toLowerCase();
     if (!mentionText.includes('@')) return;
-    const { data: people, error } = await db().from('profiles').select('id,full_name').eq('is_employee', true).eq('workforce_visible', true).eq('status', 'active');
+    const { data: people, error } = await db().from('profiles').select('id,full_name').eq('is_employee', true).eq('workforce_visible', true).neq('role', 'director').eq('status', 'active');
     if (error) throw error;
     const recipients = (people || []).filter((person: any) => person.id !== profileId && person.full_name && mentionText.includes(`@${String(person.full_name).toLowerCase()}`));
-    await Promise.all([...new Map(recipients.map((person: any) => [person.id, person])).values()].map((person: any) => db().rpc('notify_user', {
-      target: person.id,
-      heading: 'You were mentioned in Innovation Hub',
-      message: 'A colleague mentioned you in an Innovation Hub comment.',
-      kind: 'idea_mention',
-      entity: ideaId,
-      link: `/employee/ideas/${ideaId}`,
-      sender: profileId,
-    })));
+    await Promise.all([...new Map(recipients.map((person: any) => [person.id, person])).values()].map(async (person: any) => {
+      const { error } = await db().rpc('notify_idea_mention', {
+        target_profile: person.id,
+        target_comment: commentId,
+      });
+      if (error) throw error;
+    }));
     if (recipients.length) await db().from('idea_activity_logs').insert({ idea_id: ideaId, action_type: 'mention_added', actor_employee_id: profileId, metadata: { comment_id: commentId, mentioned_profile_ids: recipients.map((person: any) => person.id) } });
   },
 

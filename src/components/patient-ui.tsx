@@ -50,7 +50,7 @@ export function PatientForm() {
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { db.from('profiles').select('id,full_name').eq('is_employee', true).eq('workforce_visible', true).in('status', operationalEmployeeStatuses).then(({ data }: any) => setStaff(data || [])); }, []);
+  useEffect(() => { db.from('profiles').select('id,full_name').eq('is_employee', true).eq('workforce_visible', true).neq('role', 'director').in('status', operationalEmployeeStatuses).then(({ data }: any) => setStaff(data || [])); }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
