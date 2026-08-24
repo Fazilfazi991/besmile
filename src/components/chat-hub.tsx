@@ -780,48 +780,40 @@ export function ChatHub() {
                   Back
                 </button>
                 {active.chat_conversations.is_system_group ? (
-                  <span
-                    className="chat-avatar chat-group-avatar"
-                    aria-hidden="true"
-                  >
-                    👥
-                  </span>
+                  <GroupAvatar />
                 ) : (
                   <Avatar name={chatName(active, profile.id)} />
                 )}
-                <div>
-                  <h2>{chatName(active, profile.id)}</h2>
-                  <small>
-                    {isGroup
-                      ? `${members.length} members - ${active.chat_conversations.group_type || "group"}`
-                      : other(active, profile.id)?.designation ||
-                        "Direct conversation"}
-                  </small>
+                <div className="chat-header-copy">
+                  <h2 title={chatName(active, profile.id)}>{chatName(active, profile.id)}</h2>
+                  <small>{conversationMeta(active, profile.id)}</small>
                 </div>
                 <div className="chat-header-actions">
                   <button
+                    className="chat-header-action chat-header-search-action"
                     aria-label="Search messages"
                     title="Search messages"
                     onClick={() =>
                       setMessageQuery((value) => (value ? "" : " "))
                     }
                   >
-                    <span aria-hidden="true">⌕</span>
+                    <SearchIcon />
                   </button>
                   <button
+                    className="chat-header-action"
                     aria-label="Conversation details"
                     title="Conversation details"
                     onClick={() => setDetails((value) => !value)}
                   >
-                    <span aria-hidden="true">i</span>
+                    <InfoIcon />
                   </button>
                   <button
-                    className="chat-more-button"
+                    className="chat-header-action chat-more-button"
                     aria-label="More conversation options"
                     title="More conversation options"
                     onClick={() => setDetails((value) => !value)}
                   >
-                    <span aria-hidden="true">•••</span>
+                    <MoreIcon />
                   </button>
                 </div>
               </header>
@@ -1329,6 +1321,37 @@ function chatName(item: any, userId?: string) {
         .map((member: any) => member.profiles?.full_name)
         .filter(Boolean)
         .join(", ") || "Direct conversation";
+}
+function conversationMeta(item: any, userId?: string) {
+  const conversation = item.chat_conversations || item;
+  if (conversation.conversation_type !== "group")
+    return other(item, userId || "")?.designation || "Direct conversation";
+  const memberCount = (conversation.chat_members || []).length;
+  const groupType = (conversation.group_type || "group").replace(/_/g, " ");
+  return `${memberCount} ${memberCount === 1 ? "member" : "members"} · ${groupType}`;
+}
+function GroupAvatar() {
+  return (
+    <span className="chat-header-group-avatar" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="24" cy="17" r="6" />
+        <path d="M13 37v-2c0-5.5 4.9-9 11-9s11 3.5 11 9v2" />
+        <circle cx="12.5" cy="20" r="4.5" />
+        <path d="M5.5 34v-1c0-3.6 2.9-6.5 6.5-6.5" />
+        <circle cx="35.5" cy="20" r="4.5" />
+        <path d="M42.5 34v-1c0-3.6-2.9-6.5-6.5-6.5" />
+      </svg>
+    </span>
+  );
+}
+function SearchIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.4" /><path d="m16 16 4.4 4.4" /></svg>;
+}
+function InfoIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.4" /><path d="M12 10.7v5.1" /><path d="M12 7.6h.01" /></svg>;
+}
+function MoreIcon() {
+  return <span className="chat-header-more-icon" aria-hidden="true"><i /><i /><i /></span>;
 }
 function messagePreview(message: any) {
   if (!message) return "No messages yet";

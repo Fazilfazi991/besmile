@@ -84,6 +84,17 @@ describe('chat visual density', () => {
     expect(styles).toContain('@media(max-width:1180px){.chat-hub .chat-layout{grid-template-columns:296px minmax(0,1fr)}');
   });
 
+  it('uses the approved compact Teams header without changing its existing controls', () => {
+    expect(component).toContain('<GroupAvatar />');
+    expect(component).toContain('function GroupAvatar()');
+    expect(component).toContain('function conversationMeta(item: any, userId?: string)');
+    expect(component).toContain('setMessageQuery((value) => (value ? "" : " "))');
+    expect(component).toContain('setDetails((value) => !value)');
+    expect(styles).toContain('.chat-hub .chat-header-group-avatar');
+    expect(styles).toContain('.chat-hub .chat-header-search-action{display:none!important}');
+    expect(styles).toContain('.chat-hub .chat-header-actions .chat-more-button{display:grid!important}');
+  });
+
   it('renders persisted reply, edit, and soft-delete states in the existing thread UI', () => {
     expect(component).toContain('reply_to_message_id');
     expect(component).toContain('Replying to ${replyingTo?.sender?.full_name');
