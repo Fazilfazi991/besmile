@@ -1,6 +1,7 @@
 export type PermissionRequirement = { anyOf?: readonly string[]; allOf?: readonly string[]; noneOf?: readonly string[] };
 export type NavigationLink = { label: string; href: string; requirement?: PermissionRequirement; activeHrefs?: readonly string[]; exact?: boolean };
 export type NavigationGroup = { title: string; links: readonly NavigationLink[] };
+export type NavigationSection = { title: string; links: NavigationLink[] };
 
 /** Roles that use the management shell, regardless of their display designation. */
 const managementRoleCodes = new Set(['chairman', 'director', 'general_manager']);
@@ -50,6 +51,38 @@ export function permissionAllows(granted: ReadonlySet<string>, requirement?: Per
 
 export function filterNavigation(groups: readonly NavigationGroup[], granted: ReadonlySet<string>) {
   return groups.map((group) => ({ ...group, links: group.links.filter((link) => permissionAllows(granted, link.requirement)) })).filter((group) => group.links.length > 0);
+}
+
+/** Presents the permission-filtered canonical routes as compact sidebar sections. */
+export function sectionNavigation(groups: readonly NavigationGroup[]): NavigationSection[] {
+  const sections: NavigationSection[] = [
+    { title: 'Overview', links: [] }, { title: 'Operations', links: [] },
+    { title: 'Work Management', links: [] }, { title: 'CRM', links: [] },
+    { title: 'Finance', links: [] }, { title: 'Data & Settings', links: [] },
+  ];
+  const sectionFor = (link: NavigationLink) => {
+    const { href, label } = link;
+    if (href === '/admin' || href === '/employee/dashboard' || href === '/admin/reports') return 'Overview';
+    if (href.includes('/finance')) return 'Finance';
+    if (href.includes('/crm')) return 'CRM';
+    if (href.includes('/employees') || href.includes('/patients') || href.includes('/documents')) return 'Operations';
+    if (href.includes('/access') || href.includes('/profile') || href.includes('/ideas/categories')) return 'Data & Settings';
+    if (/^(Chat|Teams|Announcements|Notifications|Customer Feedback)$/.test(label) || href.includes('/tasks') || href.includes('/attendance') || href.includes('/leave') || href.includes('/calendar') || href.includes('/meetings') || href.includes('/ideas') || href.includes('/doctor-scheduling')) return 'Work Management';
+    return 'Data & Settings';
+  };
+  for (const link of groups.flatMap((group) => group.links)) sections.find((section) => section.title === sectionFor(link))!.links.push(link);
+  return sections.filter((section) => section.links.length > 0);
+}
+
+export function activeNavigationHref(pathname: string, groups: readonly NavigationGroup[]) {
+  let best: { href: string; score: number } | undefined;
+  for (const link of groups.flatMap((group) => group.links)) for (const candidate of [link.href, ...(link.activeHrefs || [])]) {
+    const matches = pathname === candidate || (!link.exact && candidate !== '/admin' && pathname.startsWith(`${candidate}/`));
+    if (!matches) continue;
+    const score = candidate.length + (pathname === candidate ? 10_000 : 0);
+    if (!best || score > best.score) best = { href: link.href, score };
+  }
+  return best?.href;
 }
 
 export function navigationForProfile(role: string | null | undefined) {
