@@ -443,7 +443,7 @@ export default function AdminEmployeeProfile() {
             {formatDate(profile.removed_at)} · {profile.removal_reason || "No reason recorded"}
             {profile.remover?.full_name ? ` · removed by ${profile.remover.full_name}` : ""}
           </p>
-          <p className="mt-1 text-rose-800">Historical attendance, payroll, tasks, CRM, Chat, meetings, finance and audit records remain available.</p>
+          <p className="mt-1 text-rose-800">Historical attendance, payroll, tasks, CRM, Teams, meetings, finance and audit records remain available.</p>
         </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">

@@ -188,7 +188,7 @@ export default function EmployeeDashboard() {
       {canCrm && <Metric label="My sales" value={crmSales.length} href="/employee/crm/sales" />}
     </section>
 
-    <section className="quick-actions">{canLeave && <Link href="/employee/leaves">Apply for leave</Link>}{canTasks && <Link href="/employee/tasks">View tasks</Link>}{canDocuments && <Link href="/employee/documents">Upload document</Link>}{canChat && <Link href="/employee/chat">Open chat</Link>}<Link href="/employee/profile">View profile</Link>{canCrm && <Link href="/employee/crm/leads">Add lead</Link>}{canCrm && <Link href="/employee/crm">Open CRM</Link>}{canCrm && <Link href="/employee/crm/follow-ups">CRM follow-ups</Link>}</section>
+    <section className="quick-actions">{canLeave && <Link href="/employee/leaves">Apply for leave</Link>}{canTasks && <Link href="/employee/tasks">View tasks</Link>}{canDocuments && <Link href="/employee/documents">Upload document</Link>}{canChat && <Link href="/employee/chat">Open Teams</Link>}<Link href="/employee/profile">View profile</Link>{canCrm && <Link href="/employee/crm/leads">Add lead</Link>}{canCrm && <Link href="/employee/crm">Open CRM</Link>}{canCrm && <Link href="/employee/crm/follow-ups">CRM follow-ups</Link>}</section>
 
     <div className="dashboard-columns">
       {canTasks && <Section title="My tasks" link="/employee/tasks" linkLabel="View all tasks"><div className="dashboard-list">{displayTasks.length ? displayTasks.map((item: any) => <TaskRow key={item.id} item={item} today={today} />) : <Empty text="You have no active tasks." />}</div></Section>}

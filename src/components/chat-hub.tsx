@@ -124,7 +124,7 @@ export function ChatHub() {
     } catch (cause: any) {
       console.error(cause);
       setError(
-        "Chat could not be loaded. Please refresh the page or try again shortly.",
+        "Teams could not be loaded. Please refresh the page or try again shortly.",
       );
     } finally {
       setLoading(false);
@@ -552,7 +552,7 @@ export function ChatHub() {
       setGroup({ title: "", description: "", type: "general", members: [] });
       await load(id);
     } catch (cause: any) {
-      setError("Chat could not be created. Please try again shortly.");
+      setError("Teams could not be opened. Please try again shortly.");
       console.error(cause);
     }
   };
@@ -623,8 +623,8 @@ export function ChatHub() {
   if (!profile)
     return (
       <section className="chat-state">
-        <h1>Internal Chat</h1>
-        <p>{error || "Sign in to use chat."}</p>
+        <h1>Teams</h1>
+        <p>{error || "Sign in to use Teams."}</p>
       </section>
     );
   const isGroup = active?.chat_conversations?.conversation_type === "group";
@@ -1044,7 +1044,7 @@ export function ChatHub() {
           ) : (
             <Empty
               title="Choose a conversation"
-              text="Select a conversation from the list, or start a new chat."
+              text="Select a conversation from the list, or start a new Teams conversation."
             />
           )}
         </main>
@@ -1147,7 +1147,7 @@ export function ChatHub() {
                   <button onClick={() => setMode("direct")}>
                     <span>DM</span>
                     <b>Direct message</b>
-                    <small>Chat privately with one employee</small>
+                    <small>Message one employee privately in Teams</small>
                   </button>
                   <button onClick={() => setMode("group")}>
                     <span>GR</span>
@@ -1344,7 +1344,7 @@ function Avatar({ name, large = false }: { name?: string; large?: boolean }) {
 function Empty({ title, text }: { title: string; text: string }) {
   return (
     <div className="chat-empty">
-      <span>Chat</span>
+      <span>Teams</span>
       <b>{title}</b>
       <p>{text}</p>
     </div>
