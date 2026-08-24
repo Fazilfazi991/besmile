@@ -15,7 +15,6 @@ import { currentProfile } from "@/lib/auth";
 import { employeeRepository } from "@/lib/employee-repository";
 import { supabase } from "@/lib/supabase";
 import { isChatMessageActive, isChatMessageLogicallyExpired, upsertChatMessage } from "@/lib/chat-message-state";
-import { chatEmojiGroups, insertEmojiAtCursor } from "@/lib/chat-composer";
 import "./chat-hub-fixes.css";
 
 type Tab = "all" | "unread" | "mentions";
@@ -64,7 +63,6 @@ export function ChatHub() {
   const [messageQuery, setMessageQuery] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [emojiOpen, setEmojiOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingPaused, setRecordingPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -95,7 +93,6 @@ export function ChatHub() {
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const textSelectionRef = useRef({ start: 0, end: 0 });
-  const emojiRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -237,15 +234,6 @@ export function ChatHub() {
     }, 180);
     return () => clearTimeout(timer);
   }, [newChat, peopleQuery, profile?.id]);
-  useEffect(() => {
-    if (!emojiOpen) return;
-    const close = (event: PointerEvent) => {
-      if (!emojiRef.current?.contains(event.target as Node))
-        setEmojiOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, [emojiOpen]);
   useEffect(
     () => () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
@@ -418,26 +406,6 @@ export function ChatHub() {
       setLoadingEarlierMessages(false);
     }
   };
-  const insertEmoji = (emoji: string) => {
-    const input = textRef.current;
-    const selection = textSelectionRef.current;
-    const inserted = insertEmojiAtCursor(
-      text,
-      emoji,
-      selection.start,
-      selection.end,
-    );
-    textSelectionRef.current = {
-      start: inserted.cursor,
-      end: inserted.cursor,
-    };
-    setText(inserted.value);
-    setEmojiOpen(false);
-    requestAnimationFrame(() => {
-      input?.focus();
-      input?.setSelectionRange(inserted.cursor, inserted.cursor);
-    });
-  };
   const releaseRecorder = () => {
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     recordingTimerRef.current = null;
@@ -488,7 +456,6 @@ export function ChatHub() {
       setRecordingSeconds(0);
       setRecording(true);
       setRecordingPaused(false);
-      setEmojiOpen(false);
       recorder.ondataavailable = (event) => {
         if (event.data.size) chunksRef.current.push(event.data);
       };
@@ -672,33 +639,35 @@ export function ChatHub() {
       <div className="chat-layout">
         <aside className="chat-conversation-panel">
           <div className="chat-panel-top">
-            <div>
-              <h2>Messages</h2>
-              <small>
-                {conversations.reduce(
-                  (total, item) => total + (item.unread_count || 0),
-                  0,
-                )}{" "}
-                unread
-              </small>
+            <div className="chat-sidebar-heading">
+              <span className="chat-sidebar-message-icon" aria-hidden="true"><MessageIcon /></span>
+              <div>
+                <h2>Messages</h2>
+                <small>{conversations.reduce((total, item) => total + (item.unread_count || 0), 0)} unread</small>
+              </div>
             </div>
             <button
+              className="chat-new-conversation"
               onClick={() => {
                 setMode("chooser");
                 setSelectedPerson(undefined);
                 setNewChat(true);
               }}
               aria-label="New conversation"
+              title="New conversation"
             >
               +
             </button>
           </div>
-          <input
-            className="input chat-search"
-            placeholder="Search conversations..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+          <label className="chat-search-wrap">
+            <SearchIcon />
+            <input
+              className="input chat-search"
+              placeholder="Search conversations"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
           <div className="chat-tabs">
             {(["all", "unread", "mentions"] as Tab[]).map((value) => (
               <button
@@ -706,6 +675,7 @@ export function ChatHub() {
                 onClick={() => setTab(value)}
                 key={value}
               >
+                <span aria-hidden="true">{value === "all" ? "☰" : value === "unread" ? "○" : "@"}</span>
                 {value[0].toUpperCase() + value.slice(1)}
               </button>
             ))}
@@ -724,24 +694,15 @@ export function ChatHub() {
                   key={item.conversation_id}
                 >
                   {(index === 0 || groupItem !== previousGroup) && (
-                    <p className="chat-list-section">
-                      {groupItem ? "Groups" : "Direct Messages"}
-                    </p>
+                    <div className="chat-list-section">
+                      <span><SectionIcon group={groupItem} />{groupItem ? "Groups" : "Direct Messages"}</span><i /><em aria-hidden="true">⌄</em>
+                    </div>
                   )}
                   <button
                     className={`chat-conversation ${item.chat_conversations.is_system_group ? "system" : ""} ${active?.conversation_id === item.conversation_id ? "active" : ""}`}
                     onClick={() => switchConversation(item)}
                   >
-                    {item.chat_conversations.is_system_group ? (
-                      <span
-                        className="chat-avatar chat-group-avatar"
-                        aria-hidden="true"
-                      >
-                        👥
-                      </span>
-                    ) : (
-                      <Avatar name={chatName(item, profile.id)} />
-                    )}
+                    <ConversationAvatar item={item} userId={profile.id} />
                     <div>
                       <b>{chatName(item, profile.id)}</b>
                       <small>{messagePreview(item.latest_message)}</small>
@@ -948,48 +909,11 @@ export function ChatHub() {
                   </div>
                 ) : (
                   <div className="chat-composer-main">
-                    <div className="chat-emoji-wrap" ref={emojiRef}>
-                      <button
-                        type="button"
-                        className="chat-emoji-button"
-                        aria-label="Choose emoji"
-                        aria-expanded={emojiOpen}
-                        onClick={() => setEmojiOpen((value) => !value)}
-                        disabled={sending}
-                      >
-                        <span aria-hidden="true">☺</span>
-                      </button>
-                      {emojiOpen && (
-                        <div
-                          className="chat-emoji-picker"
-                          role="dialog"
-                          aria-label="Emoji picker"
-                        >
-                          {chatEmojiGroups.map((emojiGroup) => (
-                            <section key={emojiGroup.label}>
-                              <b>{emojiGroup.label}</b>
-                              <div>
-                                {emojiGroup.emojis.map((emoji) => (
-                                  <button
-                                    type="button"
-                                    key={emoji}
-                                    aria-label={`Insert ${emoji}`}
-                                    onClick={() => insertEmoji(emoji)}
-                                  >
-                                    {emoji}
-                                  </button>
-                                ))}
-                              </div>
-                            </section>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                     <textarea
                       ref={textRef}
                       className="input"
                       rows={1}
-                      placeholder={editingMessage ? "Edit message" : "Type a message"}
+                      placeholder={editingMessage ? "Edit message" : "Type a message..."}
                       value={text}
                       onChange={(event) => {
                         setText(event.target.value);
@@ -1035,9 +959,9 @@ export function ChatHub() {
                       disabled={sending || !!file || !active.chat_conversations?.channel_id}
                       aria-label="Attach file"
                     >
-                      <span aria-hidden="true">⌇</span>
-                      <span className="chat-action-label">Attach</span>
+                      <PaperclipIcon />
                     </button>
+                    <span className="chat-composer-divider" aria-hidden="true" />
                     <button
                       type="button"
                       className="chat-mic"
@@ -1045,14 +969,13 @@ export function ChatHub() {
                       onClick={() => void startRecording()}
                       disabled={sending || !!file || !active.chat_conversations?.channel_id}
                     >
-                      <span aria-hidden="true">♩</span>
+                      <MicrophoneIcon />
                     </button>
                     <button className="btn btn-primary" disabled={sending || !active.chat_conversations?.channel_id || (!text.trim() && !file)}>
-                      <span aria-hidden="true">➤</span> {sending ? "Sending..." : "Send"}
+                      <SendIcon /> <span className="chat-send-label">{sending ? "Sending..." : "Send"}</span>
                     </button>
                   </div>
                 )}
-                {!recording && !voicePreview && <small className="chat-composer-tip"><b>Enter</b> to send, <b>Shift + Enter</b> for new line</small>}
               </form>
             </>
           ) : (
@@ -1330,9 +1253,9 @@ function conversationMeta(item: any, userId?: string) {
   const groupType = (conversation.group_type || "group").replace(/_/g, " ");
   return `${memberCount} ${memberCount === 1 ? "member" : "members"} · ${groupType}`;
 }
-function GroupAvatar() {
+function GroupAvatar({ className = "chat-header-group-avatar" }: { className?: string }) {
   return (
-    <span className="chat-header-group-avatar" aria-hidden="true">
+    <span className={className} aria-hidden="true">
       <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="24" cy="17" r="6" />
         <path d="M13 37v-2c0-5.5 4.9-9 11-9s11 3.5 11 9v2" />
@@ -1344,6 +1267,21 @@ function GroupAvatar() {
     </span>
   );
 }
+function ConversationAvatar({ item, userId }: { item: any; userId: string }) {
+  const conversation = item.chat_conversations || item;
+  if (conversation.conversation_type === "group")
+    return conversation.is_system_group
+      ? <GroupAvatar className="chat-sidebar-group-avatar" />
+      : <Avatar name={chatName(item, userId)} className="chat-sidebar-group-initial" />;
+  const person = other(item, userId);
+  return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.avatar_url} />;
+}
+function MessageIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5.5h14v10H11l-4.5 3v-3H5z" /></svg>;
+}
+function SectionIcon({ group }: { group: boolean }) {
+  return group ? <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="9" cy="8.5" r="3" /><circle cx="16.5" cy="10" r="2.5" /><path d="M3.5 19v-1c0-3 2.5-5 5.5-5s5.5 2 5.5 5v1" /><path d="M15 15c2.9 0 5 1.6 5 4" /></svg> : <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.5" /><path d="M5.5 20v-1.4c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6V20" /></svg>;
+}
 function SearchIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.4" /><path d="m16 16 4.4 4.4" /></svg>;
 }
@@ -1352,6 +1290,15 @@ function InfoIcon() {
 }
 function MoreIcon() {
   return <span className="chat-header-more-icon" aria-hidden="true"><i /><i /><i /></span>;
+}
+function PaperclipIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="m9.7 12.9 5.8-5.8a3.1 3.1 0 1 1 4.4 4.4l-7.7 7.7a5 5 0 0 1-7.1-7.1l7.4-7.4" /></svg>;
+}
+function MicrophoneIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect x="8" y="3.5" width="8" height="12" rx="4" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" /></svg>;
+}
+function SendIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="m4 4 16 8-16 8 3-8-3-8Z" /><path d="M7 12h13" /></svg>;
 }
 function messagePreview(message: any) {
   if (!message) return "No messages yet";
@@ -1379,10 +1326,14 @@ function other(item: any, userId: string) {
     (member: any) => member.profile_id !== userId,
   )?.profiles;
 }
-function Avatar({ name, large = false }: { name?: string; large?: boolean }) {
+function Avatar({ name, large = false, imageUrl, className = "" }: { name?: string; large?: boolean; imageUrl?: string | null; className?: string }) {
   return (
-    <span className={`chat-avatar ${large ? "large" : ""}`}>
-      {(name || "?").trim().slice(0, 1).toUpperCase()}
+    <span className={`chat-avatar ${large ? "large" : ""} ${className}`}>
+      {imageUrl?.startsWith("http") ? (
+        // Profile photo URLs are supplied by the existing conversation data.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageUrl} alt="" />
+      ) : (name || "?").trim().slice(0, 1).toUpperCase()}
     </span>
   );
 }

@@ -61,6 +61,18 @@ describe('chat visual density', () => {
     expect(styles).toContain('env(safe-area-inset-bottom)');
   });
 
+  it('uses the approved minimal normal composer without removing message or recording handlers', () => {
+    expect(component).toContain('placeholder={editingMessage ? "Edit message" : "Type a message..."}');
+    expect(component).toContain('<PaperclipIcon />');
+    expect(component).toContain('<MicrophoneIcon />');
+    expect(component).toContain('<SendIcon />');
+    expect(component).toContain('onClick={() => void startRecording()}');
+    expect(component).toContain('onSubmit={send}');
+    expect(component).not.toContain('chat-emoji-wrap');
+    expect(styles).toContain('.chat-hub .chat-composer-divider');
+    expect(styles).toContain('width:50px;min-width:50px;height:44px');
+  });
+
   it('presents existing voice, files, and reactions as compact Teams media', () => {
     expect(component).toContain('const fileKind =');
     expect(component).toContain('className="chat-voice-message"');
@@ -86,13 +98,24 @@ describe('chat visual density', () => {
 
   it('uses the approved compact Teams header without changing its existing controls', () => {
     expect(component).toContain('<GroupAvatar />');
-    expect(component).toContain('function GroupAvatar()');
+    expect(component).toContain('function GroupAvatar({ className = "chat-header-group-avatar" }');
     expect(component).toContain('function conversationMeta(item: any, userId?: string)');
     expect(component).toContain('setMessageQuery((value) => (value ? "" : " "))');
     expect(component).toContain('setDetails((value) => !value)');
     expect(styles).toContain('.chat-hub .chat-header-group-avatar');
     expect(styles).toContain('.chat-hub .chat-header-search-action{display:none!important}');
     expect(styles).toContain('.chat-hub .chat-header-actions .chat-more-button{display:grid!important}');
+  });
+
+  it('keeps the sidebar controls stable above the independently scrolling dynamic conversation list', () => {
+    expect(component).toContain('className="chat-sidebar-heading"');
+    expect(component).toContain('placeholder="Search conversations"');
+    expect(component).toContain('<ConversationAvatar item={item} userId={profile.id} />');
+    expect(component).toContain('item.unread_count > 0');
+    expect(component).toContain('tab === "mentions" && item.mention_count > 0');
+    expect(styles).toContain('.chat-hub .chat-conversation-list{overflow-y:auto;overscroll-behavior:contain');
+    expect(styles).toContain('grid-template-columns:46px minmax(0,1fr) auto');
+    expect(styles).toContain('.chat-hub .chat-sidebar-group-avatar');
   });
 
   it('renders persisted reply, edit, and soft-delete states in the existing thread UI', () => {
