@@ -1,7 +1,7 @@
 export type PermissionRequirement = { anyOf?: readonly string[]; allOf?: readonly string[]; noneOf?: readonly string[] };
 export type NavigationLink = { label: string; href: string; requirement?: PermissionRequirement; activeHrefs?: readonly string[]; exact?: boolean };
 export type NavigationGroup = { title: string; links: readonly NavigationLink[] };
-export type NavigationSection = { title: string; links: readonly NavigationLink[] };
+export type NavigationSection = { title: string; links: NavigationLink[] };
 
 /** Roles that use the management shell, regardless of their display designation. */
 const managementRoleCodes = new Set(['chairman', 'director', 'general_manager']);
