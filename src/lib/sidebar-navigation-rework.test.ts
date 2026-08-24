@@ -100,6 +100,6 @@ describe('Batch 13 sidebar navigation architecture', () => {
     expect(sidebarSource).toContain('aria-label="Close navigation"');
     expect(sidebarSource).toContain('onClick={() => setMobileOpen(false)}');
     expect(sidebarSource).toContain('nav-card-grid');
-    expect(sidebarSource).toContain('setOpenSection((current) => current === section.title ? null : section.title)');
+    expect(sidebarSource).toContain('setSectionState({ pathname, section: openSection === section.title ? null : section.title })');
   });
 });
