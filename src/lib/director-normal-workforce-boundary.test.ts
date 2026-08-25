@@ -9,8 +9,8 @@ describe('Director normal-workforce boundary', () => {
     const adminRepository = read('src/lib/admin-repository.ts');
     const employeeRepository = read('src/lib/employee-repository.ts');
 
-    expect(adminRepository).toContain('.neq("role", "director")');
-    expect(employeeRepository).toContain('.neq("role", "director")');
+    expect(adminRepository.replace(/\s/g, '')).toMatch(/\.neq\(['"]role['"],['"]director['"]\)/);
+    expect(employeeRepository.replace(/\s/g, '')).toMatch(/\.neq\(['"]role['"],['"]director['"]\)/);
     expect(read('src/lib/employees.ts')).toContain(".neq('role','director')");
     expect(read('src/components/patient-ui.tsx')).toContain(".neq('role', 'director')");
     expect(read('src/components/patient-workspace.tsx')).toContain(".neq('role', 'director')");
