@@ -766,7 +766,7 @@ export const employeeRepository = {
     const { data, error } = await r
       .from("chat_members")
       .select(
-        "conversation_id,last_read_at,last_read_message_id,chat_conversations(*,chat_members(profile_id,last_read_at,last_read_message_id,profiles(full_name,email,designation,department:departments(name),avatar_url,status)) )",
+        "conversation_id,last_read_at,last_read_message_id,chat_conversations(*,chat_members(profile_id,last_read_at,last_read_message_id,profiles(full_name,email,designation,department:departments(name),avatar_url,status,last_seen_at)) )",
       )
       .eq("profile_id", userId)
       .order("last_read_at", { ascending: false });
@@ -839,7 +839,7 @@ export const employeeRepository = {
     let request = required()
       .from("chat_messages")
       .select(
-        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name))",
+        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name)),receipts:chat_message_reads(profile_id,delivered_at,read_at)",
       )
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
@@ -954,6 +954,14 @@ export const employeeRepository = {
     const { data, error } = await required().rpc('chat_recipient_search', { search_text: query.trim() });
     if (error) throw error;
     return (data || []).map((person: any) => ({ ...person, department: person.department_name ? { name: person.department_name } : null }));
+  },
+  async markConversationDelivered(conversationId: string, messageId: string) {
+    const { error } = await required().rpc("mark_chat_conversation_delivered", { target_conversation: conversationId, target_message: messageId });
+    if (error) throw error;
+  },
+  async touchChatPresence() {
+    const { error } = await required().rpc("touch_chat_presence");
+    if (error) throw error;
   },
   async toggleChatReaction(messageId: string, emoji: string) {
     const db = required(); const { data: existing, error: findError } = await db.from('chat_message_reactions').select('message_id').eq('message_id', messageId).eq('emoji', emoji).maybeSingle();

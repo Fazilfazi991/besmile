@@ -51,6 +51,14 @@ const dateLabel = (value?: string) => {
     year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
   }).format(date);
 };
+const lastSeenLabel = (value?: string) => {
+  if (!value) return "Offline";
+  const date = new Date(value); const now = new Date(); const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  const clock = time(value);
+  if (date.toDateString() === now.toDateString()) return `Last seen today at ${clock}`;
+  if (date.toDateString() === yesterday.toDateString()) return `Last seen yesterday at ${clock}`;
+  return `Last seen ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: date.getFullYear() === now.getFullYear() ? undefined : "numeric", hour: "numeric", minute: "2-digit" }).format(date)}`;
+};
 type VoicePreview = { file: File; url: string; duration: number };
 
 function AttachmentIcon() {
@@ -113,6 +121,7 @@ export function ChatHub() {
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [mentionProfileIds, setMentionProfileIds] = useState<string[]>([]);
   const [retentionSaving, setRetentionSaving] = useState(false);
+  const [onlineProfileIds, setOnlineProfileIds] = useState<Set<string>>(new Set());
   const [group, setGroup] = useState({
     title: "",
     description: "",
@@ -167,6 +176,16 @@ export function ChatHub() {
     return () => clearTimeout(timer);
   }, [load]);
   useEffect(() => {
+    if (!profile?.id || !supabase) return;
+    const channel = supabase.channel("chat-presence", { config: { presence: { key: profile.id } } })
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState() as Record<string, Array<{ profile_id?: string }>>;
+        setOnlineProfileIds(new Set(Object.values(state).flat().map(item => item.profile_id).filter(Boolean) as string[]));
+      })
+      .subscribe(async (status: string) => { if (status === "SUBSCRIBED") { await channel.track({ profile_id: profile.id, online_at: new Date().toISOString() }); void employeeRepository.touchChatPresence().catch(() => undefined); } });
+    return () => { void channel.untrack(); void supabase.removeChannel(channel); };
+  }, [profile?.id]);
+  useEffect(() => {
     const conversationId = active?.conversation_id;
     const profileId = profile?.id;
     if (!conversationId || !profileId) return;
@@ -188,6 +207,7 @@ export function ChatHub() {
           ),
         );
         setHasEarlierMessages(page.hasMore);
+        if (page.data.at(-1)?.id) await employeeRepository.markConversationDelivered(conversationId, page.data.at(-1).id);
         await employeeRepository.markConversationRead(
           conversationId,
           profileId,
@@ -225,11 +245,14 @@ export function ChatHub() {
         },
         (event: any) => {
           setMessages((rows) => upsertChatMessage(rows, event.new as any));
-          if (event.new.sender_id !== profileId)
+          if (event.new.sender_id !== profileId) {
+            void employeeRepository.markConversationDelivered(conversationId, event.new.id);
             void employeeRepository.markConversationRead(
               conversationId,
               profileId,
+              event.new.id,
             );
+          }
         },
       )
       .on(
@@ -805,8 +828,9 @@ export function ChatHub() {
                   <small>
                     {isGroup
                       ? `${members.length} members - ${active.chat_conversations.group_type || "group"}`
-                      : other(active, profile.id)?.designation ||
-                        "Direct conversation"}
+                      : onlineProfileIds.has(other(active, profile.id)?.profile_id)
+                        ? "Online"
+                        : lastSeenLabel(other(active, profile.id)?.profiles?.last_seen_at)}
                   </small>
                 </div>
                 <div className="chat-header-actions">
@@ -883,6 +907,7 @@ export function ChatHub() {
                         onEdit={() => beginEdit(message)}
                         onDelete={() => void deleteMessage(message.id)}
                         onDirectMessage={() => void openDirectMessage(message.sender_id)}
+                        receipt={!isGroup && message.sender_id === profile.id ? message.receipts?.find((receipt: any) => receipt.profile_id !== profile.id) : null}
                         read={Boolean(!isGroup && message.sender_id === profile.id && members.find((member: any) => member.profile_id !== profile.id)?.last_read_at && new Date(members.find((member: any) => member.profile_id !== profile.id).last_read_at) >= new Date(message.created_at))}
                       />
                     </div>
@@ -1405,6 +1430,7 @@ function Message({
   onEdit,
   onDelete,
   onDirectMessage,
+  receipt,
   read,
 }: {
   message: any;
@@ -1419,6 +1445,7 @@ function Message({
   onEdit: () => void;
   onDelete: () => void;
   onDirectMessage: () => void;
+  receipt?: any;
   read: boolean;
 }) {
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -1507,7 +1534,7 @@ function Message({
       <time>
         {time(message.created_at)}
         {message.edited_at && !message.deleted_at && " · Edited"}
-        {own && (read ? "  Read" : "  Sent")}
+        {own && <span className={`chat-receipt ${receipt?.read_at || read ? "seen" : receipt?.delivered_at ? "delivered" : "sent"}`} aria-label={receipt?.read_at || read ? "Seen" : receipt?.delivered_at ? "Delivered" : "Sent"}>{receipt?.read_at || read ? "✓✓" : receipt?.delivered_at ? "✓✓" : "✓"}</span>}
       </time>
       {!message.deleted_at && !message.expired_at && message.message_type !== "system" && <button className="chat-message-menu-trigger" type="button" aria-label="More message actions" title="More message actions" onClick={openActionMenu}><MessageMenuArrowIcon /></button>}
       {!message.deleted_at && !message.expired_at && message.message_type !== "system" && reactionOpen && <div className="chat-reaction-picker" role="dialog" aria-label="Choose reaction">{['👍','❤️','😂','😮','😢','🎉'].map(emoji => <button type="button" key={emoji} onClick={() => onReact(emoji)}>{emoji}</button>)}</div>}

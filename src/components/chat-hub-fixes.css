@@ -39,6 +39,7 @@
 .chat-hub .chat-message-header h2 { color: #17221f; font-size: 17px; font-weight: 760; }
 .chat-hub .chat-message-header small { margin-top: 1px; color: #788580; font-size: 11px; }
 .chat-hub .chat-header-actions { gap: 2px; }
+.chat-hub .chat-receipt{display:inline-block;margin-left:3px;color:currentColor;font-size:10px;font-weight:900;letter-spacing:-2px;line-height:1}.chat-hub .chat-receipt.delivered{color:#d8f5ef}.chat-hub .chat-receipt.seen{color:#58d4ca}
 .chat-hub .chat-header-actions button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 7px; background: transparent; box-shadow: none; padding: 0; color: #3a4a45; font-size: 17px; }
 .chat-hub .chat-header-actions button:hover { background: #f2f7f5; color: #087a64; }
 .chat-hub .chat-header-actions button:nth-child(2) span { display: grid; width: 16px; height: 16px; place-items: center; border: 2px solid currentColor; border-radius: 50%; font-size: 9px; }
