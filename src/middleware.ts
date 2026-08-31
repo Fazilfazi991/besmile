@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { adminRouteRequirement, employeeRouteRequirement, isManagementRole, isSecurityAdministratorRole, workspaceLandingPath } from '@/lib/permission-access';
+import { grantedPermissions } from '@/lib/granted-permissions';
+import { adminRouteRequirement, employeeRouteRequirement, isManagementRole, isSecurityAdministratorRole, permissionAllows, workspaceLandingPath, type PermissionRequirement } from '@/lib/permission-access';
 
 function redirectWithCookies(request: NextRequest, response: NextResponse, path: string) {
   const redirectResponse = NextResponse.redirect(new URL(path, request.url));
@@ -38,15 +39,25 @@ export async function middleware(request: NextRequest) {
     const isSuperAdmin = profile.role === 'super_admin';
     const isManagement = isManagementRole(profile.role);
     const isOutsourcedClinician = profile.is_employee === false;
-    const hasAnyPermission = async (permissions: readonly string[]) => {
-      const checks = await Promise.all(permissions.map((permission) => supabase.rpc('has_permission', { permission_code: permission })));
-      return checks.some((check) => check.data === true);
+    const hasRequiredPermissions = async (requirement: PermissionRequirement) => {
+      const permissionCodes = [...new Set([
+        ...(requirement.anyOf || []),
+        ...(requirement.allOf || []),
+        ...(requirement.noneOf || []),
+      ])];
+      return permissionAllows(await grantedPermissions(supabase, permissionCodes), requirement);
     };
     const employeeLandingPath = async () => {
-      for (const candidate of ['/employee/dashboard', '/employee/patients', '/employee/crm', '/employee/announcements', '/employee/attendance', '/employee/leaves', '/employee/tasks', '/employee/documents', '/employee/chat']) {
-        const requirement = employeeRouteRequirement(candidate);
-        if (!requirement || await hasAnyPermission(requirement.anyOf || [])) return candidate;
-      }
+      const candidates = ['/employee/dashboard', '/employee/patients', '/employee/crm', '/employee/announcements', '/employee/attendance', '/employee/leaves', '/employee/tasks', '/employee/documents', '/employee/chat'] as const;
+      const requirements = candidates.map((candidate) => employeeRouteRequirement(candidate));
+      const permissionCodes = [...new Set(requirements.flatMap((requirement) => [
+        ...(requirement?.anyOf || []),
+        ...(requirement?.allOf || []),
+        ...(requirement?.noneOf || []),
+      ]))];
+      const allowed = await grantedPermissions(supabase, permissionCodes);
+      const landingIndex = requirements.findIndex((requirement) => permissionAllows(allowed, requirement));
+      if (landingIndex >= 0) return candidates[landingIndex];
       return '/employee/profile';
     };
     if (path === '/') return redirectWithCookies(request, response, isOutsourcedClinician ? '/clinician/schedule' : isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath());
@@ -56,14 +67,16 @@ export async function middleware(request: NextRequest) {
     if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return redirectWithCookies(request, response, '/admin');
     if (path === '/employee') return redirectWithCookies(request, response, await employeeLandingPath());
     if (path.startsWith('/admin')) {
-      if (!isSuperAdmin && !isManagement && !await hasAnyPermission(['admin.shell'])) return redirectWithCookies(request, response, '/unauthorized');
       if (path.startsWith('/admin/access') && !isSecurityAdministratorRole(profile.role)) return redirectWithCookies(request, response, '/unauthorized');
       const requirement = adminRouteRequirement(path);
-      if (!await hasAnyPermission(requirement.anyOf || [])) return redirectWithCookies(request, response, '/unauthorized');
+      const accessRequirement = !isSuperAdmin && !isManagement
+        ? { ...requirement, allOf: ['admin.shell', ...(requirement.allOf || [])] }
+        : requirement;
+      if (!await hasRequiredPermissions(accessRequirement)) return redirectWithCookies(request, response, '/unauthorized');
     }
     if (path.startsWith('/employee')) {
       const requirement = employeeRouteRequirement(path);
-      if (requirement && !await hasAnyPermission(requirement.anyOf || [])) return redirectWithCookies(request, response, '/unauthorized');
+      if (requirement && !await hasRequiredPermissions(requirement)) return redirectWithCookies(request, response, '/unauthorized');
     }
   }
 

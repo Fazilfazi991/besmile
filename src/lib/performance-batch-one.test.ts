@@ -8,6 +8,7 @@ const migration = readFileSync(
 const employeeRepository = readFileSync('src/lib/employee-repository.ts', 'utf8');
 const doctorRepository = readFileSync('src/lib/doctor-scheduling-repository.ts', 'utf8');
 const commandCenter = readFileSync('src/components/global-command-center.tsx', 'utf8');
+const middleware = readFileSync('src/middleware.ts', 'utf8');
 
 describe('performance batch one', () => {
   it('batches permission checks without replacing the hardened permission decision', () => {
@@ -17,6 +18,9 @@ describe('performance batch one', () => {
     expect(employeeRepository).toContain('.rpc("granted_permissions"');
     expect(doctorRepository).toContain('grantedPermissions(db(), codes)');
     expect(doctorRepository).not.toContain("codes.map(code => db().rpc('has_permission'");
+    expect(middleware).toContain('grantedPermissions(supabase, permissionCodes)');
+    expect(middleware).not.toContain("permissions.map((permission) => supabase.rpc('has_permission'");
+    expect(middleware).not.toContain('for (const candidate of');
   });
 
   it('keeps chat and CRM summaries inside the caller RLS context', () => {
