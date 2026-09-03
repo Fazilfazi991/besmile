@@ -10,7 +10,7 @@ describe('invoice creation consistency', () => {
     expect(sql).toContain("has_permission('invoices.manage')");
     expect(sql).toContain('jsonb_array_length(item_rows) = 0');
     expect(sql).toContain('insert into public.finance_invoice_items');
-    expect(repository).toContain("rpc('create_finance_invoice_atomic'");
+    expect(repository).toMatch(/rpc\(\s*["']create_finance_invoice_atomic["']/);
     expect(repository).not.toContain("await r.from('finance_invoices').delete().eq('id',data.id)");
     expect(form).toContain('window.location.assign(`/admin/finance/invoices/${invoice.id}`)');
     expect(form).toContain('disabled={saving !== null}');

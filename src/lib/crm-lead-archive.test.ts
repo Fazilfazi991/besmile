@@ -6,9 +6,9 @@ const page = readFileSync(new URL('../app/admin/crm/leads/[id]/page.tsx', import
 
 describe('CRM lead archive persistence', () => {
   it('filters archived leads from active lists and verifies the mutation returned an archived row', () => {
-    expect(repository).toContain(".from('crm_leads').select");
-    expect(repository).toContain(".is('archived_at',null)");
-    expect(repository).toContain(".select('id,archived_at').single()");
+    expect(repository).toMatch(/\.from\(["']crm_leads["']\)[\s\S]*?\.select/);
+    expect(repository).toMatch(/\.is\(["']archived_at["'],\s*null\)/);
+    expect(repository).toMatch(/\.select\(["']id,archived_at["']\)[\s\S]*?\.single\(\)/);
     expect(repository).toContain('Lead archive did not persist');
   });
   it('uses the shared asynchronous confirmation dialog instead of native confirmation', () => {

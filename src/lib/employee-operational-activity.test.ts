@@ -8,7 +8,7 @@ describe('employee operational activity access', () => {
   it('keeps operational activity separate from the security audit table', () => {
     expect(migration).toContain('create table if not exists public.employee_activity_logs');
     expect(migration).toContain('source_audit_id uuid unique references public.audit_logs');
-    expect(repository).toContain("r.from('employee_activity_logs')");
+    expect(repository).toMatch(/r\s*\.from\(["']employee_activity_logs["']\)/);
   });
 
   it('limits General Manager access to their reporting tree', () => {
@@ -23,9 +23,9 @@ describe('employee operational activity access', () => {
   });
 
   it('renders relation changes with operational labels and display names', () => {
-    expect(repository).toContain("field==='department_id'?'department'");
-    expect(repository).toContain("field==='manager_id'?'reporting_manager'");
-    expect(repository).toContain('departmentNames.get(raw)||raw');
-    expect(repository).toContain('managerNames.get(raw)||raw');
+    expect(repository).toMatch(/field\s*===\s*["']department_id["']/);
+    expect(repository).toMatch(/field\s*===\s*["']manager_id["']/);
+    expect(repository).toMatch(/departmentNames\.get\(raw\)\s*\|\|\s*raw/);
+    expect(repository).toMatch(/managerNames\.get\(raw\)\s*\|\|\s*raw/);
   });
 });

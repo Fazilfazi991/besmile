@@ -10,7 +10,9 @@ describe('staff attendance access', () => {
   it('uses the existing attendance.view permission for the shared staff route and server guard', () => {
     expect(route).toContain('employeeRepository.companyAttendance(workDate)');
     expect(middleware).toContain('const requirement = adminRouteRequirement(path)');
-    expect(middleware).toContain("if (!isSuperAdmin && !isManagement && !await hasAnyPermission(['admin.shell']))");
+    expect(middleware).toContain('const accessRequirement = !isSuperAdmin && !isManagement');
+    expect(middleware).toContain("allOf: ['admin.shell', ...(requirement.allOf || [])]");
+    expect(middleware).toContain('if (!await hasRequiredPermissions(accessRequirement))');
   });
 
   it('reads company attendance without adding an attendance-management mutation', () => {

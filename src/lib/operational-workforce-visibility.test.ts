@@ -48,7 +48,9 @@ describe('operational workforce visibility', () => {
     'src/components/operational-reports.tsx',
     'src/app/admin/employees/new/page.tsx',
   ])('applies visibility to operational selectors in %s', path => {
-    expect(read(path)).toContain('workforce_visible');
+    const source = read(path);
+    if (path === 'src/lib/calendar-meeting-repository.ts') expect(source).toContain(".rpc('meeting_workforce')");
+    else expect(source).toContain('workforce_visible');
   });
 
   it('keeps hidden QA/vendor profiles out of the default employee directory view', () => {

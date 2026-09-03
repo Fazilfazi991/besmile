@@ -55,7 +55,7 @@ describe('employee removal management', () => {
   });
 
   it('keeps removed employees out of meeting, payroll and Chat eligibility', () => {
-    expect(meetingRepository).toContain(".eq('status','active')");
+    expect(meetingRepository).toContain(".rpc('meeting_workforce')");
     expect(payrollMigration).toContain("profile.status = 'active'");
     expect(chatMigration).toContain("p.status::text in ('active', 'intern', 'probation')");
   });

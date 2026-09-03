@@ -16,7 +16,7 @@ describe('task form submission', () => {
   });
 
   it('cleans up task rows when assignment creation is denied', () => {
-    expect(repository).toContain("await r.from('tasks').delete().eq('id',data.id)");
+    expect(repository).toMatch(/await r\s*\.from\(["']tasks["']\)[\s\S]*?\.delete\(\)[\s\S]*?\.eq\(["']id["'],\s*data\.id\)/);
     expect(repository).toContain('Task could not be assigned to the selected employee. Choose an employee within your permitted scope.');
   });
 });

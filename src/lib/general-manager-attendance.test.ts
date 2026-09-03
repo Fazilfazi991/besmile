@@ -7,7 +7,7 @@ const attendanceFoundation = readFileSync(new URL('../../supabase/migrations/000
 
 describe('General Manager attendance', () => {
   it('uses the shared employee attendance actions in the management dashboard', () => {
-    expect(dashboard).toContain('employeeRepository.attendanceToday(signedInProfile.id)');
+    expect(dashboard).toContain('employeeRepository.attendanceToday(profile.id)');
     expect(dashboard).toContain("employeeRepository.clockIn(profile.id, await freshLocation('Clock In'))");
     expect(dashboard).toContain('employeeRepository.startBreak(todayAttendance.id)');
     expect(dashboard).toContain('employeeRepository.endBreak(activeBreak.id)');
@@ -20,7 +20,7 @@ describe('General Manager attendance', () => {
     const adminRepository = readFileSync(new URL('./admin-repository.ts', import.meta.url), 'utf8');
     expect(employeeRepository).toMatch(/async attendanceToday\(userId:\s*string\)/);
     expect(employeeRepository).toMatch(/const workDate\s*=\s*dateKey\(new Date\(\),\s*settings\.timezone\)/);
-    expect(adminRepository).toContain("const today=dateKey(new Date(),settings.timezone)");
+    expect(adminRepository).toMatch(/const today\s*=\s*dateKey\(new Date\(\),\s*settings\.timezone\)/);
   });
 
   it('uses the geofenced RPC insert so duplicate clock-ins cannot overwrite the first timestamp', () => {

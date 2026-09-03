@@ -13,7 +13,7 @@ describe('payroll workflow regressions', () => {
   });
 
   it('marks the payroll run paid when the last entry is paid', () => {
-    expect(adminRepository).toContain("rpc('pay_payroll_entry_atomic'");
+    expect(adminRepository).toMatch(/rpc\(["']pay_payroll_entry_atomic["']/);
     expect(payrollLifecycle).toContain('select * into entry from public.payroll_entries where id=target_entry for update');
     expect(payrollLifecycle).toContain('select * into run from public.payroll_runs where id=entry.payroll_run_id for update');
     expect(payrollLifecycle).toContain("payment_status='paid'");

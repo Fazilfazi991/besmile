@@ -15,9 +15,9 @@ describe('General Manager employee actions', () => {
   });
 
   it('keeps employee update and status failures distinct', () => {
-    expect(repository).toContain("throw new Error('Employee not found.')");
-    expect(repository).toContain("throw new Error('You do not have permission to update this employee.')");
-    expect(repository).toContain("rpc('change_employee_status'");
+    expect(repository).toMatch(/throw new Error\(["']Employee not found\.["']\)/);
+    expect(repository).toMatch(/throw new Error\(["']You do not have permission to update this employee\.["']\)/);
+    expect(repository).toMatch(/rpc\(["']change_employee_status["']/);
   });
 
   it('keeps status changes database-enforced and preserves authenticated on-leave sessions', () => {

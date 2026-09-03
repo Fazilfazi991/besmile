@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260813075816_leave_integrity_and_notification_actor.sql'), 'utf8');
 const repository = readFileSync(resolve(process.cwd(), 'src/lib/admin-repository.ts'), 'utf8');
+const reviewMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260818150519_general-manager-leave-approval-hierarchy.sql'), 'utf8');
 
 describe('leave database integrity and decision attribution', () => {
   it('rejects active overlapping ranges inside a trusted database trigger', () => {
@@ -14,8 +15,9 @@ describe('leave database integrity and decision attribution', () => {
   });
 
   it('records and notifies with the actual reviewer identity', () => {
-    expect(repository).toContain('approver_id:reviewerId');
-    expect(repository).toContain('reviewed_by:reviewerId');
+    expect(repository).toContain('rpc("review_leave_request"');
+    expect(reviewMigration).toContain('approver_id = (select auth.uid())');
+    expect(reviewMigration).toContain('reviewed_by = (select auth.uid())');
     expect(migration).toContain('coalesce(new.reviewed_by,new.approver_id)');
   });
 
