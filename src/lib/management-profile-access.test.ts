@@ -10,7 +10,7 @@ describe('management profile access', () => {
 
   it('shows Profile but not Roles & Access for General Manager permissions', () => {
     const labels = filterNavigation(adminNavigation, new Set(['dashboard.view'])).flatMap(group => group.links.map(link => link.label));
-    expect(labels).toContain('Profile');
+    expect(labels).toContain('My Profile');
     expect(labels).not.toContain('Roles & Access');
   });
 });

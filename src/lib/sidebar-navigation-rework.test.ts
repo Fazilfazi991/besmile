@@ -22,11 +22,11 @@ describe('Batch 13 sidebar navigation architecture', () => {
   });
 
   it('keeps ordinary staff navigation limited to authorized self-service work', () => {
-    const visible = filterNavigation(employeeNavigation, new Set(['dashboard.view', 'tasks.view_self', 'attendance.self', 'leave.self']));
+    const visible = filterNavigation(employeeNavigation, new Set(['dashboard.view', 'tasks.view_self', 'attendance.self', 'leave.self', 'chat.use']));
     // Chat and Meetings are universal active-employee workspaces; the
     // navigation must keep them available even when a role has no optional
     // module grants in this synthetic permission set.
-    expect(labels(visible)).toEqual(['Dashboard', 'My Tasks', 'My Calendar', 'Meetings', 'My Attendance', 'Leave Requests', 'Chat', 'Notifications', 'My Profile']);
+    expect(labels(visible)).toEqual(['Dashboard', 'My Tasks', 'My Calendar', 'Holiday Calendar', 'Meetings', 'My Attendance', 'Leave Requests', 'Chat', 'Notifications', 'My Profile']);
     expect(labels(visible)).not.toEqual(expect.arrayContaining(['Employees', 'Staff Attendance', 'Finance Dashboard', 'Roles & Access', 'CRM Overview']));
   });
 

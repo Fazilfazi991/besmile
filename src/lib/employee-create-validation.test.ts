@@ -18,7 +18,7 @@ describe('employee create validation', () => {
   it('normalizes joining dates before employee invitation/profile creation', () => {
     expect(action).toContain("import { normalizeDateOnly } from '@/lib/employee-edit-rules'");
     expect(action).toContain('normalizeDateOnly(rawJoiningDate)');
-    expect(action.indexOf('normalizeDateOnly(rawJoiningDate)')).toBeLessThan(action.indexOf('inviteUserByEmail(email)'));
+    expect(action.indexOf('normalizeDateOnly(rawJoiningDate)')).toBeLessThan(action.indexOf('admin.auth.admin.createUser'));
     expect(action).toContain('Joining date must be a valid calendar date.');
   });
 
