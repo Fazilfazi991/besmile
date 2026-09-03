@@ -16,10 +16,16 @@ export function CustomerFeedbackDashboardWidget() {
   const [items, setItems] = useState<Feedback[] | null>(null);
 
   useEffect(() => {
-    void fetch('/api/customer-feedback', { cache: 'no-store' })
+    const load = () => { void fetch('/api/customer-feedback', { cache: 'no-store' })
       .then(async (response) => response.ok ? response.json() : null)
       .then((data) => setItems(data?.configured ? data.items || [] : null))
-      .catch(() => setItems(null));
+      .catch(() => setItems(null)); };
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(load, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = globalThis.setTimeout(load, 2500);
+    return () => globalThis.clearTimeout(id);
   }, []);
 
   const metrics = useMemo(() => {
