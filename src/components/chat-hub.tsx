@@ -1044,7 +1044,7 @@ export function ChatHub() {
                     {mentionMatch && mentionCandidates.length > 0 && (
                       <div className="chat-mention-picker" role="listbox" aria-label="Mention a participant">
                         {mentionCandidates.map((member: any) => (
-                          <button type="button" role="option" key={member.profile_id} onClick={() => chooseMention(member)}>
+                          <button type="button" role="option" aria-selected="false" key={member.profile_id} onClick={() => chooseMention(member)}>
                             <Avatar name={member.profiles?.full_name} />
                             <span><b>{member.profiles?.full_name}</b><small>{member.profiles?.designation || "Participant"}</small></span>
                           </button>
