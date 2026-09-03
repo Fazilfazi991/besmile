@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 const env = Object.fromEntries(fs.readFileSync('.env.local', 'utf8').split(/\r?\n/).filter((line) => line && !line.startsWith('#') && line.includes('=')).map((line) => { const separator = line.indexOf('='); return [line.slice(0, separator), line.slice(separator + 1).replace(/^['"]|['"]$/g, '')]; }));
 const projectRef = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split('.')[0];
 if (projectRef !== 'ksmqzxncdvuxiabypjth' || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) throw new Error('Verified project URL and anonymous key are required.');
-const approvedTemporaryCredential = String.fromCharCode(66, 115, 109, 105, 108, 101, 64, 49, 50, 51, 52);
+const approvedTemporaryCredential = process.env.QA_AUDIT_PASSWORD || env.SEED_USER_TEMP_PASSWORD;
+if (!approvedTemporaryCredential) throw new Error('Set QA_AUDIT_PASSWORD or SEED_USER_TEMP_PASSWORD before verifying staff logins.');
 const staff = [
   { email: 'bsmile.gm@gmail.com', id: 'e64c5750-b585-4cab-9478-2c1fbad3b26e', role: 'general_manager', route: '/admin', landingPermission: 'leave.approve' },
   { email: 'diyaadminbsmile@gmail.com', id: 'ccb736c8-de18-4dec-9b18-cda4c3fdd1b5', role: 'staff', route: '/employee/dashboard', landingPermission: 'dashboard.view' },

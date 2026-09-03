@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 
 const env = Object.fromEntries(fs.readFileSync('.env.local', 'utf8').split(/\r?\n/).filter((line) => line && !line.startsWith('#') && line.includes('=')).map((line) => { const separator = line.indexOf('='); return [line.slice(0, separator), line.slice(separator + 1).replace(/^['"]|['"]$/g, '')]; }));
 if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('Required server-side activation environment variables are missing.');
-const approvedTemporaryCredential = String.fromCharCode(66, 115, 109, 105, 108, 101, 64, 49, 50, 51, 52);
+const approvedTemporaryCredential = process.env.SEED_USER_TEMP_PASSWORD;
+if (!approvedTemporaryCredential) throw new Error('Set SEED_USER_TEMP_PASSWORD before activating staff accounts.');
 const projectRef = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split('.')[0];
 if (projectRef !== 'ksmqzxncdvuxiabypjth') throw new Error(`Refusing to update unexpected project ${projectRef}.`);
 

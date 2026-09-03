@@ -5,7 +5,8 @@ const env = Object.fromEntries(fs.readFileSync('.env.local', 'utf8').split(/\r?\
 if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('Required server-side Supabase variables are missing.');
 const projectRef = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split('.')[0];
 if (projectRef !== 'ksmqzxncdvuxiabypjth') throw new Error(`Refusing to update unexpected project ${projectRef}.`);
-const approvedTemporaryCredential = String.fromCharCode(66, 115, 109, 105, 108, 101, 64, 49, 50, 51, 52);
+const approvedTemporaryCredential = process.env.SEED_USER_TEMP_PASSWORD;
+if (!approvedTemporaryCredential) throw new Error('Set SEED_USER_TEMP_PASSWORD before provisioning restricted staff.');
 const apply = process.argv.includes('--apply');
 const staff = [
   { full_name: 'Ayisha Muneer', email: 'ayishamuneer.dxb@gmail.com', role: 'intern', department: 'Psychology', designation: 'Psychology Intern', landing: '/employee/patients' },
