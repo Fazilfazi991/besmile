@@ -7,6 +7,7 @@ import { MobileNavigationProvider, MobileNavigationTrigger } from '@/components/
 import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { grantedPermissions } from '@/lib/granted-permissions';
 import Link from 'next/link';
+import '../workspace-density.css';
 
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
