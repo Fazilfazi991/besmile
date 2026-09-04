@@ -32,6 +32,8 @@ describe('doctor scheduling migration', () => {
     expect(patientActionsMigration).toContain('log_doctor_appointment_patient_activity');
     expect(patientActionsMigration).toContain('appointment_deleted');
     expect(patientActionsMigration).toContain("notify pgrst, 'reload schema'");
+    expect(patientActionsMigration).toContain("role.code::text in ('administration','administration_admin','reception','receptionist')");
+    expect(patientActionsMigration).not.toContain("role.code in ('administration','administration_admin','reception','receptionist')");
   });
 
   it('corrects reusable patient navigation, appointment, and idea permissions', () => {
@@ -45,5 +47,7 @@ describe('doctor scheduling migration', () => {
     expect(navigationAccessMigration).toContain('idea_supports');
     expect(navigationAccessMigration).toContain('author_employee_id = auth.uid()');
     expect(navigationAccessMigration).not.toContain('idea_support ');
+    expect(navigationAccessMigration).toContain("role.code::text in ('social_worker')");
+    expect(navigationAccessMigration).toContain("role.code::text in ('intern_psychologist')");
   });
 });

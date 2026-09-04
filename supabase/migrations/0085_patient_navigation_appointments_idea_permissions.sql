@@ -43,10 +43,10 @@ begin
     from public.roles role
     join public.permissions permission
       on (
-        (role.code in ('chairman','director','general_manager') and permission.code = any(administration_permissions))
-        or (role.code in ('psychologist') and permission.code = any(psychologist_permissions))
-        or (role.code in ('social_worker') and permission.code = any(social_worker_permissions))
-        or (role.code in ('intern_psychologist') and permission.code = any(intern_psychologist_permissions))
+        (role.code::text in ('chairman','director','general_manager') and permission.code = any(administration_permissions))
+        or (role.code::text in ('psychologist') and permission.code = any(psychologist_permissions))
+        or (role.code::text in ('social_worker') and permission.code = any(social_worker_permissions))
+        or (role.code::text in ('intern_psychologist') and permission.code = any(intern_psychologist_permissions))
       )
     on conflict do nothing;
 
@@ -55,7 +55,7 @@ begin
     where role_permission.role_id = role.id
       and role_permission.permission_id = permission.id
       and permission.code = 'patients.view_assigned'
-      and role.code in ('administration','administration_admin','reception','receptionist','social_worker','chairman','director','general_manager');
+      and role.code::text in ('administration','administration_admin','reception','receptionist','social_worker','chairman','director','general_manager');
   elsif exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'role_permissions' and column_name = 'role') then
     insert into public.role_permissions(role, permission_id)
     select seed.role_name::public.employee_role, permission.id

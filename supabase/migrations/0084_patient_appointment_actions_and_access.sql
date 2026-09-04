@@ -104,10 +104,10 @@ begin
     from public.roles role
     join public.permissions permission
       on (
-        (role.code in ('chairman','director','general_manager') and permission.code = any(management_permissions))
-        or (role.code in ('administration','administration_admin','reception','receptionist') and permission.code = any(administration_permissions))
-        or (role.code in ('psychologist','social_worker') and permission.code = any(care_team_permissions))
-        or (role.code = 'intern' and permission.code = any(intern_permissions))
+        (role.code::text in ('chairman','director','general_manager') and permission.code = any(management_permissions))
+        or (role.code::text in ('administration','administration_admin','reception','receptionist') and permission.code = any(administration_permissions))
+        or (role.code::text in ('psychologist','social_worker') and permission.code = any(care_team_permissions))
+        or (role.code::text = 'intern' and permission.code = any(intern_permissions))
       )
     on conflict do nothing;
   elsif exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'role_permissions' and column_name = 'role') then
