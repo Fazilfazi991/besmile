@@ -7,4 +7,9 @@
 --
 -- Do not grant PUBLIC or anon: this keeps the helper unavailable to unauthenticated
 -- callers while restoring the intended policy path for signed-in users.
-grant execute on function public.meeting_notes_editable(uuid) to authenticated;
+do $$
+begin
+  if to_regprocedure('public.meeting_notes_editable(uuid)') is not null then
+    execute 'grant execute on function public.meeting_notes_editable(uuid) to authenticated';
+  end if;
+end $$;
