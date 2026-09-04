@@ -9,6 +9,8 @@ const migrations = {
   onboarding: read('20260904103540_restore_employee_onboarding.sql'),
   meetings: read('20260904103546_restore_meetings_minutes.sql'),
   policies: read('20260904103552_restore_policy_documents.sql'),
+  chatLifecycle: read('20260904105017_restore_chat_message_lifecycle.sql'),
+  clinicianPayout: read('20260904105024_restore_clinician_payout_configuration.sql'),
 };
 
 describe('Phase 8E canonical database recovery', () => {
@@ -55,5 +57,21 @@ describe('Phase 8E canonical database recovery', () => {
 
   it('does not restore obsolete chat_channels compatibility drift', () => {
     expect(migrations.chat).not.toContain('create table if not exists public.chat_channels');
+  });
+
+  it('restores active chat lifecycle functions with hardened execution', () => {
+    for (const fn of ['chat_reply_target_is_valid', 'edit_chat_message', 'delete_chat_message', 'set_chat_disappearing_messages', 'expire_chat_messages']) {
+      expect(migrations.chatLifecycle).toContain(fn);
+    }
+    expect(migrations.chatLifecycle).toContain('from public,anon,authenticated');
+    expect(migrations.chatLifecycle).toContain('expire_chat_messages() to service_role');
+  });
+
+  it('restores clinician payout configuration without broadening Finance roles', () => {
+    for (const fn of ['appointment_psychologist_payment_rates', 'managed_psychologist_payout_settings', 'set_psychologist_payout_setting', 'initialize_outsourced_psychologist_payout_setting']) {
+      expect(migrations.clinicianPayout).toContain(fn);
+    }
+    expect(migrations.clinicianPayout).toContain('from public, anon, authenticated');
+    expect(migrations.clinicianPayout).toContain('approved outsourced clinician payout-rate management');
   });
 });
