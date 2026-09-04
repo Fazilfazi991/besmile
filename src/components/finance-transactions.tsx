@@ -3,7 +3,16 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { currentProfile } from "@/lib/auth";
 import { adminRepository } from "@/lib/admin-repository";
-import { FinanceEmpty, inr } from "@/components/finance-ui";
+import { FinanceWorkspaceTabs, inr } from "@/components/finance-ui";
+import {
+  CompactEmptyState,
+  CompactPageHeader,
+  DataTableShell,
+  ModuleTabs,
+  ModuleToolbar,
+  Pagination,
+  StatusBadge,
+} from "@/components/compact-module";
 import { financeEntryValidationMessage } from "@/lib/finance-master-data-rules";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import {
@@ -35,6 +44,8 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
   const [profile, setProfile] = useState<any>();
   const [edit, setEdit] = useState<any>();
   const [archived, setArchived] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{
@@ -131,6 +142,11 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
   );
   const total = shown.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const withReceipt = shown.filter((row) => row.receipt_path).length;
+  const visibleRows = shown.slice((page - 1) * pageSize, page * pageSize);
+  const resetFilters = () => {
+    setFilter({ search: "", account: "", category: "", from: "", to: "" });
+    setPage(1);
+  };
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -268,103 +284,135 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
       />
     );
   return (
-    <section className="mx-auto max-w-[1320px] space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <section className="compact-module finance-transactions-workspace">
+      <CompactPageHeader
+        title={noun}
+        description={`Record, review, and retain receipts for live ${noun.toLowerCase()} transactions.`}
+        action={
+          <button
+            className="btn btn-primary"
+            disabled={loading}
+            onClick={() => setEdit(initial())}
+          >
+            Add {noun.toLowerCase()}
+          </button>
+        }
+      />
+      <FinanceWorkspaceTabs current={`/admin/finance/${type}`} />
+      <div
+        className="module-summary-strip finance-summary-strip"
+        aria-label={`${noun} summary`}
+      >
         <div>
-          <p className="eyebrow">Finance</p>
-          <h1 className="text-2xl font-bold">{noun}</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Record, review, and retain receipts for live {noun.toLowerCase()}{" "}
-            transactions.
-          </p>
+          <span>Filtered total</span>
+          <b>{inr(total)}</b>
         </div>
-        <button
-          className="btn btn-primary"
-          disabled={loading}
-          onClick={() => setEdit(initial())}
-        >
-          Add {noun.toLowerCase()}
-        </button>
+        <div>
+          <span>Transactions</span>
+          <b>{shown.length}</b>
+        </div>
+        <div>
+          <span>Receipts attached</span>
+          <b>{withReceipt}</b>
+        </div>
+        <div>
+          <span>Current view</span>
+          <b>{archived ? "Archived" : "Active"}</b>
+        </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Metric
-          label={`Filtered ${noun.toLowerCase()}`}
-          value={inr(total)}
-          hint={`${shown.length} transaction${shown.length === 1 ? "" : "s"}`}
-        />
-        <Metric
-          label="Receipts attached"
-          value={String(withReceipt)}
-          hint="Signed private links"
-        />
-        <Metric
-          label="View"
-          value={archived ? "Archived" : "Active"}
-          hint={archived ? "Restorable records" : "Current ledger entries"}
-        />
-      </div>
-      <div className="card grid gap-2 p-3 md:grid-cols-[minmax(210px,1fr)_170px_170px_150px_150px_auto]">
+      <ModuleTabs
+        label={`${noun} record state`}
+        value={archived ? "archived" : "active"}
+        tabs={[
+          { value: "active", label: "Active" },
+          { value: "archived", label: "Archived" },
+        ]}
+        onChange={(value) => {
+          setArchived(value === "archived");
+          setPage(1);
+        }}
+      />
+      <ModuleToolbar>
         <input
-          className="input"
-          placeholder="Search description or reference"
+          className="input module-search"
+          aria-label={`Search ${noun.toLowerCase()} transactions`}
+          placeholder="Search description, reference, or counterparty"
           value={filter.search}
-          onChange={(event) =>
-            setFilter({ ...filter, search: event.target.value })
-          }
+          onChange={(event) => {
+            setFilter({ ...filter, search: event.target.value });
+            setPage(1);
+          }}
         />
-        <select
-          className="input"
-          value={filter.account}
-          onChange={(event) =>
-            setFilter({ ...filter, account: event.target.value })
-          }
-        >
-          <option value="">All accounts</option>
-          {options.accounts.map((account: any) => (
-            <option key={account.id} value={account.id}>
-              {account.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input"
-          value={filter.category}
-          onChange={(event) =>
-            setFilter({ ...filter, category: event.target.value })
-          }
-        >
-          <option value="">All categories</option>
-          {categories.map((category: any) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <input
-          className="input"
-          aria-label="From date"
-          type="date"
-          value={filter.from}
-          onChange={(event) =>
-            setFilter({ ...filter, from: event.target.value })
-          }
-        />
-        <input
-          className="input"
-          aria-label="To date"
-          type="date"
-          value={filter.to}
-          onChange={(event) => setFilter({ ...filter, to: event.target.value })}
-        />
-        <label className="flex items-center gap-2 px-2 text-sm font-medium">
-          <input
-            type="checkbox"
-            checked={archived}
-            onChange={(event) => setArchived(event.target.checked)}
-          />
-          Archived
+        <label>
+          <span className="sr-only">Account</span>
+          <select
+            className="input"
+            value={filter.account}
+            onChange={(event) => {
+              setFilter({ ...filter, account: event.target.value });
+              setPage(1);
+            }}
+          >
+            <option value="">All accounts</option>
+            {options.accounts.map((account: any) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
         </label>
-      </div>
+        <label>
+          <span className="sr-only">Category</span>
+          <select
+            className="input"
+            value={filter.category}
+            onChange={(event) => {
+              setFilter({ ...filter, category: event.target.value });
+              setPage(1);
+            }}
+          >
+            <option value="">All categories</option>
+            {categories.map((category: any) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">From date</span>
+          <input
+            className="input"
+            aria-label="From date"
+            type="date"
+            value={filter.from}
+            onChange={(event) => {
+              setFilter({ ...filter, from: event.target.value });
+              setPage(1);
+            }}
+          />
+        </label>
+        <label>
+          <span className="sr-only">To date</span>
+          <input
+            className="input"
+            aria-label="To date"
+            type="date"
+            value={filter.to}
+            onChange={(event) => {
+              setFilter({ ...filter, to: event.target.value });
+              setPage(1);
+            }}
+          />
+        </label>
+        <button
+          className="btn module-reset"
+          type="button"
+          onClick={resetFilters}
+        >
+          Reset
+        </button>
+      </ModuleToolbar>
       {notice && (
         <p
           className={`rounded-xl border px-4 py-3 text-sm ${notice.type === "error" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-teal-200 bg-teal-50 text-teal-900"}`}
@@ -380,9 +428,9 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
           )}
         </p>
       )}
-      <div className="card min-w-0 max-w-full overflow-x-auto">
-        <table className="min-w-[1050px] w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+      <DataTableShell label={`${noun} transactions`}>
+        <table className="module-table finance-transactions-table">
+          <thead>
             <tr>
               {[
                 "Date",
@@ -394,27 +442,23 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                 "Status",
                 "Actions",
               ].map((label) => (
-                <th className="px-4 py-3 text-left" key={label}>
-                  {label}
-                </th>
+                <th key={label}>{label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading
               ? Array.from({ length: 4 }, (_, index) => (
-                  <tr className="border-t" key={index}>
-                    <td className="px-4 py-5" colSpan={8}>
-                      <div className="h-4 animate-pulse rounded bg-slate-100" />
+                  <tr className="module-skeleton-row" key={index}>
+                    <td colSpan={8}>
+                      <span />
                     </td>
                   </tr>
                 ))
-              : shown.map((row) => (
-                  <tr className="border-t border-slate-100" key={row.id}>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {row.transaction_date}
-                    </td>
-                    <td className="px-4 py-3">
+              : visibleRows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.transaction_date}</td>
+                    <td>
                       <b>
                         {row.description ||
                           row.counterparty_name ||
@@ -426,16 +470,18 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                           "No counterparty or reference"}
                       </small>
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       {row[
                         type === "income"
                           ? "income_category"
                           : "expense_category"
                       ]?.name || "Uncategorised"}
                     </td>
-                    <td className="px-4 py-3">{row.account?.name || "—"}</td>
-                    <td className="px-4 py-3 font-bold">{inr(row.amount)}</td>
-                    <td className="px-4 py-3">
+                    <td>{row.account?.name || "—"}</td>
+                    <td>
+                      <b>{inr(row.amount)}</b>
+                    </td>
+                    <td>
                       {row.receipt_path ? (
                         <button
                           className="font-medium text-teal-700 hover:underline"
@@ -447,14 +493,12 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                         <span className="text-slate-400">Missing</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-bold ${row.archived_at ? "bg-slate-100 text-slate-600" : "bg-emerald-50 text-emerald-800"}`}
-                      >
-                        {row.archived_at ? "Archived" : "Active"}
-                      </span>
+                    <td>
+                      <StatusBadge
+                        status={row.archived_at ? "archived" : "active"}
+                      />
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td>
                       <button
                         className="font-medium text-teal-700 hover:underline"
                         onClick={() => setEdit({ ...row })}
@@ -472,12 +516,59 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                 ))}
           </tbody>
         </table>
+        <div className="module-mobile-records">
+          {loading
+            ? Array.from({ length: 4 }, (_, index) => (
+                <span className="module-mobile-skeleton" key={index} />
+              ))
+            : visibleRows.map((row) => (
+                <article key={row.id}>
+                  <div>
+                    <b>
+                      {row.description ||
+                        row.counterparty_name ||
+                        "Untitled transaction"}
+                    </b>
+                    <b>{inr(row.amount)}</b>
+                  </div>
+                  <p>
+                    {row.transaction_date} ·{" "}
+                    {row[
+                      type === "income" ? "income_category" : "expense_category"
+                    ]?.name || "Uncategorised"}
+                  </p>
+                  <small>
+                    {row.counterparty_name ||
+                      row.account?.name ||
+                      "No counterparty"}
+                  </small>
+                  <button
+                    className="module-view"
+                    onClick={() => setEdit({ ...row })}
+                  >
+                    Edit
+                  </button>
+                </article>
+              ))}
+        </div>
         {!loading && !shown.length && (
-          <FinanceEmpty>
-            No {noun.toLowerCase()} transactions match these filters.
-          </FinanceEmpty>
+          <CompactEmptyState
+            title={`No ${noun.toLowerCase()} transactions`}
+            description="No records match the current filters."
+          />
         )}
-      </div>
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 50]}
+          total={shown.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      </DataTableShell>
       {edit && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
           <form
@@ -645,23 +736,6 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
         </div>
       )}
     </section>
-  );
-}
-function Metric({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-}) {
-  return (
-    <div className="card p-4">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-bold">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{hint}</p>
-    </div>
   );
 }
 function Field({
