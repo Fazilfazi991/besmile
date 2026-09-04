@@ -1,64 +1,118 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { CompactEmptyState, CompactPageHeader, DataTableShell, ModuleTabs, ModuleToolbar, Pagination, StatusBadge } from '@/components/compact-module';
 import { adminRepository } from '@/lib/admin-repository';
 import { employeeRepository } from '@/lib/employee-repository';
 import { currentProfile } from '@/lib/auth';
+import { filterLeaveRequests, paginateRecords, type LeaveStatusFilter } from '@/lib/leave-workspace';
 
-const displayDate = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`)) : '-';
+const displayDate = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`)) : '—';
+const displayDateTime = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) : '—';
+const statusValues: LeaveStatusFilter[] = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
 
 export default function LeaveApprovalsPage() {
   const searchParams = useSearchParams();
   const requestId = searchParams.get('request') || '';
   const [profile, setProfile] = useState<any>();
   const [requests, setRequests] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any>();
   const [comments, setComments] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState<'pending' | 'all'>(() => requestId ? 'all' : 'pending');
+  const [status, setStatus] = useState<LeaveStatusFilter>(() => requestId ? 'all' : 'pending');
+  const [query, setQuery] = useState('');
+  const [leaveType, setLeaveType] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
   const [busy, setBusy] = useState<string>();
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const user = await currentProfile() as any;
       if (!user) throw new Error('Your session has expired.');
       const allowed = await Promise.all(['leave.approve', 'leave.manage', 'leave.review'].map(code => employeeRepository.hasPermission(code)));
       if (!allowed.some(Boolean)) throw new Error('You do not have permission to review leave requests.');
+      const nextRequests = await adminRepository.leaveRequests();
       setProfile(user);
-      setRequests(await adminRepository.leaveRequests());
+      setRequests(nextRequests);
+      setSelected((current: any) => {
+        const selectedId = current?.id || requestId;
+        return selectedId ? nextRequests.find((request: any) => request.id === selectedId) : undefined;
+      });
       setError('');
     } catch (cause: any) {
-      setError(cause.message || 'Leave requests could not be loaded.');
-    }
-  };
+      setError(cause.message || 'Leave requests could not be loaded. Refresh the page to try again.');
+    } finally { setLoading(false); }
+  }, [requestId]);
 
-  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, []);
-  useEffect(() => { if (!requestId) return; window.setTimeout(() => document.getElementById(`leave-request-${requestId}`)?.scrollIntoView({ block: 'center' }), 100); }, [requestId, requests.length]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
+  useEffect(() => {
+    if (!selected) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(undefined); };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [selected]);
 
-  const visible = useMemo(() => filter === 'pending' ? requests.filter(request => request.status === 'pending') : requests, [filter, requests]);
-  const linkedRequestMissing = requestId && requests.length > 0 && !requests.some(request => request.id === requestId);
+  const counts = useMemo(() => Object.fromEntries(statusValues.map(value => [value, value === 'all' ? requests.length : requests.filter(request => request.status === value).length])), [requests]);
+  const leaveTypes = useMemo(() => Array.from(new Set(requests.map(request => request.leave_types?.name || request.leave_type).filter(Boolean))).sort() as string[], [requests]);
+  const filtered = useMemo(() => filterLeaveRequests(requests, { status, query, leaveType }), [requests, status, query, leaveType]);
+  const pagination = useMemo(() => paginateRecords(filtered, page, pageSize), [filtered, page, pageSize]);
+  const linkedRequestMissing = requestId && !loading && requests.length > 0 && !requests.some(request => request.id === requestId);
 
-  const review = async (id: string, status: 'approved' | 'rejected') => {
+  const resetFilters = () => { setQuery(''); setLeaveType(''); setStatus('all'); setPage(1); };
+  const review = async (id: string, decision: 'approved' | 'rejected') => {
     if (!profile) return;
-    setBusy(id);
-    setError('');
-    try {
-      await adminRepository.reviewLeaveRequest(id, status, comments[id] || '', profile.id);
-      await load();
-    } catch (cause: any) {
-      setError(cause.message || 'Leave review could not be saved.');
-    } finally {
-      setBusy(undefined);
-    }
+    setBusy(id); setError('');
+    try { await adminRepository.reviewLeaveRequest(id, decision, comments[id] || '', profile.id); await load(); }
+    catch (cause: any) { setError(cause.message || 'Leave review could not be saved. Try again.'); }
+    finally { setBusy(undefined); }
   };
 
-  return <section className="space-y-5">
-    <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">WORK MANAGEMENT</p><h1 className="text-2xl font-bold">Leave approvals</h1><p className="text-slate-600">Review pending employee leave requests and record a decision.</p></div><label className="text-sm font-medium">Show <select className="input ml-2 h-10 py-2" value={filter} onChange={event => setFilter(event.target.value as 'pending' | 'all')}><option value="pending">Pending only</option><option value="all">All requests</option></select></label></header>
-    {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
-    {linkedRequestMissing && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">This request is no longer available.</p>}
-    <div className="card overflow-hidden">
-      <div className="border-b px-5 py-4"><b>{visible.length} {filter === 'pending' ? 'pending ' : ''}request{visible.length === 1 ? '' : 's'}</b></div>
-      {visible.length === 0 ? <p className="p-6 text-sm text-slate-600">No leave requests match this view.</p> : <div className="divide-y">{visible.map(request => <article className={`space-y-3 p-5 ${request.id === requestId ? 'bg-amber-50 ring-2 ring-inset ring-amber-300' : ''}`} id={`leave-request-${request.id}`} key={request.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><b>{request.employee?.full_name || 'Employee'}</b><p className="text-sm text-slate-600">{request.employee?.employee_code || request.employee?.email || 'Employee profile'} - {request.employee?.designation || 'Employee'}</p><p className="mt-2 font-medium">{request.leave_types?.name || request.leave_type || 'Leave'} - {displayDate(request.starts_on)} - {displayDate(request.ends_on)}</p><p className="mt-1 text-sm text-slate-700">{request.reason || 'No reason provided.'}</p><p className="mt-1 text-xs text-slate-500">{Number(request.requested_days || 0)} day(s){request.half_day ? ' - Half day' : ''}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${request.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : request.status === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{request.status}</span></div>{request.status === 'pending' ? <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row"><input aria-label={`Approval comment for ${request.employee?.full_name || request.id}`} className="input min-w-0 flex-1" placeholder="Approval comment (optional)" value={comments[request.id] || ''} onChange={event => setComments({ ...comments, [request.id]: event.target.value })} /><button className="btn btn-primary" disabled={busy === request.id} onClick={() => void review(request.id, 'approved')}>Approve</button><button className="btn border border-rose-300 text-rose-700" disabled={busy === request.id} onClick={() => void review(request.id, 'rejected')}>Reject</button></div> : <p className="border-t pt-3 text-sm text-slate-600"><b>Review comment:</b> {request.approval_comment || '-'}</p>}</article>)}</div>}
+  const tabs = statusValues.map(value => ({ value, label: value === 'all' ? 'All' : `${value[0].toUpperCase()}${value.slice(1)}`, count: counts[value] || 0 }));
+  const selectedCanReview = Boolean(selected && profile && selected.status === 'pending');
+
+  return <section className="compact-module leave-workspace">
+    <CompactPageHeader title="Leave management" description="Review employee requests, filter the queue, and record decisions." />
+    <div className="module-summary-strip" aria-label="Leave request summary">
+      <div><span>Pending</span><b>{counts.pending || 0}</b></div><div><span>Approved</span><b>{counts.approved || 0}</b></div><div><span>Rejected</span><b>{counts.rejected || 0}</b></div><div><span>Total requests</span><b>{counts.all || 0}</b></div>
     </div>
+    {error ? <p role="alert" className="module-alert module-alert-error">{error}</p> : null}
+    {linkedRequestMissing ? <p role="status" className="module-alert module-alert-warning">This request is no longer available.</p> : null}
+    <ModuleTabs tabs={tabs} value={status} onChange={value => { setStatus(value); setPage(1); }} label="Leave request status" />
+    <ModuleToolbar>
+      <label className="module-search"><span className="sr-only">Search leave requests</span><input className="input" type="search" placeholder="Search employee, code, or role" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
+      <label><span className="sr-only">Leave type</span><select className="input" value={leaveType} onChange={event => { setLeaveType(event.target.value); setPage(1); }}><option value="">All leave types</option>{leaveTypes.map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+      <button type="button" className="btn module-reset" disabled={!query && !leaveType && status === 'all'} onClick={resetFilters}>Reset filters</button>
+    </ModuleToolbar>
+    <DataTableShell label="Leave requests">
+      <table className="module-table"><thead><tr><th>Employee</th><th>Leave type</th><th>Dates</th><th>Duration</th><th>Status</th><th>Requested</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>
+        {loading ? Array.from({ length: 6 }, (_, index) => <tr className="module-skeleton-row" key={index}><td colSpan={7}><span /></td></tr>) : null}
+        {!loading && pagination.records.map(request => <tr className={request.id === requestId ? 'linked-record' : ''} id={`leave-request-${request.id}`} key={request.id}>
+          <td data-private><b>{request.employee?.full_name || 'Employee'}</b><small>{request.employee?.employee_code || request.employee?.designation || 'Employee profile'}</small></td>
+          <td>{request.leave_types?.name || request.leave_type || 'Leave'}</td>
+          <td><b>{displayDate(request.starts_on)}</b><small>to {displayDate(request.ends_on)}</small></td>
+          <td>{Number(request.requested_days || 0)} day{Number(request.requested_days || 0) === 1 ? '' : 's'}{request.half_day ? <small>Half day</small> : null}</td>
+          <td><StatusBadge status={request.status} /></td><td>{displayDateTime(request.created_at)}</td>
+          <td><button type="button" className="module-view" onClick={() => setSelected(request)} aria-label={`View leave request for ${request.employee?.full_name || 'employee'}`}>View</button></td>
+        </tr>)}
+        {!loading && filtered.length === 0 ? <tr><td colSpan={7}><CompactEmptyState title={`No ${status === 'all' ? '' : `${status} `}leave requests`} description="Adjust the filters or choose another status to see more requests." /></td></tr> : null}
+      </tbody></table>
+      <div className="module-mobile-records">
+        {loading ? Array.from({ length: 4 }, (_, index) => <div className="module-mobile-skeleton" key={index} />) : null}
+        {!loading && pagination.records.map(request => <article key={request.id} className={request.id === requestId ? 'linked-record' : ''}><div><b data-private>{request.employee?.full_name || 'Employee'}</b><StatusBadge status={request.status} /></div><p>{request.leave_types?.name || request.leave_type || 'Leave'} · {Number(request.requested_days || 0)} day{Number(request.requested_days || 0) === 1 ? '' : 's'}</p><small>{displayDate(request.starts_on)} – {displayDate(request.ends_on)}</small><button type="button" className="module-view" onClick={() => setSelected(request)}>View details</button></article>)}
+        {!loading && filtered.length === 0 ? <CompactEmptyState title={`No ${status === 'all' ? '' : `${status} `}leave requests`} description="Adjust the filters or choose another status to see more requests." /> : null}
+      </div>
+      {!loading ? <Pagination page={pagination.page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} /> : null}
+    </DataTableShell>
+    {selected ? <div className="leave-drawer-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setSelected(undefined); }}><aside className="leave-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="leave-detail-title">
+      <header><div><StatusBadge status={selected.status} /><h2 id="leave-detail-title">Leave request</h2></div><button type="button" onClick={() => setSelected(undefined)} aria-label="Close leave request details">Close</button></header>
+      <div className="leave-requester" data-private><b>{selected.employee?.full_name || 'Employee'}</b><p>{selected.employee?.employee_code || selected.employee?.email || 'Employee profile'} · {selected.employee?.designation || 'Employee'}</p></div>
+      <dl className="leave-detail-grid"><div><dt>Leave type</dt><dd>{selected.leave_types?.name || selected.leave_type || 'Leave'}</dd></div><div><dt>Duration</dt><dd>{Number(selected.requested_days || 0)} day{Number(selected.requested_days || 0) === 1 ? '' : 's'}{selected.half_day ? ' · Half day' : ''}</dd></div><div><dt>Starts</dt><dd>{displayDate(selected.starts_on)}</dd></div><div><dt>Ends</dt><dd>{displayDate(selected.ends_on)}</dd></div><div><dt>Requested</dt><dd>{displayDateTime(selected.created_at)}</dd></div></dl>
+      <section className="leave-detail-reason"><h3>Reason</h3><p>{selected.reason || 'No reason provided.'}</p></section>
+      {!selectedCanReview && selected.status !== 'pending' ? <section className="leave-detail-reason"><h3>Review comment</h3><p>{selected.approval_comment || 'No review comment.'}</p></section> : null}
+      {selectedCanReview ? <footer><label htmlFor={`approval-comment-${selected.id}`}>Approval comment <span>(optional)</span></label><textarea id={`approval-comment-${selected.id}`} className="input" rows={3} value={comments[selected.id] || ''} onChange={event => setComments(current => ({ ...current, [selected.id]: event.target.value }))} /><div><button className="btn btn-primary" disabled={busy === selected.id} onClick={() => void review(selected.id, 'approved')}>{busy === selected.id ? 'Saving…' : 'Approve'}</button><button className="btn leave-reject" disabled={busy === selected.id} onClick={() => void review(selected.id, 'rejected')}>Reject</button></div></footer> : selected.status === 'pending' ? <p className="leave-review-note">This request cannot be reviewed from your account.</p> : null}
+    </aside></div> : null}
   </section>;
 }
