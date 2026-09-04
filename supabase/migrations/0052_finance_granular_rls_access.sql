@@ -5,6 +5,13 @@ drop policy if exists "finance accounts manage" on public.finance_accounts;
 drop policy if exists "finance income categories" on public.finance_income_categories;
 drop policy if exists "finance expense categories" on public.finance_expense_categories;
 drop policy if exists "finance transactions access" on public.finance_transactions;
+drop policy if exists "finance accounts granular view" on public.finance_accounts;
+drop policy if exists "finance accounts granular manage" on public.finance_accounts;
+drop policy if exists "finance income categories granular view" on public.finance_income_categories;
+drop policy if exists "finance expense categories granular view" on public.finance_expense_categories;
+drop policy if exists "finance transactions granular read" on public.finance_transactions;
+drop policy if exists "finance transactions granular insert" on public.finance_transactions;
+drop policy if exists "finance transactions granular update" on public.finance_transactions;
 
 create policy "finance accounts granular view" on public.finance_accounts for select to authenticated using(
   public.has_permission('finance.view') or public.has_permission('finance.manage') or public.has_permission('finance.dashboard.view')
