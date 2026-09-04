@@ -26,7 +26,7 @@ begin
     insert into public.role_permissions(role_id, permission_id)
     select distinct role.id, permission.id
     from public.profiles profile
-    join public.roles role on role.code = profile.role::text
+    join public.roles role on role.code::text = profile.role::text
     join public.permissions permission on permission.code in ('chat.use', 'meetings.view')
     where profile.is_employee = true
       and profile.status::text in ('active', 'intern', 'probation')

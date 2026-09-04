@@ -19,6 +19,7 @@ describe('communication and meeting access', () => {
     expect(migration).not.toContain("'meetings.create'");
     expect(migration).not.toContain("'meetings.manage'");
     expect(permissionAllows(new Set(['meetings.view']), employeeRouteRequirement('/employee/meetings'))).toBe(true);
+    expect(migration).toContain('role.code::text = profile.role::text');
   });
 
   it('keeps meeting creation enforced by the server-side permission check', () => {
