@@ -19,6 +19,12 @@ describe("production workforce cleanup", () => {
     expect(migration.toLowerCase()).not.toContain("delete from public.profiles");
   });
 
+  it("skips fully absent production identities on a clean baseline but rejects partial identity state", () => {
+    expect(migration).toMatch(/not exists[\s\S]*source_id[\s\S]*and not exists[\s\S]*target_id[\s\S]*then\s+continue;/);
+    expect(migration).toMatch(/elsif not exists[\s\S]*source_id[\s\S]*or not exists[\s\S]*target_id[\s\S]*then\s+raise exception/);
+    expect(migration).toContain("where profile.id = 'ccb736c8-de18-4dec-9b18-cda4c3fdd1b5'");
+  });
+
   it("keeps restricted Assistant Manager permissions out of HR and finance", () => {
     expect(migration).toContain("'crm.view_team'");
     expect(migration).toContain("'leads.assign'");

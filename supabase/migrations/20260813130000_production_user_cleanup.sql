@@ -19,6 +19,9 @@ begin
     ) merged(source_id, target_id, identity_name)
   loop
     if not exists (select 1 from public.profiles where id = identity.source_id)
+       and not exists (select 1 from public.profiles where id = identity.target_id) then
+      continue;
+    elsif not exists (select 1 from public.profiles where id = identity.source_id)
        or not exists (select 1 from public.profiles where id = identity.target_id) then
       raise exception 'Identity merge precondition failed for %', identity.identity_name;
     end if;
@@ -304,6 +307,10 @@ where permission.code in (
   'sales.view',
   'sales.edit',
   'sales.manage_status'
+)
+and exists (
+  select 1 from public.profiles profile
+  where profile.id = 'ccb736c8-de18-4dec-9b18-cda4c3fdd1b5'
 )
 and not exists (
   select 1
