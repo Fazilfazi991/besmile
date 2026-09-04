@@ -5,12 +5,12 @@ const migration = readFileSync('supabase/migrations/20260903211500_restrict_rema
 
 describe('phase seven SECURITY DEFINER grant hardening', () => {
   it('narrows all 31 reviewed policy/read helpers to authenticated', () => {
-    expect(migration.match(/'public\.[^']+'/g)).toHaveLength(41);
+    expect(migration.match(/'public\.[^']+'/g)).toHaveLength(44);
     expect(migration).toContain("from public, anon'");
     expect(migration).toContain("to authenticated'");
   });
-  it('removes all API-role execution from ten remaining trigger functions', () => {
-    for (const name of ['assign_chat_message_expiry()', 'enforce_attendance_workday()', 'enforce_employee_status_change()', 'enforce_profile_self_update()', 'enforce_task_assignment_update()', 'finance_prevent_overpayment()', 'notify_selected_announcement_recipient()', 'notify_task_assignment()', 'notify_task_update()', 'prepare_chat_message_channel()']) expect(migration).toContain(`'public.${name}'`);
+  it('removes all API-role execution from the remaining trigger functions', () => {
+    for (const name of ['assign_chat_message_expiry()', 'enforce_attendance_workday()', 'enforce_employee_status_change()', 'enforce_profile_self_update()', 'enforce_task_assignment_update()', 'finance_prevent_overpayment()', 'notify_idea_event()', 'record_task_status_activity()', 'notify_selected_announcement_recipient()', 'notify_task_assignment()', 'notify_task_update()', 'prepare_chat_message_channel()', 'sync_task_status_from_assignments()']) expect(migration).toContain(`'public.${name}'`);
     expect(migration).toContain("from public, anon, authenticated'");
   });
   it('is additive and safe across schema variants', () => {

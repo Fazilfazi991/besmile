@@ -24,8 +24,10 @@ declare
     'public.assign_chat_message_expiry()', 'public.enforce_attendance_workday()',
     'public.enforce_employee_status_change()', 'public.enforce_profile_self_update()',
     'public.enforce_task_assignment_update()', 'public.finance_prevent_overpayment()',
+    'public.notify_idea_event()', 'public.record_task_status_activity()',
     'public.notify_selected_announcement_recipient()', 'public.notify_task_assignment()',
-    'public.notify_task_update()', 'public.prepare_chat_message_channel()'
+    'public.notify_task_update()', 'public.prepare_chat_message_channel()',
+    'public.sync_task_status_from_assignments()'
   ];
 begin
   foreach function_signature in array authenticated_helpers loop
