@@ -1,31 +1,302 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { adminRepository } from '@/lib/admin-repository';
-import { EmployeeLoading } from '@/components/employee-ui';
-import { FinanceEmpty, FinanceStatus, inr } from '@/components/finance-ui';
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CompactEmptyState,
+  CompactPageHeader,
+  DataTableShell,
+  Pagination,
+  StatusBadge,
+} from "@/components/compact-module";
+import { FinanceWorkspaceTabs, inr } from "@/components/finance-ui";
+import { EmployeeLoading } from "@/components/employee-ui";
+import { adminRepository } from "@/lib/admin-repository";
+
+const overviewPageSize = 6;
+const transactionHref = (type: string) => {
+  if (type === "expense") return "/admin/finance/expenses";
+  if (type === "invoice_payment") return "/admin/finance/invoices";
+  if (type === "payroll_payment") return "/admin/finance/payroll";
+  if (type === "psychologist_payment")
+    return "/admin/finance/psychologist-payments";
+  return "/admin/finance/income";
+};
 
 export default function FinancePage() {
   const [data, setData] = useState<any>();
-  const [error, setError] = useState('');
-  useEffect(() => { void adminRepository.financeDashboard().then(setData).catch((caught: any) => setError(caught.message || 'Finance data could not be loaded.')); }, []);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    void adminRepository
+      .financeDashboard()
+      .then(setData)
+      .catch((caught: any) =>
+        setError(caught.message || "Finance data could not be loaded."),
+      );
+  }, []);
   const trend = useMemo(() => {
-    if (!data) return [];
     const buckets = new Map<string, { income: number; expense: number }>();
-    for (const row of data.monthly || []) { const key = String(row.transaction_date || '').slice(0, 7); const bucket = buckets.get(key) || { income: 0, expense: 0 }; if (['income', 'invoice_payment'].includes(row.transaction_type)) bucket.income += Number(row.amount || 0); else if (['expense', 'payroll_payment'].includes(row.transaction_type)) bucket.expense += Number(row.amount || 0); buckets.set(key, bucket); }
+    for (const row of data?.monthly || []) {
+      const key = String(row.transaction_date || "").slice(0, 7);
+      const bucket = buckets.get(key) || { income: 0, expense: 0 };
+      if (["income", "invoice_payment"].includes(row.transaction_type))
+        bucket.income += Number(row.amount || 0);
+      else if (["expense", "payroll_payment"].includes(row.transaction_type))
+        bucket.expense += Number(row.amount || 0);
+      buckets.set(key, bucket);
+    }
     return [...buckets.entries()].slice(-6);
   }, [data]);
-  if (error) return <section className="mx-auto max-w-[1320px]"><div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div></section>;
-  if (!data) return <EmployeeLoading cards={6} />;
-  const invoiceStatuses = { open: data.outstanding || 0, value: data.outstandingAmount || 0 };
-  return <section className="mx-auto max-w-[1320px] space-y-5">
-    <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="eyebrow">Finance</p><h1 className="text-2xl font-bold">Finance & Accounts</h1><p className="mt-1 text-sm text-slate-600">Cash, collections, payroll, and live transaction activity in one place.</p></div><div className="flex flex-wrap gap-2">{[['Add income', '/admin/finance/income'], ['Add expense', '/admin/finance/expenses'], ['Create invoice', '/admin/finance/invoices/new']].map(([label, href], index) => <Link key={href} className={`btn ${index === 2 ? 'btn-primary' : 'border'}`} href={href}>{label}</Link>)}</div></div>
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[
-      ['Cash / bank balance', inr(data.balance), 'Across active accounts', ''], ['Monthly income', inr(data.income), 'Income and collections', 'text-emerald-700'], ['Monthly expenses', inr(data.expenses), 'Operating and payroll payments', 'text-rose-700'], ['Net profit / loss', inr(data.net), data.net >= 0 ? 'Positive net position' : 'Costs exceed income', data.net >= 0 ? 'text-emerald-700' : 'text-rose-700'], ['Outstanding invoices', inr(invoiceStatuses.value), `${invoiceStatuses.open} open invoice${invoiceStatuses.open === 1 ? '' : 's'}`, 'text-amber-700'], ['Pending payroll', inr(data.salariesPending), 'Not yet paid', 'text-amber-700'],
-    ].map(([label, value, hint, tone]) => <div className="card p-4" key={label}><p className="text-sm text-slate-500">{label}</p><p className={`mt-1 text-2xl font-bold ${tone}`}>{value}</p><p className="mt-1 text-xs text-slate-500">{hint}</p></div>)}</div>
-    <div className="grid gap-5 xl:grid-cols-[1.35fr_.65fr]"><section className="card"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="font-bold">Income vs expense trend</h2><p className="mt-1 text-sm text-slate-500">Monthly ledger movement from live records.</p></div><Link className="text-sm font-semibold text-teal-700 hover:underline" href="/admin/finance/reports">View reports</Link></div>{trend.length ? <div className="space-y-4 p-5">{trend.map(([month, values]) => { const max = Math.max(1, ...trend.flatMap(([, value]) => [value.income, value.expense])); return <div className="grid grid-cols-[72px_1fr] gap-3 text-sm" key={month}><span className="pt-1 text-slate-500">{month}</span><div className="space-y-2"><div className="flex items-center gap-2"><span className="w-16 text-xs text-slate-500">Income</span><div className="h-2 flex-1 rounded bg-slate-100"><div className="h-full rounded bg-teal-500" style={{ width: `${Math.max(2, values.income / max * 100)}%` }} /></div><b className="w-28 text-right text-xs">{inr(values.income)}</b></div><div className="flex items-center gap-2"><span className="w-16 text-xs text-slate-500">Expenses</span><div className="h-2 flex-1 rounded bg-slate-100"><div className="h-full rounded bg-rose-400" style={{ width: `${Math.max(2, values.expense / max * 100)}%` }} /></div><b className="w-28 text-right text-xs">{inr(values.expense)}</b></div></div></div>; })}</div> : <FinanceEmpty>No ledger data is available for a trend yet.</FinanceEmpty>}</section><section className="card"><div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold">Invoice status</h2><p className="mt-1 text-sm text-slate-500">Collections requiring attention.</p></div><div className="p-5"><div className="flex items-center justify-between"><FinanceStatus value="sent" /><b>{invoiceStatuses.open} open</b></div><p className="mt-4 text-2xl font-bold">{inr(invoiceStatuses.value)}</p><p className="mt-1 text-sm text-slate-500">Outstanding customer balance</p><Link className="btn mt-5 w-full border" href="/admin/finance/invoices">Review invoices</Link></div></section></div>
-    <div className="grid gap-5 lg:grid-cols-2"><section className="card"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><h2 className="font-bold">Account balances</h2><Link className="text-sm font-semibold text-teal-700 hover:underline" href="/admin/finance/reports">Account report</Link></div>{data.accountBalances.length ? <div className="divide-y divide-slate-100">{data.accountBalances.map((account: any) => <div className="flex items-center justify-between gap-3 px-5 py-4" key={account.id}><div><b>{account.name}</b><p className="mt-1 text-xs capitalize text-slate-500">{String(account.account_type || 'account').replaceAll('_', ' ')}</p></div><b>{inr(account.balance)}</b></div>)}</div> : <FinanceEmpty>No active financial accounts configured.</FinanceEmpty>}</section><section className="card"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><h2 className="font-bold">Payroll status</h2><Link className="text-sm font-semibold text-teal-700 hover:underline" href="/admin/finance/payroll">Open payroll</Link></div>{data.recentRuns.length ? <div className="divide-y divide-slate-100">{data.recentRuns.map((run: any) => <Link className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50" href={`/admin/finance/payroll/${run.id}`} key={run.id}><div><b>{run.period_start} – {run.period_end}</b><p className="mt-1 text-xs text-slate-500">Payroll run</p></div><FinanceStatus value={run.status} /></Link>)}</div> : <FinanceEmpty>No payroll run has been created yet.</FinanceEmpty>}</section></div>
-    <section className="card"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="font-bold">Recent transactions</h2><p className="mt-1 text-sm text-slate-500">Most recent finance activity across all active accounts.</p></div><Link className="text-sm font-semibold text-teal-700 hover:underline" href="/admin/finance/reports">All activity</Link></div>{data.recent.length ? <div className="divide-y divide-slate-100">{data.recent.map((row: any) => <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4" key={row.id}><div><b className="capitalize">{String(row.transaction_type || '').replaceAll('_', ' ')}</b><p className="mt-1 text-sm text-slate-600">{row.description || 'No description'} · {row.account?.name || 'Account unavailable'} · {row.transaction_date}</p></div><b className={['expense', 'payroll_payment'].includes(row.transaction_type) ? 'text-rose-700' : 'text-emerald-700'}>{['expense', 'payroll_payment'].includes(row.transaction_type) ? '− ' : '+ '}{inr(row.amount)}</b></div>)}</div> : <FinanceEmpty>No transactions recorded yet.</FinanceEmpty>}</section>
-  </section>;
+  if (error)
+    return (
+      <section className="compact-module finance-overview-workspace">
+        <div className="module-alert module-alert-error">{error}</div>
+      </section>
+    );
+  if (!data) return <EmployeeLoading cards={4} />;
+  const recent = data.recent || [];
+  const visibleRows = recent.slice(
+    (page - 1) * overviewPageSize,
+    page * overviewPageSize,
+  );
+  const latestPeriod = trend.at(-1)?.[0];
+  const openInvoices = Number(data.outstanding || 0);
+  const attentionCount =
+    openInvoices + (Number(data.salariesPending || 0) > 0 ? 1 : 0);
+  const maxTrend = Math.max(
+    1,
+    ...trend.flatMap(([, value]) => [value.income, value.expense]),
+  );
+
+  return (
+    <section className="compact-module finance-overview-workspace">
+      <CompactPageHeader
+        title="Finance & accounts"
+        description="Live balances, collections, spending, payroll, and recent ledger activity."
+        action={
+          <Link className="btn btn-primary" href="/admin/finance/invoices/new">
+            Create invoice
+          </Link>
+        }
+      />
+      <FinanceWorkspaceTabs current="/admin/finance" />
+      <div
+        className="module-summary-strip finance-summary-strip"
+        aria-label="Financial summary"
+      >
+        <div>
+          <span>Cash / bank</span>
+          <b>{inr(data.balance)}</b>
+        </div>
+        <div>
+          <span>Income</span>
+          <b className="finance-positive">{inr(data.income)}</b>
+        </div>
+        <div>
+          <span>Expenses</span>
+          <b className="finance-negative">{inr(data.expenses)}</b>
+        </div>
+        <div>
+          <span>Net position</span>
+          <b
+            className={data.net >= 0 ? "finance-positive" : "finance-negative"}
+          >
+            {inr(data.net)}
+          </b>
+        </div>
+        <div>
+          <span>Outstanding</span>
+          <b>{inr(data.outstandingAmount)}</b>
+        </div>
+      </div>
+      <div className="finance-overview-grid">
+        <section
+          className="finance-trend-panel"
+          aria-label="Income and expense trend"
+        >
+          <header>
+            <div>
+              <h2>Income vs expenses</h2>
+              <p>
+                {latestPeriod
+                  ? `Latest 6 ledger months · through ${latestPeriod}`
+                  : "Ledger month comparison"}
+              </p>
+            </div>
+            <Link href="/admin/finance/reports">View reports</Link>
+          </header>
+          {trend.length ? (
+            <div className="finance-trend-bars">
+              {trend.map(([month, values]) => (
+                <div className="finance-trend-month" key={month}>
+                  <span>{month}</span>
+                  <div title={`Income ${inr(values.income)}`}>
+                    <i
+                      className="income"
+                      style={{
+                        width: `${Math.max(3, (values.income / maxTrend) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <div title={`Expenses ${inr(values.expense)}`}>
+                    <i
+                      className="expense"
+                      style={{
+                        width: `${Math.max(3, (values.expense / maxTrend) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <CompactEmptyState
+              title="No ledger trend yet"
+              description="Income and expense activity will appear here once recorded."
+            />
+          )}
+        </section>
+        <section className="finance-attention-panel">
+          <header>
+            <div>
+              <h2>Needs attention</h2>
+              <p>
+                {attentionCount
+                  ? `${attentionCount} financial workflow${attentionCount === 1 ? "" : "s"} to review`
+                  : "No pending financial workflows"}
+              </p>
+            </div>
+          </header>
+          <Link href="/admin/finance/invoices">
+            <span>Open invoices</span>
+            <b>{openInvoices}</b>
+            <small>{inr(data.outstandingAmount)} outstanding</small>
+          </Link>
+          <Link href="/admin/finance/payroll">
+            <span>Pending payroll</span>
+            <b>{inr(data.salariesPending)}</b>
+            <small>Open payroll workspace</small>
+          </Link>
+        </section>
+      </div>
+      <section className="finance-ledger-section">
+        <header>
+          <div>
+            <h2>Recent transactions</h2>
+            <p>Latest activity across active finance accounts.</p>
+          </div>
+          <div>
+            <Link href="/admin/finance/income">Add income</Link>
+            <Link href="/admin/finance/expenses">Add expense</Link>
+          </div>
+        </header>
+        <DataTableShell label="Recent finance transactions">
+          <table className="module-table finance-overview-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Transaction</th>
+                <th>Account</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.map((row: any) => (
+                <tr key={row.id}>
+                  <td>{row.transaction_date}</td>
+                  <td>
+                    <b>
+                      {row.description ||
+                        String(row.transaction_type || "").replaceAll("_", " ")}
+                    </b>
+                    <small>
+                      {String(row.transaction_type || "").replaceAll("_", " ")}
+                    </small>
+                  </td>
+                  <td>{row.account?.name || "Account unavailable"}</td>
+                  <td>
+                    <StatusBadge status="active" />
+                  </td>
+                  <td
+                    className={
+                      [
+                        "expense",
+                        "payroll_payment",
+                        "psychologist_payment",
+                      ].includes(row.transaction_type)
+                        ? "finance-negative"
+                        : "finance-positive"
+                    }
+                  >
+                    <b>{inr(row.amount)}</b>
+                  </td>
+                  <td>
+                    <Link
+                      className="module-view"
+                      href={transactionHref(row.transaction_type)}
+                    >
+                      Open
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="module-mobile-records">
+            {visibleRows.map((row: any) => (
+              <article key={row.id}>
+                <div>
+                  <b>
+                    {row.description ||
+                      String(row.transaction_type || "").replaceAll("_", " ")}
+                  </b>
+                  <b
+                    className={
+                      [
+                        "expense",
+                        "payroll_payment",
+                        "psychologist_payment",
+                      ].includes(row.transaction_type)
+                        ? "finance-negative"
+                        : "finance-positive"
+                    }
+                  >
+                    {inr(row.amount)}
+                  </b>
+                </div>
+                <p>
+                  {row.transaction_date} ·{" "}
+                  {row.account?.name || "Account unavailable"}
+                </p>
+                <small>
+                  {String(row.transaction_type || "").replaceAll("_", " ")}
+                </small>
+                <Link
+                  className="module-view"
+                  href={transactionHref(row.transaction_type)}
+                >
+                  Open
+                </Link>
+              </article>
+            ))}
+          </div>
+          {!recent.length && (
+            <CompactEmptyState
+              title="No transactions yet"
+              description="Recorded income and expenses will appear here."
+            />
+          )}
+          <Pagination
+            page={page}
+            pageSize={overviewPageSize}
+            total={recent.length}
+            onPageChange={setPage}
+          />
+        </DataTableShell>
+      </section>
+    </section>
+  );
 }
