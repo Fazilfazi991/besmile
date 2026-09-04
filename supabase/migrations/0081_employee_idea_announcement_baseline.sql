@@ -20,7 +20,7 @@ begin
     select role.id, permission.id
     from public.roles role
     join public.permissions permission on permission.code = any(employee_permissions)
-    where coalesce(role.code, '') not in ('super_admin')
+    where coalesce(role.code::text, '') not in ('super_admin')
     on conflict do nothing;
   elsif exists (
     select 1 from information_schema.columns

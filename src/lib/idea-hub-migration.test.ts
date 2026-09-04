@@ -60,4 +60,9 @@ describe('Idea Hub migration', () => {
     expect(employeeBaselineMigration).toContain("'/employee/announcements/' || new.id::text");
     expect(employeeBaselineMigration).toContain("notify pgrst, 'reload schema'");
   });
+
+  it('compares role enum values as text during a clean migration replay', () => {
+    expect(employeeBaselineMigration).toContain("coalesce(role.code::text, '')");
+    expect(employeeBaselineMigration).not.toContain("coalesce(role.code, '')");
+  });
 });
