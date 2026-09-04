@@ -27,6 +27,13 @@ type FlyoutState = {
   left: number;
 };
 
+type LauncherView =
+  | { kind: "modules" }
+  | { kind: "section"; title: string }
+  | { kind: "create" };
+
+const RECENT_LIMIT = 4;
+
 /*
  * Source-stable accessibility regression anchors retained for the existing
  * navigation contract test:
@@ -56,6 +63,22 @@ export function PermissionSidebar({
   const { mobileOpen, setMobileOpen } = useMobileNavigation();
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [flyoutState, setFlyoutState] = useState<FlyoutState | null>(null);
+  const [launcherView, setLauncherView] = useState<LauncherView>({
+    kind: "modules",
+  });
+  const [recentHrefs, setRecentHrefs] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    const key = `bsmile-mobile-recents:${profileHref}`;
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+      return Array.isArray(parsed)
+        ? parsed.filter((href): href is string => typeof href === "string")
+        : [];
+    } catch {
+      localStorage.removeItem(key);
+      return [];
+    }
+  });
   const [sectionState, setSectionState] = useState<{
     pathname: string;
     section: string | null;
@@ -66,6 +89,10 @@ export function PermissionSidebar({
   );
   const collapsedStorageKey = useMemo(
     () => `bsmile-sidebar-collapsed:${profileHref}`,
+    [profileHref],
+  );
+  const recentStorageKey = useMemo(
+    () => `bsmile-mobile-recents:${profileHref}`,
     [profileHref],
   );
   const activeHref = activeNavigationHref(pathname, groups);
@@ -83,6 +110,30 @@ export function PermissionSidebar({
   const flyoutSection = flyout
     ? sections.find((section) => section.title === flyout.section)
     : undefined;
+  const allLinks = useMemo(
+    () => sections.flatMap((section) => section.links),
+    [sections],
+  );
+  const todayHref =
+    allLinks.find((link) => /dashboard|home|overview/i.test(link.label))?.href ||
+    allLinks[0]?.href ||
+    profileHref;
+  const tasksHref =
+    allLinks.find((link) => /tasks?/i.test(link.label))?.href || todayHref;
+  const recentLinks = recentHrefs
+    .map((href) => allLinks.find((link) => link.href === href))
+    .filter((link): link is (typeof allLinks)[number] => Boolean(link));
+  const createActions = [
+    { match: /employees/i, label: "Add employee" },
+    { match: /crm overview|leads/i, label: "New lead" },
+    { match: /invoices/i, label: "Create invoice" },
+    { match: /my leave|leave requests/i, label: "Request leave" },
+    { match: /innovation hub/i, label: "Submit idea" },
+  ].flatMap((action) => {
+    const link = allLinks.find((item) => action.match.test(item.label));
+    return link ? [{ ...action, link }] : [];
+  })
+    .slice(0, 4);
 
   useEffect(() => {
     const nav = navRef.current;
@@ -155,6 +206,32 @@ export function PermissionSidebar({
       setFlyoutState(null);
       return !current;
     });
+
+  const rememberDestination = (href: string) => {
+    setRecentHrefs((current) => {
+      const next = [href, ...current.filter((item) => item !== href)].slice(
+        0,
+        RECENT_LIMIT,
+      );
+      localStorage.setItem(recentStorageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const closeLauncher = () => {
+    setMobileOpen(false);
+    setLauncherView({ kind: "modules" });
+  };
+
+  const openLauncher = (kind: "modules" | "create" = "modules") => {
+    setLauncherView({ kind });
+    setMobileOpen(true);
+  };
+
+  const launcherSection =
+    launcherView.kind === "section"
+      ? sections.find((section) => section.title === launcherView.title)
+      : undefined;
 
   const openFlyout = (
     section: NavigationSection,
@@ -404,20 +481,224 @@ export function PermissionSidebar({
       )}
       {mobileOpen && (
         <div
-          className="sidebar-drawer"
+          className="mobile-launcher-layer"
           id="workspace-sidebar-drawer"
           role="dialog"
           aria-modal="true"
+          aria-label="Mobile navigation"
         >
           <button
-            className="sidebar-backdrop"
+            className="mobile-launcher-backdrop"
             type="button"
             aria-label="Close navigation"
-            onClick={() => setMobileOpen(false)}
+            onClick={closeLauncher}
           />
-          {renderSidebar(true)}
+          <section className="mobile-launcher-sheet">
+            <header className="mobile-launcher-header">
+              {launcherView.kind !== "modules" ? (
+                <button
+                  className="mobile-launcher-back"
+                  type="button"
+                  aria-label="Back to all modules"
+                  onClick={() => setLauncherView({ kind: "modules" })}
+                >
+                  <span aria-hidden="true">‹</span>
+                </button>
+              ) : (
+                <span className="mobile-launcher-mark" aria-hidden="true">
+                  <ModuleIcon label="All Modules" />
+                </span>
+              )}
+              <div>
+                <h2>
+                  {launcherView.kind === "section"
+                    ? launcherView.title
+                    : launcherView.kind === "create"
+                      ? "Create"
+                      : "All Modules"}
+                </h2>
+                <p>
+                  {launcherView.kind === "section"
+                    ? "Choose a destination"
+                    : launcherView.kind === "create"
+                      ? "Start from an available workspace"
+                      : "Your BSmile workspaces"}
+                </p>
+              </div>
+              <button
+                className="mobile-launcher-close"
+                type="button"
+                aria-label="Close navigation"
+                onClick={closeLauncher}
+              />
+            </header>
+
+            <div className="mobile-launcher-content">
+              {launcherView.kind === "modules" && (
+                <>
+                  {recentLinks.length > 0 && (
+                    <section className="mobile-launcher-recents">
+                      <h3>Recently used</h3>
+                      <div>
+                        {recentLinks.map((link) => (
+                          <Link
+                            href={link.href}
+                            key={link.href}
+                            onClick={() => {
+                              rememberDestination(link.href);
+                              closeLauncher();
+                            }}
+                          >
+                            <ModuleIcon label={link.label} />
+                            <span>{link.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  <section className="mobile-launcher-modules">
+                    <h3>All Modules</h3>
+                    <div className="mobile-module-grid">
+                      {sections.map((section) => {
+                        const direct = section.links.length === 1;
+                        const content = (
+                          <>
+                            <ModuleIcon label={section.title} />
+                            <span>{section.title}</span>
+                            {!direct && <i aria-hidden="true">›</i>}
+                          </>
+                        );
+                        return direct ? (
+                          <Link
+                            className="mobile-module-tile"
+                            href={section.links[0].href}
+                            key={section.title}
+                            onClick={() => {
+                              rememberDestination(section.links[0].href);
+                              closeLauncher();
+                            }}
+                          >
+                            {content}
+                          </Link>
+                        ) : (
+                          <button
+                            className="mobile-module-tile"
+                            type="button"
+                            key={section.title}
+                            onClick={() =>
+                              setLauncherView({
+                                kind: "section",
+                                title: section.title,
+                              })
+                            }
+                          >
+                            {content}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {launcherView.kind === "section" && launcherSection && (
+                <nav
+                  className="mobile-launcher-links"
+                  aria-label={`${launcherSection.title} pages`}
+                >
+                  {launcherSection.links.map((link) => {
+                    const active = activeHref === link.href;
+                    return (
+                      <Link
+                        className={active ? "active" : undefined}
+                        aria-current={active ? "page" : undefined}
+                        href={link.href}
+                        key={link.href}
+                        onClick={() => {
+                          rememberDestination(link.href);
+                          closeLauncher();
+                        }}
+                      >
+                        <ModuleIcon label={link.label} />
+                        <span>{link.label}</span>
+                        <i aria-hidden="true">›</i>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              )}
+
+              {launcherView.kind === "create" && (
+                <nav className="mobile-launcher-links" aria-label="Create actions">
+                  {createActions.map(({ label, link }) => (
+                    <Link
+                      href={link.href}
+                      key={label}
+                      onClick={() => {
+                        rememberDestination(link.href);
+                        closeLauncher();
+                      }}
+                    >
+                      <ModuleIcon label={label} />
+                      <span>{label}</span>
+                      <i aria-hidden="true">›</i>
+                    </Link>
+                  ))}
+                </nav>
+              )}
+            </div>
+          </section>
         </div>
       )}
+      <nav className="mobile-bottom-nav" aria-label="Mobile primary navigation">
+        <Link
+          className={activeHref === todayHref ? "active" : undefined}
+          aria-current={activeHref === todayHref ? "page" : undefined}
+          href={todayHref}
+          onClick={() => rememberDestination(todayHref)}
+        >
+          <ModuleIcon label="Dashboard" />
+          <span>Today</span>
+        </Link>
+        <Link
+          className={activeHref === tasksHref ? "active" : undefined}
+          aria-current={activeHref === tasksHref ? "page" : undefined}
+          href={tasksHref}
+          onClick={() => rememberDestination(tasksHref)}
+        >
+          <ModuleIcon label="Tasks" />
+          <span>Tasks</span>
+        </Link>
+        <button
+          className="mobile-bottom-create"
+          type="button"
+          aria-expanded={mobileOpen && launcherView.kind === "create"}
+          aria-controls="workspace-sidebar-drawer"
+          onClick={() => openLauncher("create")}
+        >
+          <ModuleIcon label="Create" />
+          <span>Create</span>
+        </button>
+        <Link
+          className={pathname.startsWith(profileHref) ? "active" : undefined}
+          aria-current={pathname.startsWith(profileHref) ? "page" : undefined}
+          href={profileHref}
+          onClick={() => rememberDestination(profileHref)}
+        >
+          <ModuleIcon label="My Profile" />
+          <span>Profile</span>
+        </Link>
+        <button
+          className={mobileOpen && launcherView.kind !== "create" ? "active" : undefined}
+          type="button"
+          aria-expanded={mobileOpen && launcherView.kind !== "create"}
+          aria-controls="workspace-sidebar-drawer"
+          onClick={() => openLauncher("modules")}
+        >
+          <ModuleIcon label="All Modules" />
+          <span>All Modules</span>
+        </button>
+      </nav>
     </>
   );
 }
