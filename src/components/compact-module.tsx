@@ -37,10 +37,11 @@ const statusLabels: Record<string, string> = { pending: 'Pending', approved: 'Ap
 
 export function StatusBadge({ status }: { status?: string | null }) {
   const value = status || 'unknown';
-  return <span className={`module-status module-status-${value}`}>{statusLabels[value] || value}</span>;
+  const token = value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return <span className={`module-status module-status-${token}`}>{statusLabels[value] || value}</span>;
 }
 
-export function Pagination({ page, pageSize, total, onPageChange, onPageSizeChange }: { page: number; pageSize: number; total: number; onPageChange: (page: number) => void; onPageSizeChange?: (size: number) => void }) {
+export function Pagination({ page, pageSize, total, pageSizeOptions = [6, 12, 24], onPageChange, onPageSizeChange }: { page: number; pageSize: number; total: number; pageSizeOptions?: number[]; onPageChange: (page: number) => void; onPageSizeChange?: (size: number) => void }) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
@@ -48,7 +49,7 @@ export function Pagination({ page, pageSize, total, onPageChange, onPageSizeChan
 
   return <nav className="module-pagination" aria-label="Record pagination">
     <div className="pagination-copy">Showing <b>{start}–{end}</b> of <b>{total}</b></div>
-    {onPageSizeChange ? <label>Rows <select value={pageSize} onChange={event => onPageSizeChange(Number(event.target.value))}><option value={6}>6</option><option value={12}>12</option><option value={24}>24</option></select></label> : null}
+    {onPageSizeChange ? <label>Rows <select value={pageSize} onChange={event => onPageSizeChange(Number(event.target.value))}>{pageSizeOptions.map(size => <option value={size} key={size}>{size}</option>)}</select></label> : null}
     <div className="pagination-controls">
       <button type="button" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Previous</button>
       {pages.map((candidate, index) => <span key={candidate} className="pagination-page-wrap">
