@@ -98,7 +98,7 @@ describe('permission compatibility', () => {
     expect(permissionAllows(new Set(['leave.approve']), adminRouteRequirement('/admin/leaves'))).toBe(true);
     expect(permissionAllows(new Set(['leave.self']), adminRouteRequirement('/admin/leaves'))).toBe(false);
     const labels = filterNavigation(adminNavigation, new Set(['leave.review'])).flatMap(group => group.links.map(link => link.label));
-    expect(labels).toContain('Leave approvals');
+    expect(labels).toContain('Leave Approvals');
   });
 
   it('does not let a team CRM view permission satisfy finance routes', () => {

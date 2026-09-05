@@ -47,14 +47,13 @@ describe("Phase 3D contextual module navigation", () => {
     );
   });
 
-  it("groups Work Management links consistently on desktop and mobile", () => {
-    expect(sidebar).toContain('title: "Performance"');
-    expect(sidebar).toContain('title: "Communication"');
-    expect(sidebar).toContain("COMMUNICATION_LINK_LABELS");
-    expect(sidebar).toContain('"Teams"');
-    expect(sidebar).toContain("groupedSectionLinks(flyoutSection)");
-    expect(sidebar).toContain("groupedSectionLinks(section)");
-    expect(sidebar).toContain("groupedSectionLinks(launcherSection)");
+  it("renders Performance and Communication as independent top-level menus", () => {
+    expect(sidebar).not.toContain('title: "Work Management"');
+    expect(sidebar).not.toContain("COMMUNICATION_LINK_LABELS");
+    expect(sidebar).not.toContain("groupedSectionLinks");
+    expect(sidebar).toContain("flyoutSection.links.map");
+    expect(sidebar).toContain("section.links.map");
+    expect(sidebar).toContain("launcherSection.links.map");
     expect(density).toContain("module-flyout-group");
     expect(density).toContain("mobile-launcher-link-group");
   });

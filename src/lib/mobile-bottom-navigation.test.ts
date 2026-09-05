@@ -21,7 +21,7 @@ describe("Phase 3E mobile navigation contracts", () => {
 
   it("uses the permission-filtered module sections for launcher content", () => {
     expect(sidebar).toContain("sections.map((section)");
-    expect(sidebar).toContain("groupedSectionLinks(launcherSection).map((group)");
+    expect(sidebar).toContain("launcherSection.links.map((link)");
     expect(sidebar).not.toContain("adminNavigation.map");
     expect(sidebar).not.toContain("employeeNavigation.map");
   });

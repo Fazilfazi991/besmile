@@ -1,3 +1,5 @@
+import { Gauge, MessageCircleMore } from 'lucide-react';
+
 type ModuleIconProps = { label: string; className?: string };
 
 const iconFor = (label: string) => {
@@ -20,5 +22,7 @@ const iconFor = (label: string) => {
 };
 
 export function ModuleIcon({ label, className = '' }: ModuleIconProps) {
+  const semanticIcon = label === 'Performance' ? <Gauge aria-hidden="true" focusable="false" strokeWidth={2} /> : label === 'Communication' ? <MessageCircleMore aria-hidden="true" focusable="false" strokeWidth={2} /> : null;
+  if (semanticIcon) return <span className={`module-icon module-${label.toLowerCase()}${className ? ` ${className}` : ''}`} aria-hidden="true">{semanticIcon}</span>;
   return <span className={`module-icon module-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}${className ? ` ${className}` : ''}`} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{iconFor(label)}</svg></span>;
 }
