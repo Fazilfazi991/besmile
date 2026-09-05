@@ -4,7 +4,7 @@ import { organizationChart, organizationNodeForProfile } from "./organization-ch
 describe("organization chart configuration", () => {
   it("keeps the approved hierarchy in one display-only configuration", () => {
     expect(organizationChart.map(({ displayName, designation, parentKey }) => ({ displayName, designation, parentKey }))).toEqual([
-      { displayName: "Director", designation: "Director", parentKey: null },
+      { displayName: "Yousaf KS", designation: "Director", parentKey: null },
       { displayName: "Fayiz", designation: "General Manager", parentKey: "director" },
       { displayName: "Diya Anthikat", designation: "Assistant Manager", parentKey: "general-manager" },
       { displayName: "Fathima", designation: "Sales Coordinator", parentKey: "general-manager" },
