@@ -172,8 +172,9 @@
   .mobile-bottom-nav .module-icon svg{width:17px;height:17px}
   .mobile-bottom-nav>a.active,.mobile-bottom-nav>button.active{background:#eaf7f5;color:#007a72}
   .mobile-bottom-nav>a:focus-visible,.mobile-bottom-nav>button:focus-visible,.mobile-launcher-sheet a:focus-visible,.mobile-launcher-sheet button:focus-visible{outline:2px solid #00857c;outline-offset:1px}
-  .mobile-bottom-nav .mobile-bottom-create{color:#006f68}
-  .mobile-bottom-nav .mobile-bottom-create .module-icon{width:34px;height:34px;min-width:34px;border-radius:11px;background:#087d74;color:#fff;box-shadow:0 5px 12px rgba(8,125,116,.2)}
+  .mobile-bottom-nav .mobile-bottom-teams{color:#006f68}
+  .mobile-bottom-nav .mobile-bottom-teams .module-icon{width:34px;height:34px;min-width:34px;border-radius:11px;background:#087d74;color:#fff;box-shadow:0 5px 12px rgba(8,125,116,.2)}
+  .mobile-bottom-nav .mobile-bottom-teams:disabled{cursor:not-allowed;opacity:.45}
   .mobile-launcher-layer{position:fixed;z-index:110;inset:0;display:grid;align-items:end;padding-top:max(32px,env(safe-area-inset-top))}
   .mobile-launcher-backdrop{position:absolute;inset:0;border:0;background:rgba(13,34,31,.42)}
   .mobile-launcher-sheet{position:relative;display:flex;max-height:calc(100dvh - max(32px,env(safe-area-inset-top)));min-height:min(74dvh,650px);flex-direction:column;overflow:hidden;border-radius:16px 16px 0 0;background:#f7faf9;box-shadow:0 -20px 52px rgba(14,45,40,.18);animation:mobile-launcher-enter .16s cubic-bezier(.22,1,.36,1)}
