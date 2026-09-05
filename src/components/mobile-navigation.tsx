@@ -22,5 +22,11 @@ export function useMobileNavigation() {
 
 export function MobileNavigationTrigger() {
   const { mobileOpen, setMobileOpen } = useMobileNavigation();
-  return <button className="mobile-menu-button" type="button" aria-label="Open navigation" title="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-sidebar-drawer" onClick={() => setMobileOpen(true)}><span aria-hidden="true">☰</span></button>;
+  return (
+    <button className="mobile-menu-button" type="button" aria-label="Open navigation" title="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-sidebar-drawer" onClick={() => setMobileOpen(true)}>
+      <svg className="header-icon header-icon-menu" aria-hidden="true" viewBox="0 0 24 24" fill="none">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </svg>
+    </button>
+  );
 }
