@@ -27,20 +27,20 @@ describe("profile organization chart integration", () => {
     expect(clinicianProfile).not.toContain("ProfileOrganizationChart");
   });
 
-  it("keeps the true tree inside a locally scrollable mobile viewport", () => {
+  it("keeps the true tree aligned inside the mobile viewport without clipping", () => {
     expect(styles).toContain("@media(max-width:700px)");
-    expect(styles).toContain(".organization-chart-viewport{display:block;max-width:100%;overflow-x:auto");
-    expect(styles).toContain(".organization-chart-tree{width:max-content;min-width:544px");
-    expect(styles).toContain("overscroll-behavior-x:contain");
-    expect(styles).not.toContain("organization-chart-node-assistant-manager>ul");
-    expect(component).toContain("viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) / 2");
-    expect(component).toContain("Swipe to explore the full tree");
+    expect(styles).toContain(".organization-chart-viewport{display:block;width:100%;overflow:visible");
+    expect(styles).toContain(".organization-chart-tree{width:100%;max-width:none}");
+    expect(styles).toContain("grid-template-columns:repeat(3,minmax(0,1fr))");
+    expect(styles).toContain(".organization-chart-node-general-manager>ul>.organization-chart-node-assistant-manager>ul::before{left:25%}");
+    expect(component).not.toContain("ResizeObserver");
+    expect(component).not.toContain("Swipe to explore the full tree");
   });
 
   it("preserves the layout-derived desktop tree and mobile card dimensions", () => {
     expect(styles).toContain(".organization-chart-tree,.organization-chart-tree ul{display:flex");
     expect(styles).toContain(".organization-chart-card{position:relative;z-index:1;display:grid;width:150px;height:116px");
-    expect(styles).toContain(".organization-chart-card{width:124px;height:112px");
+    expect(styles).toContain(".organization-chart-card{width:100%;max-width:124px;height:120px");
   });
 
   it("preserves an already-loaded real profile photo for the matched person", () => {
