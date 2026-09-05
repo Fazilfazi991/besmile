@@ -20,22 +20,23 @@ const categoryAliases: Record<string, NotificationCategory> = {
   system: 'system', security: 'system', crm: 'system', finance: 'system',
 };
 
-export function presentationForNotification(item: { category?: string | null; type?: string | null; deep_link?: string | null }): NotificationPresentation {
+export function presentationForNotification(item: { category?: string | null; type?: string | null; deep_link?: string | null; destination_url?: string | null; metadata?: { destination_url?: string | null } | null }): NotificationPresentation {
+  const type = String(item.type || '').trim().toLowerCase();
+  const link = String(item.destination_url || item.deep_link || item.metadata?.destination_url || '').toLowerCase();
+  // Definitive chat signals take precedence over stale legacy categories such as
+  // `system`, which older chat notifications retained in production.
+  if (type === 'chat' || type === 'message' || type.startsWith('chat_') || type.includes('message') || link.includes('/chat')) return notificationPresentation.inbox;
   const category = String(item.category || '').trim().toLowerCase();
   if (categoryAliases[category]) return notificationPresentation[categoryAliases[category]];
-  const type = String(item.type || '').trim().toLowerCase();
-  if (type.startsWith('chat_') || type.includes('message')) return notificationPresentation.inbox;
   if (type.includes('announcement')) return notificationPresentation.announcement;
   if (type.startsWith('task_')) return notificationPresentation.task;
   if (type.includes('document')) return notificationPresentation.document;
   if (type.startsWith('leave_')) return notificationPresentation.leave;
   if (type.includes('meeting') || type.includes('appointment')) return notificationPresentation.meeting;
-  const route = String(item.deep_link || '').toLowerCase();
-  if (route.includes('/chat')) return notificationPresentation.inbox;
-  if (route.includes('/announcements')) return notificationPresentation.announcement;
-  if (route.includes('/tasks')) return notificationPresentation.task;
-  if (route.includes('/documents')) return notificationPresentation.document;
-  if (route.includes('/leaves')) return notificationPresentation.leave;
-  if (route.includes('/meetings') || route.includes('scheduling')) return notificationPresentation.meeting;
+  if (link.includes('/announcements')) return notificationPresentation.announcement;
+  if (link.includes('/tasks')) return notificationPresentation.task;
+  if (link.includes('/documents')) return notificationPresentation.document;
+  if (link.includes('/leaves')) return notificationPresentation.leave;
+  if (link.includes('/meetings') || link.includes('scheduling')) return notificationPresentation.meeting;
   return notificationPresentation.system;
 }

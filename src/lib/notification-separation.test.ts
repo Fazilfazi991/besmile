@@ -4,12 +4,23 @@ import { chatActivitySummary, importantNotifications, isChatNotification } from 
 describe('notification and chat separation', () => {
   it('keeps chat events out of the important notification stream', () => {
     const items = [
-      { id: 'chat', type: 'chat_message', category: 'chat' },
+      { id: 'chat', type: 'chat_message', category: 'system', deep_link: '/employee/chat' },
+      { id: 'direct', type: 'direct_message', category: 'system' },
+      { id: 'team', type: 'team_message', category: 'notifications' },
       { id: 'task', type: 'task_assigned', category: 'task' },
       { id: 'leave', type: 'leave_approved', category: 'leave' },
     ];
     expect(isChatNotification(items[0])).toBe(true);
     expect(importantNotifications(items).map(item => item.id)).toEqual(['task', 'leave']);
+  });
+
+  it('renders zero important rows when only legacy chat notifications exist', () => {
+    const items = [
+      { id: 'one', type: 'chat_message', category: 'system', title: 'New message' },
+      { id: 'two', type: 'new_message', category: 'system', title: 'New message' },
+      { id: 'three', type: 'message', category: 'system', title: 'New message' },
+    ];
+    expect(importantNotifications(items)).toEqual([]);
   });
 
   it('groups unread messages, conversations, and mentions', () => {

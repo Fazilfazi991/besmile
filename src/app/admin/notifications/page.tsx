@@ -71,7 +71,7 @@ export default function AdminNotificationsPage() {
           {destination && <a className="notification-open-related" href={destination}>Open related item <span aria-hidden="true">›</span></a>}
         </article>;
       })}
-      {!shown.length && <p className="notification-empty">{items.length ? 'No notifications in this category.' : 'No organization notifications.'}</p>}
+      {!shown.length && <p className="notification-empty">{important.length ? 'No important notifications in this category.' : 'No important notifications.'}</p>}
     </div>}
   </section>;
 }

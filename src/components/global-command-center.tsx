@@ -381,7 +381,7 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
                 <span className="global-notification-copy"><b>{item.title || 'New update'}</b><span>{item.body || item.message || 'Open to view details.'}</span><small>{relative(item.created_at)}</small></span>
                 {!item.read_at && <i aria-label="Unread" />}
               </button>
-            )) : <div className="global-notification-empty"><ModuleIcon label="Approval" /><b>You’re all caught up.</b><p>New important updates will appear here.</p></div>}
+            )) : <div className="global-notification-empty"><ModuleIcon label="Approval" /><b>No important notifications</b><p>You’re all caught up.</p></div>}
           </div> : <div className="global-chat-summary" role="tabpanel">
             <ModuleIcon label="Chat" />
             <div><b>Chat activity</b><p>{chatSummary.unreadMessages ? `${chatSummary.unreadMessages} unread message${chatSummary.unreadMessages === 1 ? '' : 's'} in ${chatSummary.unreadConversations} conversation${chatSummary.unreadConversations === 1 ? '' : 's'}` : 'No unread conversations'}{chatSummary.mentions ? ` · ${chatSummary.mentions} mention${chatSummary.mentions === 1 ? '' : 's'}` : ''}</p></div>
