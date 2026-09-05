@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ModuleIcon } from '@/components/module-icon';
+import { NotificationPreferences } from '@/components/notification-preferences';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
-import { NotificationPreferences } from '@/components/notification-preferences';
+import { chatActivitySummary, importantNotifications } from '@/lib/notification-separation';
+import { presentationForNotification } from '@/lib/notification-presentation';
 
-const labels: Record<string, string> = { task_assigned: 'Task assigned', task_updated: 'Task updated', leave_approved: 'Leave approved', leave_rejected: 'Leave rejected', document_requested: 'Document requested', document_approved: 'Document approved', document_rejected: 'Document rejected', new_announcement: 'Announcement', chat_message: 'Message' };
 const safeLink = (link: string | null | undefined) => {
   const workspace = typeof window !== 'undefined' && window.location.pathname.startsWith('/clinician') ? 'clinician' : 'employee';
   if (workspace === 'clinician') {
@@ -19,12 +21,74 @@ const safeLink = (link: string | null | undefined) => {
 };
 
 export default function NotificationsPage() {
-  const [profile, setProfile] = useState<any>(); const [items, setItems] = useState<any[]>([]); const [query, setQuery] = useState(''); const [type, setType] = useState(''); const [detail, setDetail] = useState<any>(); const [error, setError] = useState(''); const [loading, setLoading] = useState(true); const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const load = async () => { setLoading(true); try { const current = await currentProfile() as any; if (!current) throw new Error('Your session has expired.'); setProfile(current); setItems(await employeeRepository.notifications(current.id)); setError(''); } catch (caught: any) { setError(caught.message || 'Unable to load notifications.'); } finally { setLoading(false); } };
+  const [profile, setProfile] = useState<any>();
+  const [items, setItems] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [stream, setStream] = useState<'important' | 'chat'>('important');
+  const [query, setQuery] = useState('');
+  const [detail, setDetail] = useState<any>();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const current = await currentProfile() as any;
+      if (!current) throw new Error('Your session has expired.');
+      const notifications = await employeeRepository.notifications(current.id);
+      let chat: any[] = [];
+      try { chat = await employeeRepository.conversations(current.id); } catch { /* Chat remains reachable without its summary. */ }
+      setProfile(current); setItems(notifications); setConversations(chat); setError('');
+    } catch (caught: any) {
+      setError(caught.message || 'Unable to load notifications.');
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []);
-  const read = async (item: any) => { if (!item.read_at && profile) { await employeeRepository.markNotificationRead(item.id, profile.id); setItems(current => current.map(row => row.id === item.id ? { ...row, read_at: new Date().toISOString() } : row)); } setDetail(item); };
-  if (loading) return <section><h1 className="text-2xl font-bold">Notifications</h1><p className="mt-3 text-slate-600">Loading notifications...</p></section>;
-  if (error && !profile) return <section><h1 className="text-2xl font-bold">Notifications</h1><p className="mt-3 text-rose-700">{error}</p></section>;
-  const types = [...new Set(items.map(item => item.type))]; const shown = items.filter(item => (!type || item.type === type) && `${item.title} ${item.body}`.toLowerCase().includes(query.toLowerCase())); const unread = items.filter(item => !item.read_at).length;
-  return <section className="space-y-5"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-2xl font-bold">Notifications {unread ? `(${unread})` : ''}</h1><p className="text-slate-600">Updates about your appointments and account.</p></div><div className="flex gap-2"><button className="rounded border px-3 py-2 text-sm" onClick={() => setPreferencesOpen(current => !current)}>Sound settings</button>{unread > 0 && <button className="rounded border px-3 py-2 text-sm" onClick={() => void employeeRepository.markAllNotificationsRead(profile.id).then(load)}>Mark all as read</button>}</div></div>{preferencesOpen && <NotificationPreferences userId={profile.id} />}{error && <p className="rounded bg-rose-50 p-3 text-rose-800">{error}</p>}<div className="flex gap-2"><input className="rounded border p-2" placeholder="Search notifications" value={query} onChange={event => setQuery(event.target.value)} /><select className="rounded border p-2" value={type} onChange={event => setType(event.target.value)}><option value="">All types</option>{types.map(value => <option value={value} key={value}>{labels[value] || value}</option>)}</select></div>{shown.length ? <div className="card overflow-hidden">{shown.map(item => <button onClick={() => void read(item)} className={`block w-full border-b p-4 text-left ${item.read_at ? 'bg-white' : 'bg-sky-50'}`} key={item.id}><div className="flex justify-between gap-3"><div><b>{item.title}</b><p className="text-sm text-slate-600">{item.body}</p><small className="text-slate-500">{labels[item.type] || item.type} · {new Date(item.created_at).toLocaleString()}</small></div>{!item.read_at && <span className="h-fit rounded-full bg-brand px-2 py-1 text-xs text-white">New</span>}</div></button>)}</div> : <div className="card p-6 text-slate-600">No notifications found.</div>}{detail && <div className="card p-5"><button className="float-right text-sm underline" onClick={() => setDetail(null)}>Close</button><h2 className="text-lg font-bold">{detail.title}</h2><p className="mt-2">{detail.body}</p>{detail.deep_link && <a href={safeLink(detail.deep_link)} className="mt-3 inline-block text-sm underline">Open related item</a>}</div>}</section>;
+
+  const read = async (item: any) => {
+    if (!item.read_at && profile) {
+      await employeeRepository.markNotificationRead(item.id, profile.id);
+      setItems(current => current.map(row => row.id === item.id ? { ...row, read_at: new Date().toISOString() } : row));
+    }
+    setDetail(item);
+  };
+  const important = importantNotifications(items);
+  const shown = important.filter(item => `${item.title || ''} ${item.body || ''}`.toLowerCase().includes(query.toLowerCase()));
+  const unread = important.filter(item => !item.read_at).length;
+  const chatSummary = chatActivitySummary(conversations);
+  const chatHref = '/employee/chat';
+  const markAllRead = async () => {
+    if (!profile || !unread || markingAll) return;
+    setMarkingAll(true);
+    try {
+      await Promise.all(important.filter(item => !item.read_at).map(item => employeeRepository.markNotificationRead(item.id, profile.id)));
+      await load();
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
+  if (loading) return <section className="organization-notifications"><p className="notification-status">Loading notifications...</p></section>;
+  if (error && !profile) return <section className="organization-notifications"><p className="notification-status notification-status-error">{error}</p></section>;
+  return <section className="organization-notifications">
+    <header className="organization-notifications-header">
+      <div><h1>Notifications</h1><p>Important updates only. Chat activity stays separate.</p></div>
+      <div className="notification-header-actions"><button type="button" onClick={() => setPreferencesOpen(current => !current)}>Sound settings</button><button className="notification-mark-all" type="button" disabled={!unread || markingAll} onClick={() => void markAllRead()}>{markingAll ? 'Marking…' : 'Mark all read'}</button></div>
+    </header>
+    {preferencesOpen && profile && <NotificationPreferences userId={profile.id} />}
+    {error && <p className="notification-status notification-status-error">{error}</p>}
+    <nav className="notification-stream-tabs" aria-label="Notification streams">
+      <button type="button" className={stream === 'important' ? 'active' : ''} onClick={() => setStream('important')}><ModuleIcon label="Notifications" />Important <span>{unread}</span></button>
+      <button type="button" className={stream === 'chat' ? 'active' : ''} onClick={() => setStream('chat')}><ModuleIcon label="Chat" />Chat <span>{chatSummary.unreadMessages}</span></button>
+    </nav>
+    {stream === 'important' ? <>
+      <label className="notification-search"><span className="sr-only">Search important notifications</span><ModuleIcon label="Search" /><input placeholder="Search important notifications" value={query} onChange={event => setQuery(event.target.value)} /></label>
+      <div className="notification-list">{shown.map(item => { const presentation = presentationForNotification(item); return <button type="button" onClick={() => void read(item)} className={`notification-card notification-${presentation.category}${item.read_at ? '' : ' unread'}`} key={item.id}><ModuleIcon label={presentation.iconLabel} className="notification-icon" /><span className="notification-copy"><span className="notification-category">{presentation.label}</span><b>{item.title || 'New update'}</b>{item.body && <p>{item.body}</p>}<small>{new Date(item.created_at).toLocaleString()}</small></span>{!item.read_at && <span className="notification-unread-dot" aria-label="Unread" />}</button>; })}{!shown.length && <p className="notification-empty">{important.length ? 'No important notifications match your search.' : 'You’re all caught up.'}</p>}</div>
+    </> : <section className="notification-chat-handoff"><ModuleIcon label="Chat" /><div><h2>Chat activity</h2><p>{chatSummary.unreadMessages ? `${chatSummary.unreadMessages} unread messages in ${chatSummary.unreadConversations} conversations.` : 'No unread conversations.'}</p>{chatSummary.mentions > 0 && <small>{chatSummary.mentions} unread mention{chatSummary.mentions === 1 ? '' : 's'}</small>}</div><a href={chatHref}>Open chat <ModuleIcon label="Open related" /></a></section>}
+    {detail && <section className="notification-detail"><button type="button" onClick={() => setDetail(null)}>Close</button><h2>{detail.title}</h2><p>{detail.body}</p>{detail.deep_link && <a href={safeLink(detail.deep_link)}>Open related item</a>}</section>}
+  </section>;
 }
