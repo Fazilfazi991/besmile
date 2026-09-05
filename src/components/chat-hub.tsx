@@ -15,6 +15,8 @@ import { currentProfile } from "@/lib/auth";
 import { employeeRepository } from "@/lib/employee-repository";
 import { supabase } from "@/lib/supabase";
 import { isChatMessageActive, isChatMessageLogicallyExpired, upsertChatMessage } from "@/lib/chat-message-state";
+import { resolveMessageReceipt } from "@/lib/chat-receipt";
+import { MessageReceipt } from "./message-receipt";
 import "./chat-hub-fixes.css";
 
 type Tab = "all" | "unread" | "mentions";
@@ -101,6 +103,7 @@ export function ChatHub() {
   const recordingResumedAtRef = useRef(0);
   const discardRecordingRef = useRef(false);
   const messageRequest = useRef(0);
+  const lastReadAckRef = useRef("");
   const profileRef = useRef<any>(undefined);
   const activeRef = useRef<any>(undefined);
 
@@ -159,18 +162,9 @@ export function ChatHub() {
           ),
         );
         setHasEarlierMessages(page.hasMore);
-        await employeeRepository.markConversationRead(
-          conversationId,
-          profileId,
-          page.data.at(-1)?.id,
-        );
-        setConversations((list) =>
-          list.map((item) =>
-            item.conversation_id === conversationId
-              ? { ...item, unread_count: 0 }
-              : item,
-          ),
-        );
+        const newestMessage = page.data.at(-1);
+        if (newestMessage?.id && newestMessage.sender_id !== profileId)
+          await employeeRepository.markConversationDelivered(conversationId, newestMessage.id);
         setTimeout(
           () =>
             scrollRef.current?.scrollTo({
@@ -197,10 +191,7 @@ export function ChatHub() {
         (event: any) => {
           setMessages((rows) => upsertChatMessage(rows, event.new as any));
           if (event.new.sender_id !== profileId)
-            void employeeRepository.markConversationRead(
-              conversationId,
-              profileId,
-            );
+            void employeeRepository.markConversationDelivered(conversationId, event.new.id);
         },
       )
       .on(
@@ -215,12 +206,49 @@ export function ChatHub() {
           setMessages((rows) => upsertChatMessage(rows, event.new as any));
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "chat_message_reads" },
+        (event: any) => {
+          const receipt = event.new;
+          if (!receipt?.message_id) return;
+          setMessages((rows) => rows.map((message) => {
+            if (message.id !== receipt.message_id) return message;
+            const receipts = [...(message.receipts || []).filter((item: any) => item.profile_id !== receipt.profile_id), receipt];
+            return { ...message, receipts };
+          }));
+        },
+      )
       .subscribe();
     return () => {
       alive = false;
       if (channel) supabase?.removeChannel(channel);
     };
   }, [active?.conversation_id, profile?.id]);
+  useEffect(() => {
+    const conversationId = active?.conversation_id;
+    const profileId = profile?.id;
+    const newestMessage = messages.at(-1);
+    if (!conversationId || !profileId || !newestMessage?.id || newestMessage.sender_id === profileId || details) return;
+
+    const acknowledgeVisibleMessages = () => {
+      if (document.visibilityState !== "visible" || !document.hasFocus() || !scrollRef.current) return;
+      const key = `${conversationId}:${newestMessage.id}`;
+      if (lastReadAckRef.current === key) return;
+      lastReadAckRef.current = key;
+      void employeeRepository.markConversationRead(conversationId, profileId, newestMessage.id)
+        .then(() => setConversations((list) => list.map((item) => item.conversation_id === conversationId ? { ...item, unread_count: 0 } : item)))
+        .catch(() => { lastReadAckRef.current = ""; });
+    };
+
+    acknowledgeVisibleMessages();
+    document.addEventListener("visibilitychange", acknowledgeVisibleMessages);
+    window.addEventListener("focus", acknowledgeVisibleMessages);
+    return () => {
+      document.removeEventListener("visibilitychange", acknowledgeVisibleMessages);
+      window.removeEventListener("focus", acknowledgeVisibleMessages);
+    };
+  }, [active?.conversation_id, details, messages, profile?.id]);
   useEffect(() => {
     const profileId = profile?.id;
     if (!newChat || !profileId) return;
@@ -831,7 +859,12 @@ export function ChatHub() {
                         onEdit={() => beginEdit(message)}
                         onDelete={() => void deleteMessage(message.id)}
                         now={logicalNow}
-                        read={Boolean(!isGroup && message.sender_id === profile.id && members.find((member: any) => member.profile_id !== profile.id)?.last_read_at && new Date(members.find((member: any) => member.profile_id !== profile.id).last_read_at) >= new Date(message.created_at))}
+                        receiptStatus={resolveMessageReceipt({
+                          own: message.sender_id === profile.id,
+                          localStatus: message.status,
+                          recipientProfileIds: members.filter((member: any) => member.profile_id !== profile.id).map((member: any) => member.profile_id),
+                          receipts: message.receipts,
+                        })}
                       />
                     </div>
                   );
@@ -1373,7 +1406,7 @@ function Message({
   onReply,
   onEdit,
   onDelete,
-  read,
+  receiptStatus,
   now,
 }: {
   message: any;
@@ -1387,7 +1420,7 @@ function Message({
   onReply: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  read: boolean;
+  receiptStatus: ReturnType<typeof resolveMessageReceipt>;
   now: number;
 }) {
   const expired = isChatMessageLogicallyExpired(message, now);
@@ -1425,10 +1458,10 @@ function Message({
         ) : (
           !unavailable && message.attachment_name && <MessageFile message={message} />
         )}
-        <time>
+        <time className="message-meta">
           {time(message.created_at)}
           {message.edited_at && !message.deleted_at && " · Edited"}
-          {own && (read ? "  Read" : "  Sent")}
+          {receiptStatus && <MessageReceipt status={receiptStatus} />}
         </time>
         {!unavailable && message.message_type !== "system" && <button className="chat-reaction-button" type="button" aria-label="React to message" title="React to message" onClick={onReactionOpen}>☺</button>}
         {!unavailable && message.message_type !== "system" && reactionOpen && <div className="chat-reaction-picker" role="dialog" aria-label="Choose reaction">{['👍','❤️','😂','😮','😢','🎉'].map(emoji => <button type="button" key={emoji} onClick={() => onReact(emoji)}>{emoji}</button>)}</div>}

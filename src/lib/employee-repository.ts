@@ -840,7 +840,7 @@ export const employeeRepository = {
     let request = required()
       .from("chat_messages")
       .select(
-        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name))",
+        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name)),receipts:chat_message_reads(profile_id,delivered_at,read_at)",
       )
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
@@ -949,6 +949,13 @@ export const employeeRepository = {
     const { error } = await required().rpc("mark_chat_conversation_read", {
       target_conversation: conversationId,
       target_message: messageId || null,
+    });
+    if (error) throw error;
+  },
+  async markConversationDelivered(conversationId: string, messageId: string) {
+    const { error } = await required().rpc("mark_chat_conversation_delivered", {
+      target_conversation: conversationId,
+      target_message: messageId,
     });
     if (error) throw error;
   },
