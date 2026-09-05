@@ -1,11 +1,14 @@
 'use client';
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { employeeRepository } from '@/lib/employee-repository';
 import { notificationAudioIsUnlocked, playNotificationSound, unlockNotificationAudio } from '@/lib/notification-audio';
+import { chatActivitySummary, importantNotifications, isChatNotification } from '@/lib/notification-separation';
+import { presentationForNotification } from '@/lib/notification-presentation';
+import { ModuleIcon } from '@/components/module-icon';
 
 type Mode = 'admin' | 'employee';
 type Result = {
@@ -65,6 +68,8 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
   const [results, setResults] = useState<Result[]>([]);
   const [recent, setRecent] = useState<Result[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [notificationTab, setNotificationTab] = useState<'important' | 'chat'>('important');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [index, setIndex] = useState(0);
@@ -74,21 +79,28 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
   const openingNotificationIds = useRef(new Set<string>());
   const markingAllNotifications = useRef(false);
   const storageKey = `bsmile:recent:${userId}`;
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       setNotifications(await employeeRepository.notifications(userId, 0, 12));
     } catch {
       /* The notification page exposes a recoverable error state. */
     }
-  };
+  }, [userId]);
+  const loadChatActivity = useCallback(async () => {
+    try {
+      setConversations(await employeeRepository.conversations(userId));
+    } catch {
+      /* Chat remains accessible even if its summary cannot be loaded. */
+    }
+  }, [userId]);
   useEffect(() => {
     try {
       setRecent(JSON.parse(localStorage.getItem(storageKey) || '[]'));
     } catch {
       setRecent([]);
     }
-    void loadNotifications();
-  }, [storageKey]);
+    void Promise.all([loadNotifications(), loadChatActivity()]);
+  }, [loadChatActivity, loadNotifications, storageKey]);
   useEffect(() => {
     const unlock = () => {
       void unlockNotificationAudio();
@@ -132,6 +144,7 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
           if (!item?.id || playedNotificationIds.current.has(item.id)) return;
           playedNotificationIds.current.add(item.id);
           setNotifications((current) => [item, ...current.filter((row) => row.id !== item.id)].slice(0, 12));
+          if (isChatNotification(item)) void loadChatActivity();
           const soundKey = `${item.type}:${item.related_entity_id || item.id}`;
           if (playedSoundEvents.current.has(soundKey)) return;
           const { data: settings } = await supabase.from('notification_preferences').select('*').eq('profile_id', userId).maybeSingle();
@@ -144,7 +157,7 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [loadChatActivity, userId]);
   useEffect(() => {
     if (!supabase) return;
     const playFeatureSound = async (category: string, eventKey: string) => {
@@ -293,7 +306,9 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
       choose(visible[index] || visible[0]);
     }
   };
-  const unread = notifications.filter((item) => !item.read_at).length;
+  const important = importantNotifications(notifications);
+  const unread = important.filter((item) => !item.read_at).length;
+  const chatSummary = chatActivitySummary(conversations);
   const markRead = async (item: any) => {
     if (openingNotificationIds.current.has(item.id)) return;
     openingNotificationIds.current.add(item.id);
@@ -316,9 +331,9 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
     markingAllNotifications.current = true;
     const previous = notifications;
     const readAt = new Date().toISOString();
-    setNotifications((current) => current.map((row) => ({ ...row, read_at: row.read_at || readAt })));
+    setNotifications((current) => current.map((row) => isChatNotification(row) ? row : ({ ...row, read_at: row.read_at || readAt })));
     try {
-      await employeeRepository.markAllNotificationsRead(userId);
+      await Promise.all(important.filter((item) => !item.read_at).map((item) => employeeRepository.markNotificationRead(item.id, userId)));
       router.refresh();
     } catch (cause) {
       setNotifications(previous);
@@ -346,38 +361,36 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
       </button>
       {bellOpen && (
         <section className="global-notifications" aria-label="Notifications">
-          <div className="flex items-center justify-between border-b border-slate-100 p-3">
+          <header className="global-notifications-header">
             <div>
               <b>Notifications</b>
-              <p className="text-xs text-slate-500">Your latest updates</p>
+              <p>Important updates only</p>
             </div>
             {unread > 0 && (
-              <button className="text-sm font-semibold text-teal-700" onClick={() => void markAll()}>
+              <button className="global-notifications-mark" onClick={() => void markAll()}>
                 Mark all read
               </button>
             )}
+          </header>
+          <div className="global-notification-tabs" role="tablist" aria-label="Notification streams">
+            <button role="tab" aria-selected={notificationTab === 'important'} className={notificationTab === 'important' ? 'active' : ''} onClick={() => setNotificationTab('important')}><ModuleIcon label="Notifications" />Important <span>{unread}</span></button>
+            <button role="tab" aria-selected={notificationTab === 'chat'} className={notificationTab === 'chat' ? 'active' : ''} onClick={() => setNotificationTab('chat')}><ModuleIcon label="Chat" />Chat <span>{chatSummary.unreadMessages}</span></button>
           </div>
-          <div className="max-h-[420px] overflow-auto">
-            {notifications.length ? (
-              notifications.map((item) => (
-                <button className={`block w-full border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${item.read_at ? '' : 'bg-teal-50/60'}`} onClick={() => void markRead(item)} key={item.id}>
-                  <div className="flex justify-between gap-2">
-                    <b className="truncate text-sm">{item.title || 'New update'}</b>
-                    {!item.read_at && <span className="h-2 w-2 shrink-0 rounded-full bg-teal-600" />}
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-600">{item.body || item.message || 'Open to view details.'}</p>
-                  <small className="mt-1 block text-xs text-slate-500">{relative(item.created_at)}</small>
-                </button>
-              ))
-            ) : (
-              <div className="p-6 text-center">
-                <b>You’re all caught up.</b>
-                <p className="mt-1 text-sm text-slate-500">New updates will appear here.</p>
-              </div>
-            )}
-          </div>
+          {notificationTab === 'important' ? <div className="global-notification-list" role="tabpanel">
+            {important.length ? important.slice(0, 6).map((item) => (
+              <button className={`global-notification-item${item.read_at ? '' : ' unread'}`} onClick={() => void markRead(item)} key={item.id}>
+                <ModuleIcon label={presentationForNotification(item).iconLabel} />
+                <span className="global-notification-copy"><b>{item.title || 'New update'}</b><span>{item.body || item.message || 'Open to view details.'}</span><small>{relative(item.created_at)}</small></span>
+                {!item.read_at && <i aria-label="Unread" />}
+              </button>
+            )) : <div className="global-notification-empty"><ModuleIcon label="Approval" /><b>You’re all caught up.</b><p>New important updates will appear here.</p></div>}
+          </div> : <div className="global-chat-summary" role="tabpanel">
+            <ModuleIcon label="Chat" />
+            <div><b>Chat activity</b><p>{chatSummary.unreadMessages ? `${chatSummary.unreadMessages} unread message${chatSummary.unreadMessages === 1 ? '' : 's'} in ${chatSummary.unreadConversations} conversation${chatSummary.unreadConversations === 1 ? '' : 's'}` : 'No unread conversations'}{chatSummary.mentions ? ` · ${chatSummary.mentions} mention${chatSummary.mentions === 1 ? '' : 's'}` : ''}</p></div>
+            <button onClick={() => { setBellOpen(false); router.push(`/${mode}/chat`); }}>Open chat <ModuleIcon label="Open related" /></button>
+          </div>}
           <button
-            className="block w-full border-t border-slate-100 p-3 text-center text-sm font-semibold text-teal-700"
+            className="global-notifications-footer"
             onClick={() => {
               setBellOpen(false);
               router.push(`/${mode}/notifications`);
