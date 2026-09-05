@@ -1,105 +1,157 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
-import { canClockIn, dateKey, minutes, monthlyDays, weekday } from '@/lib/attendance-rules';
-import { awarenessEventsForMonth } from '@/lib/calendar-events';
-import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
-import { EmployeeBanner, EmployeeLoading, EmployeeMetric, EmployeeMetricGrid, EmployeePageHeader, EmployeeSection, EmployeeStatusBadge } from '@/components/employee-ui';
+import { canClockIn, classify, dateKey, minutes } from '@/lib/attendance-rules';
+import { freshLocation, locationCheckingMessage } from '@/lib/attendance-geofence';
+import { CompactEmptyState, Pagination, StatusBadge } from '@/components/compact-module';
+import './attendance-workspace.css';
 
-const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const statusStyle: Record<string, string> = {
-  present: 'border-emerald-200 bg-emerald-50 text-emerald-800', late: 'border-amber-200 bg-amber-50 text-amber-800',
-  absent: 'border-rose-200 bg-rose-50 text-rose-800', leave: 'border-sky-200 bg-sky-50 text-sky-800',
-  weekend: 'border-slate-200 bg-slate-100 text-slate-500', holiday: 'border-violet-200 bg-violet-50 text-violet-800', future: 'border-slate-200 bg-white text-slate-400',
+type Period = 'last-7' | 'month' | 'custom';
+type AttendanceDay = { key: string; row: any; status: string };
+
+const PAGE_SIZES = [10, 20, 50];
+const labels: Record<string, string> = { all: 'All', present: 'Present', late: 'Late', absent: 'Absent', leave: 'Leave', holiday: 'Holiday', weekend: 'Weekly Off' };
+const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+const addDays = (date: Date, days: number) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
+const parseDate = (value: string) => new Date(`${value}T12:00:00`);
+const rangeFor = (period: Period, customFrom: string, customTo: string) => {
+  const today = new Date();
+  if (period === 'last-7') return { from: iso(addDays(today, -6)), to: iso(today) };
+  if (period === 'custom') return { from: customFrom, to: customTo };
+  return { from: iso(new Date(today.getFullYear(), today.getMonth(), 1)), to: iso(new Date(today.getFullYear(), today.getMonth() + 1, 0)) };
 };
-const statusTone: Record<string, any> = { present: 'success', late: 'pending', absent: 'danger', leave: 'info', weekend: 'default', holiday: 'info', future: 'default' };
-const label = (value: string) => value ? value[0].toUpperCase() + value.slice(1) : 'Unknown';
-const time = (value?: string) => value ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : '—';
-const duration = (value: number) => `${Math.floor(value / 60)}h ${value % 60}m`;
+const time = (value?: string | null) => value ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : '—';
+const durationLabel = (minutes: number) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+const dateLabel = (value: string) => new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(parseDate(value));
+const shiftLabel = (status: string, settings: any) => status === 'weekend' ? 'Weekly off' : status === 'holiday' ? 'Holiday' : status === 'leave' ? 'Approved leave' : `${String(settings.work_start).slice(0, 5)} – ${String(settings.work_end).slice(0, 5)}`;
+
+function daysInRange(from: string, to: string, result: any): AttendanceDay[] {
+  const holidays = new Set<string>((result.holidays || []).map((holiday: any) => holiday.holiday_date));
+  const rows = new Map<string, any>((result.attendance || []).map((row: any) => [row.work_date, row]));
+  const days: AttendanceDay[] = [];
+  for (let cursor = parseDate(from); iso(cursor) <= to; cursor = addDays(cursor, 1)) {
+    const key = iso(cursor);
+    const row = rows.get(key);
+    const onLeave = (result.leaves || []).some((leave: any) => leave.starts_on <= key && leave.ends_on >= key);
+    const status = row?.status === 'late' ? 'late' : classify(cursor, row, result.settings, holidays, onLeave);
+    if (status !== 'future') days.push({ key, row, status });
+  }
+  return days.sort((a, b) => b.key.localeCompare(a.key));
+}
 
 export default function AttendancePage() {
+  const defaults = rangeFor('month', '', '');
   const [profile, setProfile] = useState<any>();
-  const [month, setMonth] = useState(new Date());
+  const [period, setPeriod] = useState<Period>('month');
+  const [customFrom, setCustomFrom] = useState(defaults.from);
+  const [customTo, setCustomTo] = useState(defaults.to);
   const [data, setData] = useState<any>();
-  const [selected, setSelected] = useState<any>();
+  const [days, setDays] = useState<AttendanceDay[]>([]);
+  const [todayEntry, setTodayEntry] = useState<AttendanceDay>();
+  const [status, setStatus] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [acting, setActing] = useState(false);
   const [attendanceStatus, setAttendanceStatus] = useState('');
   const attendanceRequest = useRef(false);
+  const range = useMemo(() => rangeFor(period, customFrom, customTo), [period, customFrom, customTo]);
+  const invalidRange = Boolean(range.from && range.to && range.from > range.to);
 
-  const load = async () => {
-    setError('');
+  const load = useCallback(async () => {
+    if (!range.from || !range.to || invalidRange) return;
+    setLoading(true); setError('');
     try {
       const employee = await currentProfile() as any;
       if (!employee) throw Error('Your session has expired.');
       setProfile(employee);
-      const from = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`;
-      const to = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
-      const result = await employeeRepository.attendanceRules(employee.id, from, to);
-      const days = monthlyDays(month, result.settings, result.attendance, new Set(result.holidays.map((holiday: any) => holiday.holiday_date)), result.leaves);
-      const awareness = awarenessEventsForMonth(result.awareness || [], month.getFullYear(), month.getMonth() + 1);
-      const holidayEvents = new Map<string, any[]>();
-      (result.holidays || []).forEach((holiday: any) => holidayEvents.set(holiday.holiday_date, [{ name: holiday.name, category: 'holiday', date: holiday.holiday_date }]));
-      setData({ ...result, days, awarenessByDay: awareness.days, awarenessPeriods: awareness.periods, holidayEvents });
-      const todayKey = dateKey(new Date(), result.settings.timezone);
-      setSelected((current: any) => current && days.some((day: any) => day.key === current.key) ? days.find((day: any) => day.key === current.key) : days.find((day: any) => day.key === todayKey) || days[0]);
+      const todayResult = await employeeRepository.attendanceToday(employee.id);
+      const [result, separateTodayRules] = await Promise.all([
+        employeeRepository.attendanceRules(employee.id, range.from, range.to),
+        todayResult.workDate >= range.from && todayResult.workDate <= range.to ? Promise.resolve(null) : employeeRepository.attendanceRules(employee.id, todayResult.workDate, todayResult.workDate),
+      ]);
+      setData(result);
+      setDays(daysInRange(range.from, range.to, result));
+      const todayRules = separateTodayRules || result;
+      const todayDay = daysInRange(todayResult.workDate, todayResult.workDate, todayRules)[0];
+      setTodayEntry(todayDay ? { ...todayDay, row: todayResult.attendance } : undefined);
     } catch (caught: any) { setError(caught.message || 'Unable to load attendance.'); }
-  };
-  useEffect(() => { void load(); }, [month]);
+    finally { setLoading(false); }
+  }, [invalidRange, range.from, range.to]);
+
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setPage(1); setStatus('all'); }, [period, customFrom, customTo]);
 
   const today = data ? dateKey(new Date(), data.settings.timezone) : '';
-  const activeToday = data?.days?.find((day: any) => day.key === today);
-  const activeBreak = activeToday?.row?.attendance_breaks?.find((item: any) => !item.ended_at);
+  const activeBreak = todayEntry?.row?.attendance_breaks?.find((item: any) => !item.ended_at);
+  const durationFor = (day: AttendanceDay) => ({ minutes: day.row?.clock_in ? minutes(day.row) : null });
   const attendanceAction = async (action: 'clockIn' | 'clockOut' | 'startBreak' | 'endBreak') => {
     if (!profile || attendanceRequest.current) return;
-    attendanceRequest.current = true;
-    setActing(true); setError(''); setNotice('');
+    attendanceRequest.current = true; setActing(true); setError(''); setNotice('');
     try {
       if (action === 'clockIn' || action === 'clockOut') setAttendanceStatus(locationCheckingMessage);
       if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation('Clock In'));
-      if (action === 'clockOut' && activeToday?.row) await employeeRepository.clockOut(activeToday.row.id, await freshLocation('Clock Out'));
-      if (action === 'startBreak' && activeToday?.row) await employeeRepository.startBreak(activeToday.row.id);
+      if (action === 'clockOut' && todayEntry?.row) await employeeRepository.clockOut(todayEntry.row.id, await freshLocation('Clock Out'));
+      if (action === 'startBreak' && todayEntry?.row) await employeeRepository.startBreak(todayEntry.row.id);
       if (action === 'endBreak' && activeBreak) await employeeRepository.endBreak(activeBreak.id);
-      setNotice('Attendance updated.');
-      await load();
+      setNotice('Attendance updated.'); await load();
     } catch (caught: any) { setError(caught.message || 'Attendance could not be updated.'); }
     finally { attendanceRequest.current = false; setAttendanceStatus(''); setActing(false); }
   };
 
-  const summary = useMemo(() => {
-    if (!data) return { present: 0, absent: 0, leave: 0, work: 0 };
-    return {
-      present: data.days.filter((day: any) => day.status === 'present' || day.status === 'late').length,
-      absent: data.days.filter((day: any) => day.status === 'absent').length,
-      leave: data.days.filter((day: any) => day.status === 'leave').length,
-      work: data.days.reduce((total: number, day: any) => total + minutes(day.row), 0),
-    };
-  }, [data]);
+  const statuses = useMemo(() => ['all', ...['present', 'late', 'absent', 'leave', 'holiday', 'weekend'].filter(value => days.some(day => day.status === value))], [days]);
+  const counts = useMemo(() => Object.fromEntries(statuses.map(value => [value, value === 'all' ? days.length : days.filter(day => day.status === value).length])), [days, statuses]);
+  const filtered = status === 'all' ? days : days.filter(day => day.status === status);
+  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const todayAction = !todayEntry?.row
+    ? <button className="btn btn-primary" disabled={acting || !canClockIn(todayEntry?.status || 'future')} onClick={() => void attendanceAction('clockIn')}>Clock in</button>
+    : todayEntry.row.clock_out ? null : activeBreak
+      ? <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('endBreak')}>End break</button>
+      : <><button className="btn" disabled={acting} onClick={() => void attendanceAction('startBreak')}>Start break</button><button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>Clock out</button></>;
 
-  if (!data && !error) return <section><EmployeePageHeader title="Attendance" subtitle="View your monthly attendance and working time." /><EmployeeLoading cards={3} /></section>;
-  if (error && !data) return <section><EmployeePageHeader title="Attendance" subtitle="View your monthly attendance and working time." /><EmployeeBanner>{error}</EmployeeBanner><button className="btn btn-primary" onClick={() => void load()}>Try again</button></section>;
-  const firstOffset = weekday(new Date(`${data.days[0].key}T12:00:00Z`), data.settings.timezone) - 1;
-  const todayStatus = activeToday?.row?.clock_in ? label(activeToday.status) : activeToday?.status === 'absent' ? 'Not clocked in' : label(activeToday?.status || '');
-  const clockInAllowed = canClockIn(activeToday?.status || 'future');
+  return <section className="attendance-workspace">
+    <header className="attendance-heading">
+      <div><h1>My Attendance</h1><p>Your personal attendance record and working time.</p></div>
+      {todayAction ? <div className="attendance-today-actions" aria-label="Today’s attendance actions">{todayAction}</div> : null}
+    </header>
 
-  return <section className="space-y-4">
-    <EmployeePageHeader title="Attendance" subtitle="View your monthly attendance and working time." action={<div className="flex flex-wrap items-center justify-end gap-2"><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1))}>Previous</button><div className="min-w-36 text-center text-sm font-bold">{month.toLocaleString('en', { month: 'long', year: 'numeric' })}</div><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1))}>Next</button><button className="btn border px-3 py-1.5 text-xs" onClick={() => setMonth(new Date())}>Today</button></div>} />
-    <EmployeeSection title="Today's attendance" description={activeToday?.row?.clock_in ? 'Your current attendance and working time.' : 'Start your day when you are ready.'} className="border-teal-100">
-      <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><Detail label="Current status" value={activeBreak ? 'On break' : todayStatus} /><Detail label="Clock in" value={time(activeToday?.row?.clock_in)} /><Detail label="Break" value={activeBreak ? `Since ${time(activeBreak.started_at)}` : activeToday?.row?.break_minutes ? `${activeToday.row.break_minutes} min` : '—'} /><Detail label="Clock out" value={time(activeToday?.row?.clock_out)} /><Detail label="Working hours" value={activeToday?.row?.clock_in ? duration(minutes(activeToday.row)) : '—'} /></div>
-        <div className="flex flex-wrap gap-2 lg:justify-end">{!activeToday?.row && <button className="btn btn-primary" disabled={acting || !clockInAllowed} title={clockInAllowed ? undefined : `Clock-in is unavailable on ${activeToday?.status || 'this day'}.`} onClick={() => void attendanceAction('clockIn')}>{attendanceStatus ? 'Checking location...' : error === locationBlockedMessage ? 'Try again' : 'Clock in'}</button>}{activeToday?.row && !activeToday.row.clock_out && !activeBreak && <><button className="btn border" disabled={acting} onClick={() => void attendanceAction('startBreak')}>{acting ? 'Updating...' : 'Start break'}</button><button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>{attendanceStatus ? 'Checking location...' : error === locationBlockedMessage ? 'Try again' : 'Clock out'}</button></>}{activeBreak && <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('endBreak')}>{acting ? 'Updating...' : 'End break'}</button>}</div>
-      </div>
-    </EmployeeSection>
-    <EmployeeMetricGrid columns={4}><EmployeeMetric label="Present" value={summary.present} tone="success" /><EmployeeMetric label="Absent" value={summary.absent} tone="danger" /><EmployeeMetric label="Leave" value={summary.leave} tone="info" /><EmployeeMetric label="Working hours" value={duration(summary.work)} /></EmployeeMetricGrid>
-    {attendanceStatus && <EmployeeBanner tone="info">{attendanceStatus}</EmployeeBanner>}{notice && <EmployeeBanner tone="success">{notice}</EmployeeBanner>}{error && <EmployeeBanner>{error}</EmployeeBanner>}
-    <div className="flex flex-wrap gap-2">{['present', 'late', 'absent', 'leave', 'holiday', 'weekend'].map(status => <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600" key={status}><span className={`h-2 w-2 rounded-full ${status === 'present' ? 'bg-emerald-500' : status === 'late' ? 'bg-amber-500' : status === 'leave' ? 'bg-sky-500' : status === 'holiday' ? 'bg-violet-500' : 'bg-slate-400'}`} />{label(status)}</span>)}<span className="flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs text-teal-800"><span className="h-2 w-2 rounded-full bg-teal-500" />Awareness day</span></div>
-    <EmployeeSection title="Monthly calendar" description="Public holidays and awareness events appear alongside attendance. Select a day for details.">{data.awarenessPeriods.length > 0 && <div className="mx-3 mt-3 flex flex-wrap gap-2 sm:mx-4">{data.awarenessPeriods.map((event: any) => <span className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800" title={event.notes || undefined} key={event.name}>{event.name}{event.notes ? ' · dates to be confirmed' : ''}</span>)}</div>}<div className="mx-auto grid max-w-6xl grid-cols-7 gap-1.5 p-3 sm:gap-2 md:p-4">{weekdayNames.map(name => <div className="pb-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-xs" key={name}>{name}</div>)}{Array.from({ length: firstOffset }).map((_, index) => <div aria-hidden="true" key={`empty-${index}`} />)}{data.days.map((day: any) => { const isToday = day.key === today; const selectedDay = selected?.key === day.key; const worked = minutes(day.row); const statusText = day.status === 'future' ? '' : label(day.status); const events = [...(data.holidayEvents.get(day.key) || []), ...(data.awarenessByDay.get(day.key) || [])]; return <button onClick={() => setSelected(day)} className={`relative min-h-[72px] overflow-hidden rounded-lg border p-1.5 text-left transition hover:brightness-[.98] sm:min-h-[86px] sm:p-2 ${statusStyle[day.status] || statusStyle.future} ${isToday ? 'ring-2 ring-teal-500 ring-offset-1' : ''} ${selectedDay ? 'shadow-sm' : ''}`} key={day.key}><span className="block text-sm font-extrabold">{day.key.slice(-2)}</span>{isToday && <span className="mt-1 inline-flex rounded bg-teal-700 px-1.5 py-0.5 text-[9px] font-bold text-white">Today</span>}{statusText && <span className="mt-1 block text-[10px] font-semibold sm:text-xs">{statusText}</span>}{events.slice(0, 2).map((event: any) => <span className={`mt-1 block truncate rounded px-1 text-[8px] font-bold leading-4 sm:text-[9px] ${event.category === 'holiday' ? 'bg-violet-100 text-violet-800' : 'bg-teal-100 text-teal-800'}`} title={event.name} key={`${event.category}-${event.name}`}>{event.name}</span>)}{events.length > 2 && <span className="block text-[9px] font-bold text-slate-600">+{events.length - 2} more</span>}{(day.status === 'present' || day.status === 'late') && <span className="mt-0.5 block text-[9px] sm:text-[10px]">{duration(worked)}</span>}</button>; })}</div></EmployeeSection>
-    {selected && <div className="grid gap-4 lg:grid-cols-2"><EmployeeSection title="Selected day" action={<EmployeeStatusBadge tone={statusTone[selected.status]}>{label(selected.status)}</EmployeeStatusBadge>}><div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3"><Detail label="Selected date" value={new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${selected.key}T12:00:00`))} /><Detail label="Status" value={label(selected.status)} /><Detail label="Clock in" value={time(selected.row?.clock_in)} /><Detail label="Clock out" value={time(selected.row?.clock_out)} /><Detail label="Working hours" value={selected.row?.clock_in ? duration(minutes(selected.row)) : '—'} /></div>{!selected.row && <p className="border-t border-slate-100 px-4 py-3 text-sm text-slate-500">No attendance recorded.</p>}</EmployeeSection>{selected.row && <EmployeeSection title="Attendance timeline" description="Clock-in and clock-out activity."><div className="divide-y divide-slate-100 px-4">{[{ at: selected.row.clock_in, title: 'Clock in' }, { at: selected.row.clock_out, title: 'Clock out' }].filter(event => event.at).map((event, index) => <div className="flex items-center gap-3 py-3" key={`${event.title}-${index}`}><time className="w-20 text-sm font-bold text-teal-800">{time(event.at)}</time><span className="h-2.5 w-2.5 rounded-full bg-teal-500" /><span className="text-sm font-medium text-slate-800">{event.title}</span></div>)}</div></EmployeeSection>}</div>}
-    {selected && <EmployeeSection title="Calendar events"><div className="p-4">{[...(data.holidayEvents.get(selected.key) || []), ...(data.awarenessByDay.get(selected.key) || [])].length ? <ul className="space-y-1">{[...(data.holidayEvents.get(selected.key) || []), ...(data.awarenessByDay.get(selected.key) || [])].map((event: any) => <li className="text-sm text-slate-700" key={`${event.category}-${event.name}`}><span className={`mr-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${event.category === 'holiday' ? 'bg-violet-100 text-violet-800' : 'bg-teal-100 text-teal-800'}`}>{event.category === 'holiday' ? 'Holiday' : 'Awareness'}</span>{event.name}</li>)}</ul> : <p className="text-sm text-slate-500">No public holiday or awareness event on this date.</p>}</div></EmployeeSection>}
+    <div className="attendance-period" role="group" aria-label="Attendance period">
+      {([['last-7', 'Last 7 Days'], ['month', 'This Month'], ['custom', 'Custom']] as const).map(([value, label]) => <button type="button" className={period === value ? 'active' : ''} aria-pressed={period === value} onClick={() => setPeriod(value)} key={value}>{label}</button>)}
+      {period === 'custom' ? <div className="attendance-date-range">
+        <label>From<input type="date" value={customFrom} max={customTo} onChange={event => setCustomFrom(event.target.value)} /></label>
+        <label>To<input type="date" value={customTo} min={customFrom} onChange={event => setCustomTo(event.target.value)} /></label>
+      </div> : <time className="attendance-range-label">{dateLabel(range.from)} – {dateLabel(range.to)}</time>}
+    </div>
+    {invalidRange ? <p className="attendance-alert" role="alert">From date must be on or before To date.</p> : null}
+
+    <div className="attendance-statuses" role="group" aria-label="Filter attendance by status">
+      {statuses.map(value => <button type="button" aria-pressed={status === value} className={status === value ? 'active' : ''} onClick={() => { setStatus(value); setPage(1); }} key={value}>{labels[value]} <span>{counts[value]}</span></button>)}
+    </div>
+
+    {attendanceStatus ? <p className="attendance-notice" role="status">{attendanceStatus}</p> : null}
+    {notice ? <p className="attendance-notice attendance-notice-success" role="status">{notice}</p> : null}
+    {error ? <div className="attendance-alert" role="alert">{error} <button type="button" onClick={() => void load()}>Try again</button></div> : null}
+
+    <div className="attendance-records" aria-busy={loading}>
+      <table aria-label="Personal attendance records">
+        <thead><tr><th>Date</th><th>Shift</th><th>Actual In</th><th>Actual Out</th><th>Work Hours</th><th>Status</th></tr></thead>
+        <tbody>
+          {loading ? Array.from({ length: 7 }, (_, index) => <tr className="attendance-loading-row" key={index}><td colSpan={6}><span /></td></tr>) : visible.map(day => { const worked = durationFor(day); return <tr key={day.key}>
+            <td data-label="Date"><time dateTime={day.key}>{dateLabel(day.key)}</time></td>
+            <td data-label="Shift">{shiftLabel(day.status, data.settings)}</td>
+            <td data-label="Actual In">{time(day.row?.clock_in)}</td>
+            <td data-label="Actual Out">{time(day.row?.clock_out)}</td>
+            <td data-label="Work Hours">{worked.minutes === null ? '—' : durationLabel(worked.minutes)}</td>
+            <td data-label="Status"><StatusBadge status={labels[day.status] || day.status} /></td>
+          </tr>; })}
+        </tbody>
+      </table>
+      {!loading && !visible.length ? <CompactEmptyState title="No attendance records" description="No records match this period and status." /> : null}
+    </div>
+    {!loading ? <Pagination page={page} pageSize={pageSize} pageSizeOptions={PAGE_SIZES} total={filtered.length} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} /> : null}
   </section>;
 }
-
-function Detail({ label: title, value }: { label: string; value: string }) { return <div className="rounded-lg bg-slate-50 px-3 py-2.5"><span className="block text-xs text-slate-500">{title}</span><b className="mt-1 block text-sm">{value}</b></div>; }
