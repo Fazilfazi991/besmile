@@ -10,11 +10,13 @@ describe('contextualBackTarget', () => {
     ['/admin/finance/invoices/invoice-id', '/admin/finance/invoices', 'Back to invoices'],
     ['/admin/finance/invoices/new', '/admin/finance/invoices', 'Back to invoices'],
     ['/admin/finance/payroll/run-id', '/admin/finance/payroll', 'Back to payroll'],
+    ['/admin/finance/payroll/settings/', '/admin/finance/payroll', 'Back to payroll'],
     ['/admin/documents/generate', '/admin/documents', 'Back to documents'],
     ['/admin/ideas/idea-id', '/admin/ideas', 'Back to Innovation Hub'],
     ['/employee/announcements/announcement-id', '/employee/announcements', 'Back to announcements'],
     ['/employee/crm/leads/lead-id', '/employee/crm/leads', 'Back to my leads'],
     ['/employee/tasks/manage', '/employee/tasks', 'Back to tasks'],
+    ['/employee/tasks/access/', '/employee/tasks', 'Back to tasks'],
   ])('maps %s to its permission-safe parent', (pathname, href, label) => {
     expect(contextualBackTarget(pathname)).toEqual({ href, label });
   });

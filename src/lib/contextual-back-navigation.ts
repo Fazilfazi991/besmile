@@ -23,5 +23,9 @@ const targets: Array<{ pattern: RegExp; target: ContextualBackTarget }> = [
 ];
 
 export function contextualBackTarget(pathname: string): ContextualBackTarget | null {
-  return targets.find(({ pattern }) => pattern.test(pathname))?.target ?? null;
+  const normalizedPathname = pathname.length > 1
+    ? pathname.replace(/\/+$/, '')
+    : pathname;
+
+  return targets.find(({ pattern }) => pattern.test(normalizedPathname))?.target ?? null;
 }
