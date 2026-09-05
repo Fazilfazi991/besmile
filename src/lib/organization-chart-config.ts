@@ -9,11 +9,11 @@ export type OrganizationChartNode = {
 };
 
 export const organizationChart = [
-  { key: "director", displayName: "Director", designation: "Director", parentKey: null, profileNameAliases: ["Director"] },
+  { key: "director", displayName: "Yousaf KS", designation: "Director", parentKey: null, profileNameAliases: ["Yousaf KS", "Director"], avatar: "/organization-chart/yousaf-ks.png" },
   { key: "general-manager", displayName: "Fayiz", designation: "General Manager", parentKey: "director", profileNameAliases: ["Fayiz", "Muhammad Faiz AU"] },
   { key: "assistant-manager", displayName: "Diya Anthikat", designation: "Assistant Manager", parentKey: "general-manager", profileNameAliases: ["Diya Anthikat"], avatar: "/organization-chart/diya-anthikat.png" },
   { key: "sales-coordinator", displayName: "Fathima", designation: "Sales Coordinator", parentKey: "general-manager", profileNameAliases: ["Fathima"] },
-  { key: "psychologist", displayName: "Aiswarya P", designation: "Psychologist", parentKey: "assistant-manager", profileNameAliases: ["Aiswarya P"] },
+  { key: "psychologist", displayName: "Aiswarya P", designation: "Psychologist", parentKey: "assistant-manager", profileNameAliases: ["Aiswarya P"], avatar: "/organization-chart/aiswarya-p.png" },
   { key: "admin", displayName: "Anushma VK", designation: "Admin", parentKey: "assistant-manager", profileNameAliases: ["Anushma VK"], avatar: "/organization-chart/anushma-vk.png" },
   { key: "intern", displayName: "Intern", designation: "Internship", parentKey: "assistant-manager", profileNameAliases: ["Intern"] },
 ] as const satisfies readonly OrganizationChartNode[];

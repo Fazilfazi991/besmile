@@ -43,6 +43,8 @@ describe("profile organization chart integration", () => {
     const config = read("src/lib/organization-chart-config.ts");
     expect(config).toContain('avatar: "/organization-chart/diya-anthikat.png"');
     expect(config).toContain('avatar: "/organization-chart/anushma-vk.png"');
+    expect(config).toContain('avatar: "/organization-chart/yousaf-ks.png"');
+    expect(config).toContain('avatar: "/organization-chart/aiswarya-p.png"');
     expect(config).not.toContain("employee_demo_dps_webp");
     expect(component).toContain("<span>{initials(node.displayName)}</span>");
   });
