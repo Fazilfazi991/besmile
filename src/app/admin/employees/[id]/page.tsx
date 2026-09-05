@@ -425,7 +425,7 @@ export default function AdminEmployeeProfile() {
           )}
         </div>
       </header>
-      <ProfileOrganizationChart profileName={profile.full_name} isSelf={viewer?.id === profile.id} />
+      <ProfileOrganizationChart profileName={profile.full_name} profilePhoto={photo} isSelf={viewer?.id === profile.id} />
       {error && <Banner error={error} />}
       {notice && (
         <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
