@@ -27,5 +27,6 @@ describe('director executive dashboard rules', () => {
     expect(percentageChange(12, 0)).toBeNull();
     expect(percentageChange(120, 100)).toBe(20);
     expect(executivePeriodRange('previous_month', new Date('2026-01-15T12:00:00Z'), 'UTC')).toEqual({ start: '2025-12-01', end: '2025-12-31' });
+    expect(executivePeriodRange('quarter', new Date('2026-01-15T12:00:00Z'), 'UTC')).toEqual({ start: '2025-11-01', end: '2026-01-15' });
   });
 });

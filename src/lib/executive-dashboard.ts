@@ -25,7 +25,8 @@ export function executivePeriodRange(period: ExecutivePeriod, date = new Date(),
     if (!startMonth) { startMonth = 12; startYear -= 1; }
     endYear = startYear; endMonth = startMonth;
   } else if (period === 'quarter') {
-    startMonth = Math.max(1, now.month - 2);
+    startMonth -= 2;
+    if (startMonth < 1) { startMonth += 12; startYear -= 1; }
   } else if (period === 'year') {
     startMonth = 1;
   }

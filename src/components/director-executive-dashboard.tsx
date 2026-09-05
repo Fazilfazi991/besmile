@@ -88,9 +88,9 @@ function buildMetrics(data: any, period: ExecutivePeriod) {
   const previousConversion = previousLeads.length ? previousConverted.length / previousLeads.length * 100 : null;
   const openInvoices = (data.invoices || []).map((invoice: any) => ({ ...invoice, balance: invoiceBalance(invoice) })).filter((invoice: any) => invoice.balance > 0 && !['paid', 'cancelled'].includes(invoice.status));
   const outstanding = openInvoices.reduce((sum: number, invoice: any) => sum + invoice.balance, 0);
-  const pipelineMap = new Map<string, number>();
-  periodLeads.forEach((lead: any) => { const name = lead.status?.name || 'Unassigned'; pipelineMap.set(name, (pipelineMap.get(name) || 0) + 1); });
-  const pipeline = [...pipelineMap].map(([name, count]) => ({ name, count, percent: periodLeads.length ? count / periodLeads.length * 100 : 0 })).sort((a, b) => b.count - a.count);
+  const pipelineMap = new Map<string, { count: number; sortOrder: number }>();
+  periodLeads.forEach((lead: any) => { const name = lead.status?.name || 'Unassigned'; const current = pipelineMap.get(name); pipelineMap.set(name, { count: (current?.count || 0) + 1, sortOrder: Number(lead.status?.sort_order ?? Number.MAX_SAFE_INTEGER) }); });
+  const pipeline = [...pipelineMap].map(([name, row]) => ({ name, count: row.count, percent: periodLeads.length ? row.count / periodLeads.length * 100 : 0, sortOrder: row.sortOrder })).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   const today = businessDateParts(new Date(), data.timezone).key;
   const overdueInvoices = openInvoices.filter((invoice: any) => invoice.due_date && String(invoice.due_date).slice(0, 10) < today);
   const overdueBalance = overdueInvoices.reduce((sum: number, invoice: any) => sum + invoice.balance, 0);
