@@ -27,20 +27,20 @@ describe("profile organization chart integration", () => {
     expect(clinicianProfile).not.toContain("ProfileOrganizationChart");
   });
 
-  it("keeps the true tree inside a locally scrollable mobile viewport", () => {
+  it("fits the true tree to the mobile viewport without horizontal scrolling", () => {
     expect(styles).toContain("@media(max-width:700px)");
-    expect(styles).toContain(".organization-chart-viewport{display:block;max-width:100%;overflow-x:auto");
-    expect(styles).toContain(".organization-chart-tree{width:max-content;min-width:544px");
-    expect(styles).toContain("overscroll-behavior-x:contain");
-    expect(styles).not.toContain("organization-chart-node-assistant-manager>ul");
-    expect(component).toContain("viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) / 2");
-    expect(component).toContain("Swipe to explore the full tree");
+    expect(styles).toContain(".organization-chart-viewport{display:block;width:100%;max-width:100%;overflow-x:hidden");
+    expect(styles).toContain(".organization-chart-tree{width:100%;max-width:none}");
+    expect(styles).toContain('ul[data-parent="general-manager"]>li{flex:1 1 50%;width:50%}');
+    expect(styles).toContain(".organization-chart-node-assistant-manager>ul{position:absolute");
+    expect(component).not.toContain("Swipe to explore");
+    expect(component).not.toContain("scrollLeft");
   });
 
   it("preserves the layout-derived desktop tree and mobile card dimensions", () => {
     expect(styles).toContain(".organization-chart-tree,.organization-chart-tree ul{display:flex");
     expect(styles).toContain(".organization-chart-card{position:relative;z-index:1;display:grid;width:150px;height:116px");
-    expect(styles).toContain(".organization-chart-card{width:124px;height:112px");
+    expect(styles).toContain(".organization-chart-card{width:96px;height:88px");
   });
 
   it("preserves an already-loaded real profile photo for the matched person", () => {
