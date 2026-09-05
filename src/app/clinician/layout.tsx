@@ -4,6 +4,7 @@ import { GlobalCommandCenter } from '@/components/global-command-center';
 import { PermissionSidebar } from '@/components/permission-sidebar';
 import { MobileNavigationProvider, MobileNavigationTrigger } from '@/components/mobile-navigation';
 import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
+import { TopbarProfileLink } from '@/components/topbar-profile-link';
 
 const groups = [
   { title: 'CLINICIAN WORKSPACE', links: [{ label: 'My Schedule', href: '/clinician/schedule' }, { label: 'Notifications', href: '/clinician/notifications' }, { label: 'Profile', href: '/clinician/profile' }] },
@@ -24,7 +25,7 @@ export default async function ClinicianLayout({ children }: { children: React.Re
   return <MobileNavigationProvider><div className="app-shell employee-shell">
     <PermissionSidebar groups={groups} name={name} subtitle={profile.designation || 'Outsourced psychologist'} profileHref="/clinician/profile" />
     <main className="app-main">
-      <header className="app-topbar"><div><p className="eyebrow">BSMILE CLINICIAN WORKSPACE</p><h1>My Clinical Schedule</h1></div><div className="topbar-actions"><MobileNavigationTrigger /><ThemeModeSwitcher /><GlobalCommandCenter mode="employee" userId={user.id} /><a className="topbar-user" href="/clinician/profile"><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{profile.designation || 'Clinician'}</small></div></a></div></header>
+      <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode="employee" userId={user.id} /><TopbarProfileLink href="/clinician/profile" name={name} subtitle={profile.designation || 'Clinician'} /></header>
       <div className="app-content">{children}</div>
     </main>
   </div></MobileNavigationProvider>;

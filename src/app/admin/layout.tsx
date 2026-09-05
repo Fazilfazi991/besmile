@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation';
 import { PermissionSidebar } from '@/components/permission-sidebar';
 import { MobileNavigationProvider, MobileNavigationTrigger } from '@/components/mobile-navigation';
 import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
+import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { grantedPermissions } from '@/lib/granted-permissions';
-import Link from 'next/link';
 import '../workspace-density.css';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -32,7 +32,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return <MobileNavigationProvider><div className="app-shell employee-shell">
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={subtitle} profileHref={profileHref} />
     <main className="app-main">
-      <header className="app-topbar">{isEmployeeShell && <div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div>}<div className="topbar-actions"><MobileNavigationTrigger /><ThemeModeSwitcher /><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><Link className="topbar-user" href={profileHref}><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{subtitle}</small></div></Link></div></header>
+      <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><TopbarProfileLink href={profileHref} name={name} subtitle={subtitle} /></header>
       <div className="app-content">{children}</div>
     </main>
   </div></MobileNavigationProvider>;

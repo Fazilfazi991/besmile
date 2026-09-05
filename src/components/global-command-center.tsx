@@ -341,7 +341,7 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
     }
   };
   return (
-    <div className="relative flex items-center gap-2">
+    <div className="global-command-center">
       <button className="global-search-trigger" aria-label="Search workspace" onClick={() => setOpen(true)}>
         <svg className="header-icon header-icon-search" aria-hidden="true" viewBox="0 0 24 24" fill="none">
           <circle cx="11" cy="11" r="7" />
