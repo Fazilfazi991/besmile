@@ -34,6 +34,71 @@ type LauncherView =
 
 const RECENT_LIMIT = 4;
 
+const COMMUNICATION_LINK_LABELS = new Set([
+  "Chat",
+  "Announcements",
+  "Notifications",
+  "Customer Feedback",
+]);
+
+const WORK_MANAGEMENT_LINK_LABELS = new Set([
+  "Staff Attendance",
+  "Leave Approvals",
+  "Customer Feedback",
+]);
+
+const composeSidebarSections = (
+  groups: readonly NavigationGroup[],
+): NavigationSection[] => {
+  const derived = sectionNavigation(groups);
+  const workSectionIndex = derived.findIndex((section) =>
+    ["Work Management", "Communication"].includes(section.title),
+  );
+  if (workSectionIndex < 0) return derived;
+
+  const workLinks = derived.flatMap((section) =>
+    section.title === "Work Management" || section.title === "Communication"
+      ? section.links
+      : section.links.filter((link) =>
+          WORK_MANAGEMENT_LINK_LABELS.has(link.label),
+        ),
+  );
+
+  return derived.flatMap((section, index) => {
+    if (index === workSectionIndex)
+      return [{ title: "Work Management", links: workLinks }];
+    if (
+      section.title === "Work Management" ||
+      section.title === "Communication"
+    )
+      return [];
+    const links = section.links.filter(
+      (link) => !WORK_MANAGEMENT_LINK_LABELS.has(link.label),
+    );
+    return links.length ? [{ ...section, links }] : [];
+  });
+};
+
+const groupedSectionLinks = (section: NavigationSection) => {
+  if (section.title !== "Work Management")
+    return [{ title: null, links: section.links }];
+
+  return [
+    {
+      title: "Performance",
+      links: section.links.filter(
+        (link) => !COMMUNICATION_LINK_LABELS.has(link.label),
+      ),
+    },
+    {
+      title: "Communication",
+      links: section.links.filter((link) =>
+        COMMUNICATION_LINK_LABELS.has(link.label),
+      ),
+    },
+  ].filter((group) => group.links.length > 0);
+};
+
 /*
  * Source-stable accessibility regression anchors retained for the existing
  * navigation contract test:
@@ -96,7 +161,7 @@ export function PermissionSidebar({
     [profileHref],
   );
   const activeHref = activeNavigationHref(pathname, groups);
-  const sections = useMemo(() => sectionNavigation(groups), [groups]);
+  const sections = useMemo(() => composeSidebarSections(groups), [groups]);
   const activeSection = useMemo(
     () =>
       sections.find((section) =>
@@ -244,9 +309,10 @@ export function PermissionSidebar({
     }
     const rect = trigger.getBoundingClientRect();
     const width = 220;
+    const groupLabelHeight = section.title === "Work Management" ? 47 : 0;
     const estimatedHeight = Math.min(
       window.innerHeight - 24,
-      43 + section.links.length * 36,
+      43 + groupLabelHeight + section.links.length * 36,
     );
     const top = Math.max(
       12,
@@ -392,21 +458,26 @@ export function PermissionSidebar({
                     className="nav-card-grid mobile-nav-children"
                     id={`${sectionId}-mobile`}
                   >
-                    {section.links.map((link) => {
-                      const active = activeHref === link.href;
-                      return (
-                        <Link
-                          className={`nav-card${active ? " active" : ""}`}
-                          aria-current={active ? "page" : undefined}
-                          href={link.href}
-                          key={link.href}
-                          onClick={() => setMobileOpen(false)}
-                        >
-                          <ModuleIcon label={link.label} />
-                          <span>{link.label}</span>
-                        </Link>
-                      );
-                    })}
+                    {groupedSectionLinks(section).map((group) => (
+                      <section className="mobile-nav-link-group" key={group.title || "links"}>
+                        {group.title && <h3>{group.title}</h3>}
+                        {group.links.map((link) => {
+                          const active = activeHref === link.href;
+                          return (
+                            <Link
+                              className={`nav-card${active ? " active" : ""}`}
+                              aria-current={active ? "page" : undefined}
+                              href={link.href}
+                              key={link.href}
+                              onClick={() => setMobileOpen(false)}
+                            >
+                              <ModuleIcon label={link.label} />
+                              <span>{link.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </section>
+                    ))}
                   </div>
                 )}
               </section>
@@ -460,22 +531,27 @@ export function PermissionSidebar({
               }}
             />
           </header>
-          <div>
-            {flyoutSection.links.map((link) => {
-              const active = activeHref === link.href;
-              return (
-                <Link
-                  className={`module-flyout-link${active ? " active" : ""}`}
-                  aria-current={active ? "page" : undefined}
-                  href={link.href}
-                  key={link.href}
-                  onClick={() => setFlyoutState(null)}
-                >
-                  <ModuleIcon label={link.label} />
-                  <span>{link.label}</span>
-                </Link>
-              );
-            })}
+          <div className="module-flyout-groups">
+            {groupedSectionLinks(flyoutSection).map((group) => (
+              <section className="module-flyout-group" key={group.title || "links"}>
+                {group.title && <h3>{group.title}</h3>}
+                {group.links.map((link) => {
+                  const active = activeHref === link.href;
+                  return (
+                    <Link
+                      className={`module-flyout-link${active ? " active" : ""}`}
+                      aria-current={active ? "page" : undefined}
+                      href={link.href}
+                      key={link.href}
+                      onClick={() => setFlyoutState(null)}
+                    >
+                      <ModuleIcon label={link.label} />
+                      <span>{link.label}</span>
+                    </Link>
+                  );
+                })}
+              </section>
+            ))}
           </div>
         </nav>
       )}
@@ -606,25 +682,30 @@ export function PermissionSidebar({
                   className="mobile-launcher-links"
                   aria-label={`${launcherSection.title} pages`}
                 >
-                  {launcherSection.links.map((link) => {
-                    const active = activeHref === link.href;
-                    return (
-                      <Link
-                        className={active ? "active" : undefined}
-                        aria-current={active ? "page" : undefined}
-                        href={link.href}
-                        key={link.href}
-                        onClick={() => {
-                          rememberDestination(link.href);
-                          closeLauncher();
-                        }}
-                      >
-                        <ModuleIcon label={link.label} />
-                        <span>{link.label}</span>
-                        <i aria-hidden="true">›</i>
-                      </Link>
-                    );
-                  })}
+                  {groupedSectionLinks(launcherSection).map((group) => (
+                    <section className="mobile-launcher-link-group" key={group.title || "links"}>
+                      {group.title && <h3>{group.title}</h3>}
+                      {group.links.map((link) => {
+                        const active = activeHref === link.href;
+                        return (
+                          <Link
+                            className={active ? "active" : undefined}
+                            aria-current={active ? "page" : undefined}
+                            href={link.href}
+                            key={link.href}
+                            onClick={() => {
+                              rememberDestination(link.href);
+                              closeLauncher();
+                            }}
+                          >
+                            <ModuleIcon label={link.label} />
+                            <span>{link.label}</span>
+                            <i aria-hidden="true">›</i>
+                          </Link>
+                        );
+                      })}
+                    </section>
+                  ))}
                 </nav>
               )}
 

@@ -13,9 +13,7 @@ const density = readFileSync(
 
 describe("Phase 3D contextual module navigation", () => {
   it("uses one permission-filtered section model for flyouts and direct links", () => {
-    expect(sidebar).toContain(
-      "const sections = useMemo(() => sectionNavigation(groups), [groups])",
-    );
+    expect(sidebar).toContain("composeSidebarSections(groups)");
     expect(sidebar).toContain("const hasChildren = section.links.length > 1");
     expect(sidebar).toContain("nav-section-direct");
     expect(sidebar).not.toContain("const financeLinks");
@@ -47,6 +45,17 @@ describe("Phase 3D contextual module navigation", () => {
     expect(density).toContain(
       "@media(max-width:900px){.module-flyout{display:none}",
     );
+  });
+
+  it("groups Work Management links consistently on desktop and mobile", () => {
+    expect(sidebar).toContain('title: "Performance"');
+    expect(sidebar).toContain('title: "Communication"');
+    expect(sidebar).toContain("COMMUNICATION_LINK_LABELS");
+    expect(sidebar).toContain("groupedSectionLinks(flyoutSection)");
+    expect(sidebar).toContain("groupedSectionLinks(section)");
+    expect(sidebar).toContain("groupedSectionLinks(launcherSection)");
+    expect(density).toContain("module-flyout-group");
+    expect(density).toContain("mobile-launcher-link-group");
   });
 
   it("provides keyboard and ARIA affordances", () => {
