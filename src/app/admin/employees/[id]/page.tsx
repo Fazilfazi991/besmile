@@ -32,6 +32,7 @@ import {
   type EmployeeStatus,
 } from "@/lib/employee-management-rules";
 import { employeeStatusLabel, isOperationalEmployeeStatus } from "@/lib/employee-status";
+import { ProfileOrganizationChart } from "@/components/profile-organization-chart";
 
 const dash = (value: any) =>
   value === null || value === undefined || value === "" ? "—" : value;
@@ -424,6 +425,7 @@ export default function AdminEmployeeProfile() {
           )}
         </div>
       </header>
+      <ProfileOrganizationChart profileName={profile.full_name} isSelf={viewer?.id === profile.id} />
       {error && <Banner error={error} />}
       {notice && (
         <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
