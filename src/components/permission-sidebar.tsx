@@ -36,6 +36,7 @@ const RECENT_LIMIT = 4;
 
 const COMMUNICATION_LINK_LABELS = new Set([
   "Chat",
+  "Teams",
   "Announcements",
   "Notifications",
   "Customer Feedback",

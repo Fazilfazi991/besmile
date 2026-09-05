@@ -51,6 +51,7 @@ describe("Phase 3D contextual module navigation", () => {
     expect(sidebar).toContain('title: "Performance"');
     expect(sidebar).toContain('title: "Communication"');
     expect(sidebar).toContain("COMMUNICATION_LINK_LABELS");
+    expect(sidebar).toContain('"Teams"');
     expect(sidebar).toContain("groupedSectionLinks(flyoutSection)");
     expect(sidebar).toContain("groupedSectionLinks(section)");
     expect(sidebar).toContain("groupedSectionLinks(launcherSection)");
