@@ -36,6 +36,10 @@ function OrganizationBranch({ node, highlightedKey, profilePhoto, isSelf }: { no
 export function ProfileOrganizationChart({ profileName, profilePhoto, isSelf = false }: ProfileOrganizationChartProps) {
   const highlightedNode = organizationNodeForProfile(profileName);
   const roots = organizationChart.filter((node) => node.parentKey === null);
+  const node = (key: string) => organizationChart.find((item) => item.key === key)!;
+  const mobileCard = (key: string) => (
+    <OrganizationChartCard node={node(key)} highlighted={key === highlightedNode?.key} profilePhoto={profilePhoto} isSelf={isSelf} />
+  );
 
   return (
     <section className="organization-chart-section" aria-labelledby="organization-chart-title">
@@ -44,6 +48,24 @@ export function ProfileOrganizationChart({ profileName, profilePhoto, isSelf = f
         <ul className="organization-chart-tree" aria-label="BSmile organization hierarchy">
           {roots.map((root) => <OrganizationBranch key={root.key} node={root} highlightedKey={highlightedNode?.key} profilePhoto={profilePhoto} isSelf={isSelf} />)}
         </ul>
+        <div className="organization-chart-mobile" aria-label="BSmile organization hierarchy">
+          <div className="organization-chart-mobile-single">{mobileCard("director")}</div>
+          <div className="organization-chart-mobile-link" aria-hidden="true" />
+          <div className="organization-chart-mobile-single">{mobileCard("general-manager")}</div>
+          <div className="organization-chart-mobile-branch organization-chart-mobile-branch-two">
+            <div className="organization-chart-mobile-row organization-chart-mobile-row-two">
+              <div className="organization-chart-mobile-report">{mobileCard("assistant-manager")}</div>
+              <div className="organization-chart-mobile-report">{mobileCard("sales-coordinator")}</div>
+            </div>
+          </div>
+          <div className="organization-chart-mobile-branch organization-chart-mobile-branch-three">
+            <div className="organization-chart-mobile-row organization-chart-mobile-row-three">
+              <div className="organization-chart-mobile-report">{mobileCard("psychologist")}</div>
+              <div className="organization-chart-mobile-report">{mobileCard("admin")}</div>
+              <div className="organization-chart-mobile-report">{mobileCard("intern")}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
