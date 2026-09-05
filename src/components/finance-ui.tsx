@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+export { chartInr, compactInr } from "@/lib/finance-format";
 export const inr = (value: number | string | null | undefined) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     minimumFractionDigits: 2,
   }).format(Number(value || 0));
+
 export function FinanceEmpty({ children }: { children: ReactNode }) {
   return <p className="p-8 text-center text-sm text-slate-500">{children}</p>;
 }

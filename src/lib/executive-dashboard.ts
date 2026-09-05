@@ -1,5 +1,10 @@
 export const EXECUTIVE_DASHBOARD_ROLES = ['director'] as const;
 
+export function executiveFirstName(name?: string | null) {
+  const clean = String(name || '').trim().replace(/^(mr|mrs|ms|dr)\.?\s+/i, '');
+  return clean ? clean.split(/\s+/)[0] : '';
+}
+
 export function usesExecutiveDashboard(role?: string | null) {
   return EXECUTIVE_DASHBOARD_ROLES.includes(
     String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_') as (typeof EXECUTIVE_DASHBOARD_ROLES)[number],
