@@ -3,7 +3,7 @@ import { SEMANTIC_ICON_NAMES, iconNameForLabel } from './module-icon-map';
 import { adminNavigation, employeeNavigation } from './permission-access';
 
 const firstClassLabels = [
-  'Overview', 'Operations', 'Work Management', 'Communication', 'CRM', 'Finance',
+  'Overview', 'Operations', 'Performance', 'Communication', 'CRM', 'Finance',
   'Data & Settings', 'All Modules', 'Create',
   ...[...adminNavigation, ...employeeNavigation].flatMap(group => group.links.map(link => link.label)),
 ];

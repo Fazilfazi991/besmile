@@ -63,25 +63,33 @@ export function sectionNavigation(groups: readonly NavigationGroup[]): Navigatio
   const sections: NavigationSection[] = [
     { title: 'Overview', links: [] },
     { title: 'Operations', links: [] },
-    { title: 'Work Management', links: [] },
+    { title: 'Performance', links: [] },
+    { title: 'Communication', links: [] },
     { title: 'CRM', links: [] },
     { title: 'Finance', links: [] },
     { title: 'Data & Settings', links: [] },
   ];
-  const sectionFor = (link: NavigationLink) => {
-    const { href, label } = link;
-    if (href === '/admin' || href === '/employee/dashboard' || href === '/admin/reports') return 'Overview';
-    if (href.includes('/finance')) return 'Finance';
-    if (href.includes('/crm')) return 'CRM';
-    if (href.includes('/employees') || href.includes('/patients') || href.includes('/documents')) return 'Operations';
+  const sectionFor = (group: NavigationGroup, link: NavigationLink) => {
+    const { href } = link;
+    // Link-level exceptions preserve the placement of shared destinations that
+    // appear in more than one canonical group.
     if (href.includes('/access') || href.includes('/profile') || href.includes('/ideas/categories')) return 'Data & Settings';
-    // Existing communication and scheduling destinations remain available as
-    // day-to-day work tools; no artificial Help/Support destination is added.
-    if (/^(Chat|Announcements|Notifications|Customer Feedback)$/.test(label) || href.includes('/tasks') || href.includes('/attendance') || href.includes('/leave') || href.includes('/calendar') || href.includes('/meetings') || href.includes('/ideas') || href.includes('/doctor-scheduling')) return 'Work Management';
+    if (href.includes('/doctor-scheduling') || link.label === 'Staff Attendance' || link.label === 'Leave Approvals') return 'Performance';
+    if (link.label === 'Customer Feedback') return 'Communication';
+    // Keep the client-facing information architecture anchored to the canonical
+    // navigation groups. In particular, Communication remains its own parent
+    // rather than being inferred from individual link labels.
+    if (group.title === 'COMMUNICATION') return 'Communication';
+    if (group.title === 'WORK MANAGEMENT' || group.title === 'MY WORK' || group.title === 'ATTENDANCE & LEAVE') return 'Performance';
+    if (group.title === 'DASHBOARD' || group.title === 'HOME' || href === '/admin/reports') return 'Overview';
+    if (group.title === 'CLIENT & CRM' || href.includes('/crm')) return 'CRM';
+    if (group.title === 'FINANCE & ACCOUNTS' || href.includes('/finance')) return 'Finance';
+    if (group.title === 'HR & EMPLOYEE MANAGEMENT' || group.title === 'DOCUMENTS & REPORTS' || href.includes('/employees') || href.includes('/patients') || href.includes('/documents')) return 'Operations';
+    if (group.title === 'ADMINISTRATION / SYSTEM' || group.title === 'PROFILE') return 'Data & Settings';
     return 'Data & Settings';
   };
-  for (const link of groups.flatMap((group) => group.links)) {
-    sections.find((section) => section.title === sectionFor(link))!.links.push(link);
+  for (const group of groups) {
+    for (const link of group.links) sections.find((section) => section.title === sectionFor(group, link))!.links.push(link);
   }
   return sections.filter((section) => section.links.length > 0);
 }
@@ -184,7 +192,7 @@ export const employeeNavigation: readonly NavigationGroup[] = [
   { title: 'CLIENT & CRM', links: [{ label: 'Clients', href: '/employee/patients', activeHrefs: ['/admin/patients'], requirement: requireAnyWithout(['patients.view'], ['admin.shell']) }, { label: 'Assigned Clients', href: '/employee/assigned-patients', activeHrefs: ['/employee/patients'], requirement: anyOf('patients.view_assigned') }, { label: 'Appointment & Scheduling', href: '/employee/doctor-scheduling', activeHrefs: ['/admin/doctor-scheduling'], requirement: anyOf('doctor_scheduling.view') }, { label: 'Clients', href: '/admin/patients', requirement: requireAllAndAny(['admin.shell'], ['patients.view', 'patients.view_all']) }, { label: 'CRM Overview', href: '/admin/crm', requirement: requireAllAndAny(['admin.shell'], ['crm.manage_all', 'crm.view_team', 'leads.view', 'sales.view']) }, { label: 'Leads', href: '/admin/crm/leads', requirement: requireAllAndAny(['admin.shell'], ['crm.manage_all', 'crm.view_team', 'leads.view']) }, { label: 'Follow-ups', href: '/admin/crm/follow-ups', requirement: requireAllAndAny(['admin.shell'], ['crm.manage_all', 'crm.view_team', 'leads.view']) }, { label: 'Sales', href: '/admin/crm/sales', requirement: requireAllAndAny(['admin.shell'], ['crm.manage_all', 'crm.view_team', 'sales.view']) }, { label: 'CRM Overview', href: '/employee/crm', requirement: requireAnyWithout(['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view', 'sales.view'], ['admin.shell']) }, { label: 'My Leads', href: '/employee/crm/leads', requirement: requireAnyWithout(['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view'], ['admin.shell']) }, { label: 'My Follow-ups', href: '/employee/crm/follow-ups', requirement: requireAnyWithout(['crm.view_assigned', 'crm.view_team', 'crm.manage_all', 'leads.view'], ['admin.shell']) }, { label: 'My Sales', href: '/employee/crm/sales', requirement: requireAnyWithout(['crm.view_team', 'crm.manage_all', 'sales.view'], ['admin.shell']) }] },
   { title: 'FINANCE & ACCOUNTS', links: [{ label: 'Psychologist Payments', href: '/admin/finance/psychologist-payments', requirement: requireAllAndAny(['admin.shell'], ['psychologist_payments.view']) }] },
   { title: 'DOCUMENTS & REPORTS', links: [{ label: 'My Documents', href: '/employee/documents', requirement: anyOf('documents.view', 'documents.employee.view', 'patient_documents.view') }, { label: 'Operational Documents', href: '/admin/documents', requirement: requireAllAndAny(['admin.shell'], ['documents.employee.manage', 'documents.administration.manage']) }] },
-  { title: 'COMMUNICATION', links: [{ label: 'Chat', href: '/employee/chat' }, { label: 'Notifications', href: '/employee/notifications' }] },
+  { title: 'COMMUNICATION', links: [{ label: 'Chat', href: '/employee/chat', requirement: anyOf('chat.use') }, { label: 'Notifications', href: '/employee/notifications' }] },
   { title: 'PROFILE', links: [{ label: 'My Profile', href: '/employee/profile' }] },
 ];
 

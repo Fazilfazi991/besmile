@@ -3,7 +3,7 @@
 export const SEMANTIC_ICON_NAMES = {
   'Overview': 'LayoutDashboard', 'Dashboard': 'LayoutDashboard', 'Home': 'LayoutDashboard',
   'Operations': 'Workflow', 'Work Management': 'BriefcaseBusiness', 'My Work': 'BriefcaseBusiness',
-  'Communication': 'RadioTower', 'CRM': 'Target', 'Finance': 'WalletCards',
+  'Performance': 'Gauge', 'Communication': 'MessageCircleMore', 'CRM': 'Target', 'Finance': 'WalletCards',
   'Data & Settings': 'Database', 'All Modules': 'Grid3X3', 'Create': 'CirclePlus',
   'Employees': 'UsersRound', 'People': 'UsersRound', 'My Profile': 'UserRound',
   'Staff Attendance': 'UserCheck', 'My Attendance': 'Clock3', 'Attendance': 'UserCheck',
