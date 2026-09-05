@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect } from 'react';
 
 export default function AddEmployeeError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -20,9 +19,6 @@ export default function AddEmployeeError({ error, reset }: { error: Error & { di
           <button className="btn btn-primary" type="button" onClick={reset}>
             Retry
           </button>
-          <Link className="btn border" href="/admin/employees">
-            Back to Employees
-          </Link>
         </div>
       </div>
     </section>

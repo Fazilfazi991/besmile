@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
@@ -35,10 +34,10 @@ export function AnnouncementDetail({ id }: { id: string }) {
   }, [id]);
 
   if (loading) return <section><EmployeePageHeader title="Announcement" subtitle="Loading company update." /><EmployeeLoading /></section>;
-  if (error || !profile || !item) return <section><EmployeePageHeader title="Announcement" subtitle="Company update" action={<Link className="btn border" href="/employee/announcements">Back</Link>} /><EmployeeBanner>{error || 'Announcement unavailable.'}</EmployeeBanner></section>;
+  if (error || !profile || !item) return <section><EmployeePageHeader title="Announcement" subtitle="Company update" /><EmployeeBanner>{error || 'Announcement unavailable.'}</EmployeeBanner></section>;
 
   return <section className="space-y-4">
-    <EmployeePageHeader title={item.title} subtitle={`${titleCase(item.category)} - ${fmtDate(item.published_at)}`} action={<Link className="btn border" href="/employee/announcements">Back</Link>} />
+    <EmployeePageHeader title={item.title} subtitle={`${titleCase(item.category)} - ${fmtDate(item.published_at)}`} />
     <EmployeeSection title="Announcement" description={item.author?.full_name || 'BSmile'} action={item.is_pinned ? <EmployeeStatusBadge tone="pending">Pinned</EmployeeStatusBadge> : undefined}>
       <p className="whitespace-pre-wrap px-4 py-4 text-sm leading-6 text-slate-700">{item.body}</p>
     </EmployeeSection>

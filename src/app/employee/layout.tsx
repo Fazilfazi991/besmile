@@ -7,6 +7,7 @@ import { MobileNavigationProvider, MobileNavigationTrigger } from '@/components/
 import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { grantedPermissions } from '@/lib/granted-permissions';
+import { PageBackButton } from '@/components/page-back-button';
 import '../workspace-density.css';
 
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,7 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={profile?.designation || profile?.role || 'Employee'} profileHref="/employee/profile" />
     <main className="app-main">
       <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode="employee" userId={user.id} /><TopbarProfileLink href="/employee/profile" name={name} subtitle={profile?.designation || 'Employee'} /></header>
-      <div className="app-content">{children}</div>
+      <div className="app-content"><PageBackButton />{children}</div>
     </main>
   </div></MobileNavigationProvider>;
 }

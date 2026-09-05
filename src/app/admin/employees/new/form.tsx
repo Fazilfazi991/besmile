@@ -49,9 +49,6 @@ export function EmployeeCreateForm({
             Creates an employee profile and sends a secure password-setup invitation.
           </p>
         </div>
-        <Link className="btn border" href="/admin/employees">
-          Back to employees
-        </Link>
       </div>
 
       {state.error && (

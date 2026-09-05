@@ -193,10 +193,7 @@ export default function LeadDetail() {
     <section className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link className="text-sm font-semibold text-brand" href="/admin/crm">
-            Back to leads
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold">{lead.full_name}</h1>
+          <h1 className="text-2xl font-bold">{lead.full_name}</h1>
           <p className="text-slate-600">
             {lead.phone} {lead.location ? `· ${lead.location}` : ""}
           </p>

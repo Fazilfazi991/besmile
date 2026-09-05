@@ -5,6 +5,8 @@ const form = readFileSync(new URL('../app/admin/employees/new/form.tsx', import.
 const action = readFileSync(new URL('../app/admin/employees/new/actions.ts', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../app/admin/employees/new/page.tsx', import.meta.url), 'utf8');
 const errorBoundary = readFileSync(new URL('../app/admin/employees/new/error.tsx', import.meta.url), 'utf8');
+const adminLayout = readFileSync(new URL('../app/admin/layout.tsx', import.meta.url), 'utf8');
+const backNavigation = readFileSync(new URL('./contextual-back-navigation.ts', import.meta.url), 'utf8');
 const browserSupabase = readFileSync(new URL('./supabase.ts', import.meta.url), 'utf8');
 
 describe('employee create validation', () => {
@@ -48,7 +50,8 @@ describe('employee create validation', () => {
     expect(errorBoundary).toContain("'use client'");
     expect(errorBoundary).toContain('Add employee could not load');
     expect(errorBoundary).toContain('onClick={reset}');
-    expect(errorBoundary).toContain('Back to Employees');
+    expect(adminLayout).toContain('<PageBackButton />');
+    expect(backNavigation).toContain("href: '/admin/employees', label: 'Back to employees'");
     expect(errorBoundary).toContain('console.error');
   });
 

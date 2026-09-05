@@ -26,6 +26,12 @@
   .app-sidebar.sidebar-collapsed .sidebar-signout{width:38px!important;height:30px}
 }
 .app-content{max-width:none;padding:var(--workspace-pad)}
+.page-back-navigation{margin:0 0 10px}
+.page-back-button{display:inline-flex;min-height:34px;align-items:center;gap:3px;border-radius:7px;padding:5px 7px 5px 4px;color:#236b65;font-size:12px;font-weight:750;line-height:1.2;text-decoration:none;transition:background-color .15s ease,color .15s ease}
+.page-back-button svg{width:16px;height:16px;flex:none;stroke-width:2}
+.page-back-button:hover{background:#e9f7f5;color:#006b64}
+.page-back-button:focus-visible{outline:2px solid #0f988e;outline-offset:2px}
+@media(pointer:coarse){.page-back-button{min-height:44px;padding:8px 10px 8px 6px}}
 .executive-dashboard{max-width:1600px!important}
 .executive-dashboard>.executive-header{display:flex!important;align-items:center;margin:0 0 12px;gap:16px}
 .executive-header h1{margin:0 0 3px;font-size:24px;letter-spacing:-.025em}
