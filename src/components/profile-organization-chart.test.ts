@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { organizationChart } from "@/lib/organization-chart-config";
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 
@@ -35,6 +36,24 @@ describe("profile organization chart integration", () => {
     expect(styles).toContain(".organization-chart-node-assistant-manager>ul{position:absolute");
     expect(component).not.toContain("Swipe to explore");
     expect(component).not.toContain("scrollLeft");
+  });
+
+  it("keeps Diya and Fathima as Fayiz's two sibling reports", () => {
+    const reports = organizationChart.filter((node) => node.parentKey === "general-manager");
+    expect(reports.map((node) => node.key)).toEqual(["assistant-manager", "sales-coordinator"]);
+  });
+
+  it("bounds the Fayiz rail to both child centers and attaches both stems", () => {
+    expect(styles).toContain('ul[data-parent="general-manager"]::after{position:absolute;top:14px;right:25%;left:25%');
+    expect(styles).toContain('ul[data-parent="general-manager"]>li::before{display:block;top:0;right:auto;left:50%;width:0;border-top:0;border-right:0;border-left:2px solid var(--org-line)}');
+    expect(styles).toContain('ul[data-parent="general-manager"]>li::after{display:none}');
+  });
+
+  it("preserves Diya's centered three-report branch", () => {
+    const reports = organizationChart.filter((node) => node.parentKey === "assistant-manager");
+    expect(reports.map((node) => node.key)).toEqual(["psychologist", "admin", "intern"]);
+    expect(styles).toContain(".organization-chart-node-assistant-manager>ul{position:absolute;top:102px;left:100%;width:200%;transform:translateX(-50%)}");
+    expect(styles).toContain(".organization-chart-node-assistant-manager>ul::before{left:25%}");
   });
 
   it("preserves the layout-derived desktop tree and mobile card dimensions", () => {
