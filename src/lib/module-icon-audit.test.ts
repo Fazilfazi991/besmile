@@ -4,7 +4,7 @@ import { adminNavigation, employeeNavigation } from './permission-access';
 
 const firstClassLabels = [
   'Overview', 'Operations', 'Work Management', 'Communication', 'CRM', 'Finance',
-  'Data & Settings', 'All Modules', 'Create',
+  'Data & Settings', 'All Modules', 'Create', 'Teams',
   ...[...adminNavigation, ...employeeNavigation].flatMap(group => group.links.map(link => link.label)),
 ];
 

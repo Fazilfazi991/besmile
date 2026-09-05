@@ -124,6 +124,7 @@ export function PermissionSidebar({
     profileHref;
   const tasksHref =
     allLinks.find((link) => /tasks?/i.test(link.label))?.href || todayHref;
+  const teamsHref = allLinks.find((link) => /^(chat|teams)$/i.test(link.label))?.href;
   const recentLinks = recentHrefs
     .map((href) => allLinks.find((link) => link.href === href))
     .filter((link): link is (typeof allLinks)[number] => Boolean(link));
@@ -679,16 +680,22 @@ export function PermissionSidebar({
           <ModuleIcon label="Tasks" />
           <span>Tasks</span>
         </Link>
-        <button
-          className="mobile-bottom-create"
-          type="button"
-          aria-expanded={mobileOpen && launcherView.kind === "create"}
-          aria-controls="workspace-sidebar-drawer"
-          onClick={() => openLauncher("create")}
-        >
-          <ModuleIcon label="Create" />
-          <span>Create</span>
-        </button>
+        {teamsHref ? (
+          <Link
+            className={`mobile-bottom-teams${pathname.startsWith(teamsHref) ? " active" : ""}`}
+            aria-current={pathname.startsWith(teamsHref) ? "page" : undefined}
+            href={teamsHref}
+            onClick={() => rememberDestination(teamsHref)}
+          >
+            <ModuleIcon label="Teams" />
+            <span>Teams</span>
+          </Link>
+        ) : (
+          <button className="mobile-bottom-teams" type="button" aria-label="Teams unavailable" disabled>
+            <ModuleIcon label="Teams" />
+            <span>Teams</span>
+          </button>
+        )}
         <Link
           className={pathname.startsWith(profileHref) ? "active" : undefined}
           aria-current={pathname.startsWith(profileHref) ? "page" : undefined}
