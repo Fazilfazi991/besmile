@@ -12,10 +12,19 @@ import { employeeRepository } from '@/lib/employee-repository';
 import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { TeamAttendanceStrip, type TeamMember } from '@/components/team-attendance-strip';
 import { ModuleIcon } from '@/components/module-icon';
+import { DirectorExecutiveDashboard } from '@/components/director-executive-dashboard';
+import { usesExecutiveDashboard } from '@/lib/executive-dashboard';
 
 const fmtDate = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(new Date(value)) : 'Not scheduled';
 
-export default function ExecutiveDashboard() {
+export default function DashboardByRole() {
+  const [profile, setProfile] = useState<any>(undefined);
+  useEffect(() => { let active = true; void currentProfile().then(value => { if (active) setProfile(value); }).catch(() => { if (active) setProfile(null); }); return () => { active = false; }; }, []);
+  if (profile === undefined) return <DashboardSkeleton />;
+  return usesExecutiveDashboard(profile?.role) ? <DirectorExecutiveDashboard name={profile.full_name} /> : <OperationalDashboard />;
+}
+
+function OperationalDashboard() {
   const [summary, setSummary] = useState<any>(); const [finance, setFinance] = useState<any>(); const [audit, setAudit] = useState<any[]>([]); const [documents, setDocuments] = useState<any[]>([]); const [doctorSchedule, setDoctorSchedule] = useState<any>(); const [profile, setProfile] = useState<any>(); const [todayAttendance, setTodayAttendance] = useState<any>(); const [team, setTeam] = useState<TeamMember[]>(); const [canViewTeam, setCanViewTeam] = useState(false); const [canOpenEmployees, setCanOpenEmployees] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [role, setRole] = useState<string>(); const [refreshingAttendance, setRefreshingAttendance] = useState(false);
   const [attendanceError, setAttendanceError] = useState('');
   const [attendanceStatus, setAttendanceStatus] = useState('');
