@@ -50,7 +50,6 @@ export default function ExecutiveDashboard() {
   ];
 
   const displayDate = new Intl.DateTimeFormat('en', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
-  const firstName = profile?.full_name?.trim().split(/\s+/)[0] || 'there';
   const attentionItems = [
     { label: 'Overdue tasks', value: summary.overdueTasks || 0, href: '/admin/tasks' },
     { label: 'Follow-ups due', value: summary.followupsDue || 0, href: '/admin/crm/follow-ups' },
@@ -58,8 +57,7 @@ export default function ExecutiveDashboard() {
     { label: 'Document reviews', value: documents.filter(item => ['requested', 'submitted'].includes(item.status)).length, href: '/admin/documents' },
   ].filter(item => item.value > 0);
   return <section className="executive-dashboard">
-    <header className="executive-header"><div><p className="eyebrow">EXECUTIVE COMMAND CENTER</p><h1>{title}</h1><p>Monitor company operations, employees, CRM, finance, and approvals from one place.</p></div><div className="executive-header-actions"><Link className="btn btn-primary" href={securityAdministrator ? '/admin/access' : '/admin/profile'}>{securityAdministrator ? 'Profile & access' : 'My profile'}</Link></div></header>
-    <section className="standard-hub-header"><div><h1>Bsmile Hub</h1><time>{displayDate}</time></div><article><div><p>Good afternoon, {firstName} 👋</p><h2>Bsmile Hub</h2><span>Welcome to Bsmile — The Mind Studio Hub</span></div><b>{displayDate}</b></article></section>
+    <header className="executive-header"><div><h1>{title}</h1><p>Company operations at a glance · <time>{displayDate}</time></p></div><div className="executive-header-actions"><Link className="btn btn-primary" href={securityAdministrator ? '/admin/access' : '/admin/profile'}>{securityAdministrator ? 'Profile & access' : 'My profile'}</Link></div></header>
     {error && <p className="executive-alert">{error} Available sections still show live data.</p>}
 
     <div className="executive-kpis executive-kpis-primary">{kpis.slice(0, 4).map(kpi => <Link href={kpi.href} className={`executive-kpi executive-kpi-${kpi.tone}`} key={kpi.title}><ModuleIcon label={kpi.icon} className="executive-kpi-icon" /><div><p>{kpi.title}</p><b>{kpi.value}</b><small>{kpi.detail}</small></div><span className="executive-arrow">→</span></Link>)}</div>
