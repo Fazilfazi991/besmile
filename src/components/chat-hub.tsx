@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { isChatMessageActive, isChatMessageLogicallyExpired, upsertChatMessage } from "@/lib/chat-message-state";
 import { resolveMessageReceipt } from "@/lib/chat-receipt";
 import { MessageReceipt } from "./message-receipt";
+import { ChevronLeft } from "lucide-react";
 import "./chat-hub-fixes.css";
 
 type Tab = "all" | "unread" | "mentions";
@@ -766,6 +767,7 @@ export function ChatHub() {
             <>
               <header className="chat-message-header">
                 <button className="chat-back" onClick={() => { activeRef.current = null; setActive(null); }}>
+                  <ChevronLeft aria-hidden="true" />
                   Back
                 </button>
                 {active.chat_conversations.is_system_group ? (

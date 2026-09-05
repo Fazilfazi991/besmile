@@ -369,13 +369,7 @@ export default function AdminEmployeeProfile() {
             </div>
           )}
           <div className="min-w-0">
-            <Link
-              className="text-sm font-semibold text-teal-700 hover:underline"
-              href="/admin/employees"
-            >
-              Back to employees
-            </Link>
-            <h1 className="mt-1 truncate text-2xl font-bold">
+            <h1 className="truncate text-2xl font-bold">
               {profile.full_name}
             </h1>
             <p className="mt-1 text-sm text-slate-600">

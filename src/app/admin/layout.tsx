@@ -7,6 +7,7 @@ import { MobileNavigationProvider, MobileNavigationTrigger } from '@/components/
 import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { grantedPermissions } from '@/lib/granted-permissions';
+import { PageBackButton } from '@/components/page-back-button';
 import '../workspace-density.css';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -33,7 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={subtitle} profileHref={profileHref} />
     <main className="app-main">
       <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><TopbarProfileLink href={profileHref} name={name} subtitle={subtitle} /></header>
-      <div className="app-content">{children}</div>
+      <div className="app-content"><PageBackButton />{children}</div>
     </main>
   </div></MobileNavigationProvider>;
 }

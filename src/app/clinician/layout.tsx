@@ -5,6 +5,7 @@ import { PermissionSidebar } from '@/components/permission-sidebar';
 import { MobileNavigationProvider, MobileNavigationTrigger } from '@/components/mobile-navigation';
 import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { TopbarProfileLink } from '@/components/topbar-profile-link';
+import { PageBackButton } from '@/components/page-back-button';
 
 const groups = [
   { title: 'CLINICIAN WORKSPACE', links: [{ label: 'My Schedule', href: '/clinician/schedule' }, { label: 'Notifications', href: '/clinician/notifications' }, { label: 'Profile', href: '/clinician/profile' }] },
@@ -26,7 +27,7 @@ export default async function ClinicianLayout({ children }: { children: React.Re
     <PermissionSidebar groups={groups} name={name} subtitle={profile.designation || 'Outsourced psychologist'} profileHref="/clinician/profile" />
     <main className="app-main">
       <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode="employee" userId={user.id} /><TopbarProfileLink href="/clinician/profile" name={name} subtitle={profile.designation || 'Clinician'} /></header>
-      <div className="app-content">{children}</div>
+      <div className="app-content"><PageBackButton />{children}</div>
     </main>
   </div></MobileNavigationProvider>;
 }
