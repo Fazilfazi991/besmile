@@ -27,10 +27,20 @@ describe("profile organization chart integration", () => {
     expect(clinicianProfile).not.toContain("ProfileOrganizationChart");
   });
 
-  it("uses a mobile vertical layout without page-level horizontal overflow", () => {
+  it("keeps the true tree inside a locally scrollable mobile viewport", () => {
     expect(styles).toContain("@media(max-width:700px)");
-    expect(styles).toContain(".organization-chart-tree,.organization-chart-tree ul{display:grid");
-    expect(styles).not.toContain("overflow-x:auto");
+    expect(styles).toContain(".organization-chart-viewport{display:block;max-width:100%;overflow-x:auto");
+    expect(styles).toContain(".organization-chart-tree{width:max-content;min-width:544px");
+    expect(styles).toContain("overscroll-behavior-x:contain");
+    expect(styles).not.toContain("organization-chart-node-assistant-manager>ul");
+    expect(component).toContain("viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) / 2");
+    expect(component).toContain("Swipe to explore the full tree");
+  });
+
+  it("preserves the layout-derived desktop tree and mobile card dimensions", () => {
+    expect(styles).toContain(".organization-chart-tree,.organization-chart-tree ul{display:flex");
+    expect(styles).toContain(".organization-chart-card{position:relative;z-index:1;display:grid;width:150px;height:116px");
+    expect(styles).toContain(".organization-chart-card{width:124px;height:112px");
   });
 
   it("preserves an already-loaded real profile photo for the matched person", () => {
