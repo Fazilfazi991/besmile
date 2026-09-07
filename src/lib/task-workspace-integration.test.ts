@@ -20,6 +20,13 @@ describe('task workspace integration', () => {
     expect(adminPage).toContain('router.refresh()');
   });
 
+  it('does not send unshipped SLA metadata from the canonical task workspace', () => {
+    expect(adminPage).toContain('due_date');
+    expect(adminPage).not.toContain('sla_duration');
+    expect(adminPage).not.toContain('sla_unit');
+    expect(adminPage).not.toContain('start_date');
+  });
+
   it('enforces active employee ownership and canonical task transitions in RLS', () => {
     expect(migration).toContain("'tasks.manage'");
     expect(migration).toContain('Employees can only update their own assigned task status');
