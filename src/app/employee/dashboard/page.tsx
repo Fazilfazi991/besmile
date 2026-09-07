@@ -6,6 +6,7 @@ import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
 import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { permissionAllows, type PermissionRequirement } from '@/lib/permission-access';
+import { dashboardDesignationGreeting } from '@/lib/dashboard-greeting';
 
 type DashboardData = Record<string, any>;
 
@@ -159,7 +160,7 @@ export default function EmployeeDashboard() {
 
   return <div className="employee-dashboard">
     <div className="dashboard-welcome">
-      <div><p className="eyebrow">{new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p><h2>Good morning, {profile.full_name}.</h2><p>{richProfile.department?.name || 'BSmile'} {richProfile.designation ? `- ${richProfile.designation}` : ''} - here is your day at a glance.</p></div>
+      <div><p className="eyebrow">{new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p><h2>{dashboardDesignationGreeting(richProfile.designation)}.</h2><p>{richProfile.department?.name || 'BSmile'} {richProfile.designation ? `- ${richProfile.designation}` : ''} - here is your day at a glance.</p></div>
       <Link href="/employee/profile" className="profile-chip"><span>{profile.full_name?.slice(0, 1)?.toUpperCase() || 'B'}</span><div><b>My profile</b><small>View details</small></div></Link>
     </div>
     {error && <p className="dashboard-message dashboard-error">{error}</p>}{attendanceStatus && <p className="dashboard-message">{attendanceStatus}</p>}{notice && <p className="dashboard-message dashboard-success">{notice}</p>}
