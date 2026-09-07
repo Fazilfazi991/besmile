@@ -56,4 +56,11 @@ describe('operational workforce visibility', () => {
     expect(page).toContain('employee.workforce_visible !== false');
     expect(page).toContain('employee.workforce_visible === false');
   });
+
+  it('loads reporting managers without a PostgREST profiles self-relationship embed', () => {
+    const reports = read('src/components/operational-reports.tsx');
+    expect(reports).toContain("select('employee_code,full_name,designation,status,joining_date,manager_id,department:departments(name)')");
+    expect(reports).toContain("select('id,full_name').in('id',managerIds)");
+    expect(reports).not.toContain('manager:profiles!profiles_manager_id_fkey');
+  });
 });
