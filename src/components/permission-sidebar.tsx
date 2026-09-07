@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   useEffect,
@@ -300,7 +301,7 @@ export function PermissionSidebar({
         aria-label="Primary navigation"
       >
         <div className="brand">
-          <img src="/images/bsmile-logo.png" alt="BSmile" />
+          <Image src="/images/bsmile-mark.png" alt="BSmile" width={148} height={185} priority />
           {drawer ? (
             <button
               className="sidebar-drawer-close"
