@@ -86,6 +86,9 @@ export function ChatHub() {
   const [mentionProfileIds, setMentionProfileIds] = useState<string[]>([]);
   const [retentionSaving, setRetentionSaving] = useState(false);
   const [logicalNow, setLogicalNow] = useState(() => Date.now());
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [onlineProfileIds, setOnlineProfileIds] = useState<Set<string>>(new Set());
   const [group, setGroup] = useState({
     title: "",
     description: "",
@@ -644,6 +647,16 @@ export function ChatHub() {
     } catch (cause: any) { setError(cause.message || "Disappearing message setting could not be updated."); }
     finally { setRetentionSaving(false); }
   };
+  const archiveGroup = async () => {
+    if (!active || archiveBusy) return;
+    setArchiveBusy(true);
+    try {
+      await employeeRepository.archiveGroupChat(active.conversation_id);
+      setArchiveOpen(false); setDetails(false); activeRef.current = null; setActive(null);
+      await load();
+    } catch (cause: any) { setError(cause.message || "Group could not be archived."); }
+    finally { setArchiveBusy(false); }
+  };
   if (loading)
     return (
       <div className="chat-skeleton">
@@ -1103,6 +1116,7 @@ export function ChatHub() {
                 </select> : <span className="chat-retention-chevron" aria-hidden="true">›</span>}
               </div>
             </div>
+            {isGroup && isAdmin && !active.chat_conversations.is_system_group && <div className="chat-detail-section"><b>Group lifecycle</b><small>Archiving removes this group from active conversations while preserving its history.</small><button type="button" className="chat-leave" onClick={() => setArchiveOpen(true)}>Archive group</button></div>}
           </aside>
         )}
       </div>
@@ -1269,6 +1283,7 @@ export function ChatHub() {
           </section>
         </div>
       )}
+      {archiveOpen && <div className="chat-modal-backdrop" role="presentation"><section className="chat-modal" role="alertdialog" aria-modal="true" aria-labelledby="archive-group-title"><header><div><h2 id="archive-group-title">Archive this group?</h2><p>The group will leave everyone&apos;s active conversation list. Message history is preserved.</p></div></header><footer><button type="button" className="button button-secondary" disabled={archiveBusy} onClick={() => setArchiveOpen(false)}>Cancel</button><button type="button" className="btn btn-primary" disabled={archiveBusy} onClick={() => void archiveGroup()}>{archiveBusy ? "Archiving…" : "Archive group"}</button></footer></section></div>}
     </section>
   );
 }
