@@ -382,11 +382,6 @@ export const adminNavigation: readonly NavigationGroup[] = [
         requirement: anyOf("attendance.view", "attendance.manage"),
       },
       {
-        label: "Daily Work Updates",
-        href: "/admin/daily-work",
-        requirement: anyOf("attendance.view", "attendance.manage"),
-      },
-      {
         label: "My Calendar",
         href: "/admin/calendar",
         requirement: anyOf(
@@ -565,16 +560,6 @@ export const employeeNavigation: readonly NavigationGroup[] = [
       {
         label: "My Attendance",
         href: "/employee/attendance",
-        requirement: anyOf(
-          "attendance.self",
-          "attendance.view_self",
-          "attendance.view",
-          "attendance.manage",
-        ),
-      },
-      {
-        label: "Daily Work Update",
-        href: "/employee/daily-work",
         requirement: anyOf(
           "attendance.self",
           "attendance.view_self",
