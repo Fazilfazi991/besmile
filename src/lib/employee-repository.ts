@@ -797,9 +797,10 @@ export const employeeRepository = {
     const { data, error } = await r
       .from("chat_members")
       .select(
-        "conversation_id,last_read_at,last_read_message_id,chat_conversations(*,chat_members(profile_id,last_read_at,last_read_message_id,profiles(full_name,email,designation,department:departments(name),avatar_url,status,last_seen_at)) )",
+        "conversation_id,last_read_at,last_read_message_id,chat_conversations!inner(*,chat_members(profile_id,last_read_at,last_read_message_id,profiles(full_name,email,designation,department:departments(name),avatar_url,status,last_seen_at)) )",
       )
       .eq("profile_id", userId)
+      .is("chat_conversations.archived_at", null)
       .order("last_read_at", { ascending: false });
     if (error) throw error;
     const conversationIds = (data || []).map(
@@ -1056,6 +1057,10 @@ export const employeeRepository = {
       member: profileId,
       operation,
     });
+    if (error) throw error;
+  },
+  async archiveGroupChat(conversationId: string) {
+    const { error } = await required().rpc("archive_group_chat", { target_conversation: conversationId });
     if (error) throw error;
   },
   async leaveTypes() {
