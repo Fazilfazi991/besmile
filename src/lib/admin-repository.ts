@@ -1341,6 +1341,18 @@ export const adminRepository = {
     if (error) throw error;
     return data;
   },
+  async completeTask(id: string, completionUpdate: string) {
+    const message = completionUpdate.trim();
+    if (!message) throw new Error("A completion update is required.");
+    if (message.length > 2000)
+      throw new Error("Completion update must be 2,000 characters or fewer.");
+    const { data, error } = await requireDb().rpc("complete_managed_task", {
+      target_task: id,
+      completion_update: message,
+    });
+    if (error) throw error;
+    return data;
+  },
   async deleteTask(id: string) {
     const { data, error } = await requireDb().rpc("delete_managed_task", {
       target_task: id,
