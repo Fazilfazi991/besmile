@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dashboardGreeting, dashboardGreetingName, dashboardGreetingPeriod } from './dashboard-greeting';
+import { dashboardDesignationGreeting, dashboardGreeting, dashboardGreetingName, dashboardGreetingPeriod } from './dashboard-greeting';
 
 const afternoon = new Date('2026-08-18T08:00:00Z');
 
@@ -36,5 +36,11 @@ describe('dashboard greeting', () => {
     expect(dashboardGreetingPeriod(new Date('2026-08-18T01:00:00Z'))).toBe('Good morning');
     expect(dashboardGreetingPeriod(afternoon)).toBe('Good afternoon');
     expect(dashboardGreetingPeriod(new Date('2026-08-18T14:00:00Z'))).toBe('Good evening');
+  });
+
+  it('uses the canonical designation and a generic fallback', () => {
+    expect(dashboardDesignationGreeting('General Manager', afternoon)).toBe('Good afternoon, General Manager');
+    expect(dashboardDesignationGreeting('', afternoon)).toBe('Good afternoon');
+    expect(dashboardDesignationGreeting(null, afternoon)).not.toContain('general_manager');
   });
 });

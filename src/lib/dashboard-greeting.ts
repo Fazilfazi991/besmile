@@ -28,3 +28,9 @@ export function dashboardGreeting(fullName?: string | null, now = new Date(), ti
   const name = dashboardGreetingName(fullName);
   return name ? `${period}, ${name} 👋` : `${period} 👋`;
 }
+
+export function dashboardDesignationGreeting(designation?: string | null, now = new Date(), timeZone = BUSINESS_TIME_ZONE) {
+  const period = dashboardGreetingPeriod(now, timeZone);
+  const value = String(designation || '').trim();
+  return value ? `${period}, ${value}` : period;
+}
