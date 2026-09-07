@@ -439,6 +439,24 @@ export const employeeRepository = {
       on_leave: onLeave.has(person.id),
     }));
   },
+  async myDailyWorkUpdate(profileId: string, workDate: string) {
+    const { data, error } = await required().from("daily_work_updates").select("*").eq("profile_id", profileId).eq("work_date", workDate).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async saveDailyWorkUpdate(profileId: string, workDate: string, summary: string) {
+    const normalized = summary.trim();
+    if (!normalized) throw new Error("Describe the work completed before saving.");
+    if (normalized.length > 4000) throw new Error("Daily work updates must be 4,000 characters or fewer.");
+    const { data, error } = await required().from("daily_work_updates").upsert({ profile_id: profileId, work_date: workDate, summary: normalized, updated_at: new Date().toISOString() }, { onConflict: "profile_id,work_date" }).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async dailyWorkUpdates(workDate: string) {
+    const { data, error } = await required().from("daily_work_updates").select("id,profile_id,work_date,summary,created_at,updated_at,profile:profiles(full_name,employee_code,designation,department:departments(name))").eq("work_date", workDate).order("updated_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
   async attendanceHistory(userId: string) {
     const { data, error } = await required()
       .from("attendance")
