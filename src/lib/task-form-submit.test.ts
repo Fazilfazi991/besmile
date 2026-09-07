@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const page = readFileSync(new URL('../app/admin/tasks/page.tsx', import.meta.url), 'utf8');
 const repository = readFileSync(new URL('./admin-repository.ts', import.meta.url), 'utf8');
+const compactRepository = repository.replace(/\s+/g, '').replace(/"/g, "'");
 
 describe('task form submission', () => {
   it('captures named form controls at submit time', () => {
@@ -19,7 +20,7 @@ describe('task form submission', () => {
   });
 
   it('cleans up task rows when assignment creation is denied', () => {
-    expect(repository).toContain("await r.from('tasks').delete().eq('id',data.id)");
+    expect(compactRepository).toContain("awaitr.from('tasks').delete().eq('id',data.id)");
     expect(repository).toContain('Task could not be assigned to the selected employee. Choose an employee within your permitted scope.');
   });
 });
