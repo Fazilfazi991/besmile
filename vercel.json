@@ -1,9 +1,4 @@
 {
-  "git": {
-    "deploymentEnabled": {
-      "release/client-stabilization-candidate": false
-    }
-  },
   "crons": [
     {
       "path": "/api/internal/chat-expiry",
