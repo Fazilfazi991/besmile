@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { employeeRepository } from '@/lib/employee-repository';
 import { attendanceDuration, dateKey } from '@/lib/attendance-rules';
 import { formatDistance } from '@/lib/attendance-geofence';
+import { attendanceExportFilename, attendanceExportRows } from '@/lib/attendance-export';
 
 type StaffAttendance = { id: string; full_name: string; employee_code?: string | null; designation?: string | null; department?: { name?: string | null } | null; on_leave: boolean; attendance: any };
 
@@ -23,14 +24,16 @@ export default function StaffAttendancePage() {
   const [department, setDepartment] = useState('');
   const [status, setStatus] = useState('');
   const [, setClockTick] = useState(0);
+  const [exporting, setExporting] = useState(false);
   useEffect(() => { let live = true; const timer = window.setTimeout(() => { void employeeRepository.companyAttendance(workDate).then(data => { if (live) setRows(data); }).catch(caught => { if (live) setError(caught.message || 'Attendance could not be loaded.'); }).finally(() => { if (live) setLoading(false); }); }, 0); return () => { live = false; window.clearTimeout(timer); }; }, [workDate]);
   useEffect(() => { const timer = window.setInterval(() => setClockTick(value => value + 1), 60_000); return () => window.clearInterval(timer); }, []);
   const departments = useMemo(() => [...new Set(rows.map(row => row.department?.name).filter(Boolean))] as string[], [rows]);
   const statuses = useMemo(() => [...new Set(rows.map(label))], [rows]);
   const visibleRows = useMemo(() => rows.filter(row => (!employee || row.id === employee) && (!department || row.department?.name === department) && (!status || label(row) === status)), [rows, employee, department, status]);
   const counts = useMemo(() => ({ present: rows.filter(row => label(row) === 'Present').length, absent: rows.filter(row => label(row) === 'Absent').length, leave: rows.filter(row => label(row) === 'On Leave').length }), [rows]);
+  const exportExcel = async () => { setExporting(true); setError(''); try { const XLSX = await import('xlsx'); const sheet = XLSX.utils.json_to_sheet(attendanceExportRows(visibleRows, workDate, label)); const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, sheet, 'Attendance'); XLSX.writeFile(book, attendanceExportFilename(workDate)); } catch (caught: any) { setError(caught.message || 'Attendance export could not be created.'); } finally { setExporting(false); } };
   return <section className="space-y-5">
-    <div><h1 className="text-2xl font-bold">Staff Attendance</h1><p className="text-slate-600">Company attendance for the selected business date.</p></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">Staff Attendance</h1><p className="text-slate-600">Company attendance for the selected business date.</p></div><button type="button" className="btn border min-h-11" disabled={loading || exporting} onClick={() => void exportExcel()}>{exporting ? 'Exporting…' : 'Export Excel'}</button></div>
     <div className="grid gap-3 sm:grid-cols-3"><Summary label="Present" value={counts.present} /><Summary label="Absent" value={counts.absent} /><Summary label="On leave" value={counts.leave} /></div>
     <div className="card grid gap-3 p-4 md:grid-cols-4"><label>Date<input className="mt-1 w-full rounded border p-2" type="date" value={workDate} onChange={event => { setLoading(true); setError(''); setWorkDate(event.target.value); }} /></label><label>Employee<select className="mt-1 w-full rounded border p-2" value={employee} onChange={event => setEmployee(event.target.value)}><option value="">All employees</option>{rows.map(row => <option key={row.id} value={row.id}>{row.full_name}</option>)}</select></label><label>Department<select className="mt-1 w-full rounded border p-2" value={department} onChange={event => setDepartment(event.target.value)}><option value="">All departments</option>{departments.map(item => <option key={item}>{item}</option>)}</select></label><label>Status<select className="mt-1 w-full rounded border p-2" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{statuses.map(item => <option key={item}>{item}</option>)}</select></label></div>
     {error && <p className="text-rose-700">{error}</p>}

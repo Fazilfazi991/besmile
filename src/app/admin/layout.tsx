@@ -8,6 +8,7 @@ import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { grantedPermissions } from '@/lib/granted-permissions';
 import Link from 'next/link';
 import '../workspace-density.css';
+import { MobileBackNavigation } from '@/components/mobile-back-link';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
@@ -33,7 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={subtitle} profileHref={profileHref} />
     <main className="app-main">
       <header className="app-topbar">{isEmployeeShell && <div><p className="eyebrow">BSMILE EMPLOYEE WORKSPACE</p><h1>My Workspace</h1></div>}<div className="topbar-actions"><MobileNavigationTrigger /><ThemeModeSwitcher /><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><Link className="topbar-user" href={profileHref}><span>{name.slice(0, 1).toUpperCase()}</span><div><b>{name}</b><small>{subtitle}</small></div></Link></div></header>
-      <div className="app-content">{children}</div>
+      <div className="app-content"><MobileBackNavigation workspace="admin" />{children}</div>
     </main>
   </div></MobileNavigationProvider>;
 }
