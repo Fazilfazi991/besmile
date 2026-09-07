@@ -7,6 +7,7 @@ import { employeeRepository } from '@/lib/employee-repository';
 import { isOverdue } from '@/lib/task-rules';
 import { completionUpdateError, taskCompletionUpdateMaxLength } from '@/lib/task-workspace';
 import { defaultTaskWorkSchedule, loadTaskWorkSchedule, taskCompletionSlaLabel } from '@/lib/task-sla';
+import { useAutoSizeTextareas } from '@/lib/use-auto-size-textareas';
 
 const labels: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', completed: 'Completed' };
 const emptyTask = { title: '', description: '', priority: 'medium', due_date: '', assigneeIds: [] as string[] };
@@ -35,6 +36,7 @@ export default function AdminTasksPage() {
   const [form, setForm] = useState(emptyTask);
   const [assigneeQuery, setAssigneeQuery] = useState('');
   const [editing, setEditing] = useState<any>();
+  useAutoSizeTextareas('textarea[name="description"]', [form.description, editing?.description]);
   const [detail, setDetail] = useState<any>();
   const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState('');
