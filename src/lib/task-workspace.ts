@@ -1,6 +1,14 @@
 import { isOverdue, type TaskStatus } from './task-rules';
 
 export type TaskAssignment = { id: string; status: TaskStatus; tasks?: { due_date: string | null; status: string } };
+export const taskCompletionUpdateMaxLength = 2000;
+
+export function completionUpdateError(value: string) {
+  const length = value.trim().length;
+  if (!length) return 'A completion update is required.';
+  if (length > taskCompletionUpdateMaxLength) return `Completion update must be ${taskCompletionUpdateMaxLength.toLocaleString()} characters or fewer.`;
+  return null;
+}
 
 const employeeTransitions: Record<TaskStatus, readonly TaskStatus[]> = {
   todo: ['in_progress'],

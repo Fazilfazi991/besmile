@@ -556,10 +556,23 @@ export const employeeRepository = {
     status: TaskStatus,
     comment: string,
     userId: string,
+    currentStatus: TaskStatus,
   ) {
     if (!taskStatuses.includes(status))
       throw new Error("Choose a valid task status.");
     const r = required();
+    if (status === "completed" && currentStatus !== "completed") {
+      const completion = comment.trim();
+      if (!completion) throw new Error("A completion update is required.");
+      if (completion.length > 2000)
+        throw new Error("Completion update must be 2,000 characters or fewer.");
+      const result = await r.rpc("complete_task_assignment", {
+        target_assignment: assignmentId,
+        completion_update: completion,
+      });
+      if (result.error) throw result.error;
+      return result.data;
+    }
     const { data, error } = await r
       .from("task_assignments")
       .update({ status })

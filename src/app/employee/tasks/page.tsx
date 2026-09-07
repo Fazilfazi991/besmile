@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { currentProfile } from "@/lib/auth";
 import { employeeRepository } from "@/lib/employee-repository";
 import { isOverdue } from "@/lib/task-rules";
-import { applyAssignmentStatus, canEmployeeChangeTaskStatus, taskCounts } from "@/lib/task-workspace";
+import { applyAssignmentStatus, canEmployeeChangeTaskStatus, completionUpdateError, taskCompletionUpdateMaxLength, taskCounts } from "@/lib/task-workspace";
+import { defaultTaskWorkSchedule, loadTaskWorkSchedule, taskCompletionSlaLabel } from "@/lib/task-sla";
 const labels: Record<string, string> = {
   todo: "To Do",
   in_progress: "In Progress",
@@ -29,7 +30,9 @@ export default function TasksPage() {
   const [dueDate, setDueDate] = useState("");
   const [comments, setComments] = useState<Record<string, string>>({});
   const [updateOpen, setUpdateOpen] = useState<string | null>(null);
+  const [pendingCompletion, setPendingCompletion] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>();
+  const [schedule, setSchedule] = useState(defaultTaskWorkSchedule);
   const [loading, setLoading] = useState(true);
   const [taskError, setTaskError] = useState("");
   const [profileError, setProfileError] = useState("");
@@ -52,6 +55,7 @@ export default function TasksPage() {
       setProfile(p);
       setProfileError("");
       await loadTasks(p);
+      void loadTaskWorkSchedule().then(setSchedule).catch(() => undefined);
     } catch (cause: any) {
       setProfileError(cause?.message || "Your employee profile could not be loaded. Please try again.");
     } finally {
@@ -74,15 +78,25 @@ export default function TasksPage() {
       setTaskError("This task cannot move directly to that status.");
       return;
     }
+    if (value === "completed") {
+      const validation = completionUpdateError(comment);
+      if (validation) {
+        setPendingCompletion(id);
+        setUpdateOpen(id);
+        setTaskError(validation);
+        return;
+      }
+    }
     const previous = tasks;
     setSaving(id);
     setTaskError("");
     setNotice("");
     setTasks((items) => applyAssignmentStatus(items, id, value as any));
     try {
-      await employeeRepository.updateMyTask(id, value as any, comment, profile.id);
+      await employeeRepository.updateMyTask(id, value as any, comment, profile.id, current.status);
       setComments((current) => ({ ...current, [id]: "" }));
       setUpdateOpen(null);
+      setPendingCompletion(null);
       setNotice(value === "completed" ? "Task completed successfully." : `Task moved to ${labels[value]}.`);
       await loadTasks(profile);
     } catch (cause: any) {
@@ -304,7 +318,7 @@ export default function TasksPage() {
                       className="input h-8 py-0 text-xs"
                       value={item.status}
                       disabled={saving === item.id}
-                      onChange={(e) => void update(item.id, e.target.value)}
+                      onChange={(e) => { if (e.target.value === "completed") { setPendingCompletion(item.id); setUpdateOpen(item.id); setTaskError(""); } else void update(item.id, e.target.value); }}
                     >
                       {Object.entries(labels).map(([key, label]) => (
                         <option key={key} value={key}>
@@ -327,7 +341,8 @@ export default function TasksPage() {
                       <textarea
                         className="input min-h-16 flex-1 text-sm"
                         autoFocus
-                        placeholder="What progress did you make?"
+                        maxLength={taskCompletionUpdateMaxLength}
+                        placeholder={pendingCompletion === item.id ? "Describe what was completed" : "What progress did you make?"}
                         value={comments[item.id] || ""}
                         onChange={(e) =>
                           setComments((current) => ({
@@ -341,22 +356,24 @@ export default function TasksPage() {
                           className="btn btn-primary px-3 py-1.5 text-sm"
                           disabled={
                             saving === item.id ||
-                            !(comments[item.id] || "").trim()
+                            !(comments[item.id] || "").trim() ||
+                            (pendingCompletion === item.id && Boolean(completionUpdateError(comments[item.id] || "")))
                           }
                           onClick={() =>
                             void update(
                               item.id,
-                              item.status,
+                              pendingCompletion === item.id ? "completed" : item.status,
                               comments[item.id] || "",
                             )
                           }
                         >
-                          {saving === item.id ? "Saving…" : "Save"}
+                          {saving === item.id ? "Saving…" : pendingCompletion === item.id ? "Complete task" : "Save"}
                         </button>
                         <button
                           className="btn border px-3 py-1.5 text-sm"
                           onClick={() => {
                             setUpdateOpen(null);
+                            setPendingCompletion(null);
                             setComments((current) => ({
                               ...current,
                               [item.id]: "",
@@ -421,9 +438,9 @@ export default function TasksPage() {
             </div>
             <dl className="mt-5 grid gap-3 rounded bg-slate-50 p-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-slate-500">Assigned by</dt>
+                <dt className="text-slate-500">Task Owner</dt>
                 <dd>
-                  {detail.tasks.created_by_profile?.full_name || "Management"}
+                  {detail.tasks.created_by_profile?.full_name || "Former or unavailable user"}
                 </dd>
               </div>
               <div>
@@ -437,6 +454,10 @@ export default function TasksPage() {
               <div>
                 <dt className="text-slate-500">Created</dt>
                 <dd>{new Date(detail.tasks.created_at).toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Completion SLA</dt>
+                <dd>{taskCompletionSlaLabel(detail.tasks, schedule)}</dd>
               </div>
             </dl>
             <h3 className="mt-5 font-bold">Progress history</h3>
