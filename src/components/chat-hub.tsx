@@ -17,6 +17,7 @@ import { employeeRepository } from "@/lib/employee-repository";
 import { supabase } from "@/lib/supabase";
 import { upsertChatMessage } from "@/lib/chat-message-state";
 import { chatEmojiGroups, insertEmojiAtCursor } from "@/lib/chat-composer";
+import { isChatImageAttachment } from "@/lib/chat-media";
 import "./chat-hub-fixes.css";
 
 type Tab = "all" | "unread" | "mentions";
@@ -1577,9 +1578,13 @@ function Message({
   );
 }
 function VoiceMessage({ message }: { message: any }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [url, setUrl] = useState(
     message.attachment_path?.startsWith("blob:") ? message.attachment_path : "",
   );
+  const [playing, setPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(Number(message.voice_duration_seconds) || 0);
   useEffect(() => {
     if (message.attachment_path && !message.attachment_path.startsWith("blob:"))
       void employeeRepository
@@ -1587,37 +1592,41 @@ function VoiceMessage({ message }: { message: any }) {
         .then(setUrl)
         .catch(() => undefined);
   }, [message.attachment_path]);
+  useEffect(() => { const pauseOther = (event: Event) => { if ((event as CustomEvent).detail !== message.id) audioRef.current?.pause(); }; window.addEventListener("bsmile:voice-play", pauseOther); return () => window.removeEventListener("bsmile:voice-play", pauseOther); }, [message.id]);
+  const toggle = async () => { const audio = audioRef.current; if (!audio || !url) return; if (audio.paused) { window.dispatchEvent(new CustomEvent("bsmile:voice-play", { detail: message.id })); await audio.play(); } else audio.pause(); };
   return (
     <div className="chat-voice-message">
-      <span aria-hidden="true">🎤</span>
-      <audio src={url || undefined} controls preload="metadata" />
-      <b>{durationLabel(message.voice_duration_seconds)}</b>
+      <button type="button" className="chat-voice-toggle" onClick={() => void toggle()} disabled={!url} aria-label={playing ? "Pause voice message" : "Play voice message"}>{playing ? "Ⅱ" : "▶"}</button>
+      <div className="chat-voice-progress"><input aria-label="Voice message position" type="range" min={0} max={Math.max(duration, 1)} step="0.1" value={Math.min(position, Math.max(duration, 1))} onChange={event => { const next = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = next; setPosition(next); }} /><div><span>{durationLabel(Math.floor(position))}</span><span>{durationLabel(Math.floor(duration))}</span></div></div>
+      <span className="chat-voice-mic" aria-hidden="true">●</span>
+      <audio ref={audioRef} src={url || undefined} preload="metadata" onLoadedMetadata={event => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : duration)} onTimeUpdate={event => setPosition(event.currentTarget.currentTime)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); setPosition(0); }} />
     </div>
   );
 }
 function MessageFile({ message }: { message: any }) {
   const [url, setUrl] = useState("");
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (message.attachment_path)
       void employeeRepository
         .chatAttachmentUrl(message.attachment_path)
         .then(setUrl)
-        .catch(() => undefined);
+        .catch(() => setFailed(true));
   }, [message.attachment_path]);
-  const image = message.attachment_type?.startsWith("image/");
+  const image = isChatImageAttachment(message);
   return (
     <a
-      className="chat-attachment"
+      className={`chat-attachment ${image ? "chat-image-attachment" : ""}`}
       href={url || undefined}
       target="_blank"
       rel="noreferrer"
     >
-      {image && url ? (
+      {image && url && !failed ? (
         // Signed, user-uploaded chat attachments are intentionally rendered directly.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={message.attachment_name} />
+        <img src={url} alt={message.attachment_name} loading="lazy" onError={() => setFailed(true)} />
       ) : (
-        <span>FILE</span>
+        <span>{image && !failed ? "IMAGE" : failed ? "UNAVAILABLE" : "FILE"}</span>
       )}
       <b>{message.attachment_name}</b>
       <small>{size(message.attachment_size)}</small>
