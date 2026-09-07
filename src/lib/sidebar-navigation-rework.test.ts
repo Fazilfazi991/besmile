@@ -32,7 +32,7 @@ describe('Batch 13 sidebar navigation architecture', () => {
   it('shows GM management areas only from effective permissions', () => {
     const permissions = new Set(['dashboard.view', 'employees.view', 'attendance.self', 'attendance.view', 'leave.review', 'tasks.assign', 'patients.view', 'crm.view_team', 'doctor_scheduling.view', 'payroll.view', 'reports.view']);
     const visible = filterNavigation(navigationForProfile('general_manager'), permissions);
-    expect(labels(visible)).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'My Attendance', 'Staff Attendance', 'Leave Approvals', 'Tasks', 'Clients', 'CRM Overview', 'Appointment & Scheduling', 'Payroll', 'Operational Reports']));
+    expect(labels(visible)).toEqual(expect.arrayContaining(['Dashboard', 'Employees', 'My Attendance', 'Staff Attendance', 'Leave Approvals', 'Tasks', 'Clients', 'CRM Dashboard', 'Appointment & Scheduling', 'Payroll', 'Reports']));
     expect(labels(visible)).not.toEqual(expect.arrayContaining(['Finance Dashboard', 'Income', 'Expenses', 'Roles & Access']));
   });
 

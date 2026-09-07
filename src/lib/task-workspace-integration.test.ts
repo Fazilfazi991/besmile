@@ -17,7 +17,7 @@ describe('task workspace integration', () => {
     expect(adminPage).toContain("hasPermission('tasks.assign')");
     expect(adminPage).toContain('Promise.allSettled');
     expect(adminPage).toContain('Assignee list could not be loaded');
-    expect(adminPage).toContain('router.refresh()');
+    expect(adminPage).toContain('await loadTasks()');
   });
 
   it('does not send unshipped SLA metadata from the canonical task workspace', () => {
