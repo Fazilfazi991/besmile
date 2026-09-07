@@ -7,6 +7,7 @@ import { attendanceDuration, canClockIn, classify, dateKey } from '@/lib/attenda
 import { freshLocation, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { CompactEmptyState, Pagination, StatusBadge } from '@/components/compact-module';
 import './attendance-workspace.css';
+import Link from 'next/link';
 
 type Period = 'last-7' | 'month' | 'custom';
 type AttendanceDay = { key: string; row: any; status: string };
@@ -116,7 +117,7 @@ export default function AttendancePage() {
   return <section className="attendance-workspace">
     <header className="attendance-heading">
       <div><h1>My Attendance</h1><p>Your personal attendance record and working time.</p></div>
-      {todayAction ? <div className="attendance-today-actions" aria-label="Today’s attendance actions">{todayAction}</div> : null}
+      <div className="attendance-today-actions" aria-label="Today’s attendance actions"><Link className="btn" href="/employee/daily-work">Daily work update</Link>{todayAction}</div>
     </header>
 
     <div className="attendance-period" role="group" aria-label="Attendance period">
