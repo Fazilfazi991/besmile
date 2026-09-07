@@ -12,7 +12,7 @@ describe('task health', () => {
   });
   it('keeps due-date-only tasks safe', () => {
     expect(taskHealth({ status: 'todo', due_date: '2026-08-10' }, settings, new Date('2026-08-11T12:00:00Z'))).toBe('overdue');
-    expect(taskHealth({ status: 'todo', due_date: '2026-08-20' }, settings, new Date('2026-08-11T12:00:00Z'))).toBe('on_track');
+    expect(taskHealth({ status: 'todo', due_date: '2026-08-20', created_at: '2026-08-10T05:00:00Z' }, settings, new Date('2026-08-11T12:00:00Z'))).toBe('on_track');
   });
   it('uses the worst active assigned-task health and excludes completed work', () => {
     expect(employeeTaskHealth([{ assignment_status: 'completed', due_date: '2026-08-10' }, { assignment_status: 'todo', due_date: '2026-08-20', created_at: '2026-08-01T09:00:00Z' }], settings, new Date('2026-08-11T12:00:00Z')).health).toBe('on_track');

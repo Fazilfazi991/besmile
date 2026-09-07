@@ -31,6 +31,6 @@ describe('notification navigation freshness', () => {
   });
 
   it('opens all leave states when following a request-specific admin notification link', () => {
-    expect(adminLeaves).toContain("useState<'pending' | 'all'>(() => requestId ? 'all' : 'pending')");
+    expect(adminLeaves).toContain("useState<LeaveStatusFilter>(() => requestId ? 'all' : 'pending')");
   });
 });

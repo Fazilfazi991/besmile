@@ -49,7 +49,7 @@ describe('employee removal management', () => {
     expect(repository).toContain('removed_at,removal_reason,removed_by');
     expect(listPage).toContain("useState<WorkforceView>('active')");
     expect(listPage).toContain('Removed / inactive');
-    expect(detailPage).toContain('Historical attendance, payroll, tasks, CRM, Chat, meetings, finance and audit records remain available.');
+    expect(detailPage).toContain('Historical attendance, payroll, tasks, CRM, Teams, meetings, finance and audit records remain available.');
     expect(detailPage).toContain('Remove employee');
     expect(detailPage).toContain('Restore employee');
   });

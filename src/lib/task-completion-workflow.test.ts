@@ -8,6 +8,8 @@ const employeeRepository = readFileSync(resolve(process.cwd(), 'src/lib/employee
 const adminRepository = readFileSync(resolve(process.cwd(), 'src/lib/admin-repository.ts'), 'utf8');
 const adminPage = readFileSync(resolve(process.cwd(), 'src/app/admin/tasks/page.tsx'), 'utf8');
 const employeePage = readFileSync(resolve(process.cwd(), 'src/app/employee/tasks/page.tsx'), 'utf8');
+const compactEmployeeRepository = employeeRepository.replace(/\s+/g, '').replace(/'/g, '"');
+const compactAdminRepository = adminRepository.replace(/\s+/g, '').replace(/'/g, '"');
 
 describe('required task completion update', () => {
   it('rejects empty, whitespace-only, and oversized completion updates', () => {
@@ -23,8 +25,8 @@ describe('required task completion update', () => {
     expect(insert).toBeGreaterThan(-1);
     expect(update).toBeGreaterThan(insert);
     expect(migration).toContain('values (assignment.task_id, auth.uid(), message)');
-    expect(employeeRepository).toContain('rpc("complete_task_assignment"');
-    expect(adminRepository).toContain('rpc("complete_managed_task"');
+    expect(compactEmployeeRepository).toContain('rpc("complete_task_assignment"');
+    expect(compactAdminRepository).toContain('rpc("complete_managed_task"');
   });
 
   it('keeps submitter identity and existing permission boundaries explicit', () => {

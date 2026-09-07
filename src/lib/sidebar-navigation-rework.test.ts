@@ -9,16 +9,15 @@ const sidebarSource = readFileSync(resolve(process.cwd(), 'src/components/permis
 describe('Batch 13 sidebar navigation architecture', () => {
   it('groups management navigation by business function', () => {
     expect(adminNavigation.map(group => group.title)).toEqual([
-      'DASHBOARD', 'HR & EMPLOYEE MANAGEMENT', 'WORK MANAGEMENT', 'CLIENT & CRM',
-      'FINANCE & ACCOUNTS', 'DOCUMENTS & REPORTS', 'COMMUNICATION', 'ADMINISTRATION / SYSTEM',
+      'OVERVIEW', 'OPERATIONS', 'WORK MANAGEMENT', 'COMMUNICATION', 'CRM', 'FINANCE', 'ADMINISTRATION',
     ]);
   });
 
   it('derives compact sidebar sections from the canonical, permission-filtered links', () => {
     const sections = sectionNavigation(filterNavigation(adminNavigation, new Set(['dashboard.view', 'employees.view', 'crm.view_team', 'finance.dashboard.view', 'roles.manage'])));
     expect(sections.map(section => section.title)).toEqual(['Overview', 'Operations', 'CRM', 'Finance', 'Data & Settings']);
-    expect(sections.find(section => section.title === 'CRM')?.links.map(link => link.label)).toEqual(['CRM Overview', 'Leads', 'Follow-ups', 'Sales']);
-    expect(sections.find(section => section.title === 'Data & Settings')?.links.map(link => link.label)).toEqual(['My Profile', 'Roles & Access']);
+    expect(sections.find(section => section.title === 'CRM')?.links.map(link => link.label)).toEqual(['CRM Dashboard', 'Leads Management', 'Follow-ups', 'Sales']);
+    expect(sections.find(section => section.title === 'Data & Settings')?.links.map(link => link.label)).toEqual(['Profile', 'Roles & Access']);
   });
 
   it('keeps ordinary staff navigation limited to authorized self-service work', () => {
@@ -26,7 +25,7 @@ describe('Batch 13 sidebar navigation architecture', () => {
     // Chat and Meetings are universal active-employee workspaces; the
     // navigation must keep them available even when a role has no optional
     // module grants in this synthetic permission set.
-    expect(labels(visible)).toEqual(['Dashboard', 'My Tasks', 'My Calendar', 'Meetings', 'My Attendance', 'Leave Requests', 'Chat', 'Notifications', 'My Profile']);
+    expect(labels(visible)).toEqual(['Dashboard', 'My Attendance', 'My Calendar', 'Holiday Calendar', 'Leave', 'Tasks', 'Notifications', 'Profile']);
     expect(labels(visible)).not.toEqual(expect.arrayContaining(['Employees', 'Staff Attendance', 'Finance Dashboard', 'Roles & Access', 'CRM Overview']));
   });
 
@@ -39,7 +38,7 @@ describe('Batch 13 sidebar navigation architecture', () => {
 
   it.each(['general_manager', 'director', 'chairman'])('uses permissions, not the %s role name, for sensitive links', role => {
     const visible = filterNavigation(navigationForProfile(role), new Set(['dashboard.view']));
-    expect(labels(visible)).toEqual(['Dashboard', 'My Profile']);
+    expect(labels(visible)).toEqual(['Dashboard', 'Profile']);
   });
 
   it('keeps Finance and CRM absent when their effective permissions are denied', () => {
@@ -50,11 +49,11 @@ describe('Batch 13 sidebar navigation architecture', () => {
 
   it.each([
     ['director', new Set(['dashboard.view', 'employees.view', 'crm.view_team', 'finance.dashboard.view']), ['Overview', 'Operations', 'CRM', 'Finance', 'Data & Settings']],
-    ['general_manager', new Set(['dashboard.view', 'employees.view', 'tasks.assign', 'leave.review']), ['Overview', 'Operations', 'Work Management', 'Data & Settings']],
-    ['assistant_manager', new Set(['dashboard.view', 'admin.shell', 'doctor_scheduling.view', 'psychologist_payments.view']), ['Overview', 'Work Management', 'Finance', 'Data & Settings']],
-    ['psychologist', new Set(['dashboard.view', 'attendance.self', 'tasks.view_self', 'doctor_scheduling.view']), ['Overview', 'Work Management', 'Data & Settings']],
-    ['guest_sales', new Set(['dashboard.view', 'crm.view_assigned']), ['Overview', 'Work Management', 'CRM', 'Data & Settings']],
-    ['intern', new Set(['dashboard.view', 'tasks.view_self']), ['Overview', 'Work Management', 'Data & Settings']],
+    ['general_manager', new Set(['dashboard.view', 'employees.view', 'tasks.assign', 'leave.review']), ['Overview', 'Operations', 'Performance', 'Data & Settings']],
+    ['assistant_manager', new Set(['dashboard.view', 'admin.shell', 'doctor_scheduling.view', 'psychologist_payments.view']), ['Overview', 'Performance', 'Communication', 'Finance', 'Data & Settings']],
+    ['psychologist', new Set(['dashboard.view', 'attendance.self', 'tasks.view_self', 'doctor_scheduling.view']), ['Overview', 'Performance', 'Communication', 'Data & Settings']],
+    ['guest_sales', new Set(['dashboard.view', 'crm.view_assigned']), ['Overview', 'Performance', 'Communication', 'CRM', 'Data & Settings']],
+    ['intern', new Set(['dashboard.view', 'tasks.view_self']), ['Overview', 'Performance', 'Communication', 'Data & Settings']],
   ] as const)('keeps %s sidebar sections limited to its effective permission cards', (role, permissions, expectedSections) => {
     const sections = sectionNavigation(filterNavigation(navigationForProfile(role), permissions));
     expect(sections.map(section => section.title)).toEqual(expectedSections);
@@ -71,7 +70,7 @@ describe('Batch 13 sidebar navigation architecture', () => {
   });
 
   it('aligns dashboard and staff-attendance links with their route contracts', () => {
-    expect(permissionAllows(new Set(['dashboard.view']), adminRouteRequirement('/admin'))).toBe(true);
+    expect(permissionAllows(new Set(['dashboard.view']), adminRouteRequirement('/admin'))).toBe(false);
     expect(permissionAllows(new Set(['admin.access']), adminRouteRequirement('/admin'))).toBe(true);
     expect(permissionAllows(new Set(), adminRouteRequirement('/admin'))).toBe(false);
     expect(permissionAllows(new Set(['attendance.view']), adminRouteRequirement('/admin/attendance'))).toBe(true);

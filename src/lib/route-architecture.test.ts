@@ -7,8 +7,8 @@ const permissions = readFileSync(new URL('./permission-access.ts', import.meta.u
 describe('canonical workspace route architecture', () => {
   it('ships the management task route linked by the admin navigation', () => {
     expect(existsSync(resolve(process.cwd(), 'src/app/admin/tasks/page.tsx'))).toBe(true);
-    expect(permissions).toContain("href: '/admin/tasks'");
-    expect(permissions).toContain("path === '/admin/tasks'");
+    expect(permissions).toContain('href: "/admin/tasks"');
+    expect(permissions).toContain('path === "/admin/tasks"');
   });
 
   it('keeps operational attendance, chat, notifications, tasks, and CRM in the employee workspace', () => {

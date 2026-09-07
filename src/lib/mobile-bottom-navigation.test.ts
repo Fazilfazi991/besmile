@@ -15,7 +15,7 @@ const density = fs.readFileSync(
 describe("Phase 3E mobile navigation contracts", () => {
   it("renders exactly five primary mobile destinations", () => {
     expect(sidebar).toContain('aria-label="Mobile primary navigation"');
-    for (const label of ["Today", "Tasks", "Create", "Profile", "All Modules"])
+    for (const label of ["Today", "Tasks", "Teams", "Profile", "All Modules"])
       expect(sidebar).toContain(`<span>${label}</span>`);
   });
 
