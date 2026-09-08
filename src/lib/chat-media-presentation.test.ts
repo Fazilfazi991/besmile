@@ -12,6 +12,7 @@ describe('Teams media presentation', () => {
   it('recognizes supported images without treating documents as images', () => {
     for (const type of ['image/jpeg','image/png','image/webp','image/gif']) expect(isChatImageAttachment({ attachment_type: type })).toBe(true);
     expect(isChatImageAttachment({ attachment_type: null, attachment_name: 'DSC02165.jpeg', attachment_path: 'member/conversation/uuid-DSC02165.jpeg' })).toBe(true);
+    expect(isChatImageAttachment({ attachment_type: 'image/jpg', attachment_name: 'legacy-camera.jpg', attachment_path: 'member/conversation/uuid-legacy-camera.jpg' })).toBe(true);
     expect(isChatImageAttachment({ attachment_type: 'application/octet-stream', attachment_name: 'photo.PNG', attachment_path: 'member/conversation/uuid-photo.PNG' })).toBe(true);
     expect(isChatImageAttachment({ attachment_type: null, attachment_name: 'not-an-image.jpg', attachment_path: 'member/conversation/document.pdf' })).toBe(false);
     expect(isChatImageAttachment({ attachment_type: 'application/pdf', attachment_name: 'document.jpg', attachment_path: 'member/conversation/document.jpg' })).toBe(false);
