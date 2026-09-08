@@ -10,7 +10,7 @@ const firstClassLabels = [
 
 const intentionalConceptGroups = [
   ['Overview', 'Dashboard', 'Home'],
-  ['Work Management', 'My Work'],
+  ['Work Management', 'My Work', 'Daily Work Update', 'Daily Work Updates'],
   ['Employees', 'People'],
   ['My Profile', 'Profile'],
   ['Staff Attendance', 'Attendance'],

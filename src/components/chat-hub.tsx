@@ -90,6 +90,7 @@ export function ChatHub() {
   const [logicalNow, setLogicalNow] = useState(() => Date.now());
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const [conversationMenuOpen, setConversationMenuOpen] = useState(false);
   const [onlineProfileIds, setOnlineProfileIds] = useState<Set<string>>(new Set());
   const [group, setGroup] = useState({
     title: "",
@@ -817,10 +818,15 @@ export function ChatHub() {
                     className="chat-header-action chat-more-button"
                     aria-label="More conversation options"
                     title="More conversation options"
-                    onClick={() => setDetails((value) => !value)}
+                    aria-expanded={conversationMenuOpen}
+                    onClick={() => setConversationMenuOpen((value) => !value)}
                   >
                     <MoreIcon />
                   </button>
+                  {conversationMenuOpen && <div className="chat-conversation-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => { setConversationMenuOpen(false); setDetails(true); }}>Conversation details</button>
+                    {isGroup && isAdmin && !active.chat_conversations.is_system_group && <button type="button" role="menuitem" className="danger" onClick={() => { setConversationMenuOpen(false); setArchiveOpen(true); }}>Delete group</button>}
+                  </div>}
                 </div>
               </header>
               {messageQuery !== "" && (
@@ -1039,7 +1045,7 @@ export function ChatHub() {
           <aside className="chat-details-panel">
             <div className="chat-details-heading">
               <h2>Conversation details</h2>
-              <button aria-label="Close conversation details" onClick={() => setDetails(false)}>Close</button>
+              <button aria-label="Back to conversation" onClick={() => setDetails(false)}>Back</button>
             </div>
             <section className="chat-detail-summary">
               <DetailConversationAvatar item={active} userId={profile.id} />
@@ -1104,7 +1110,7 @@ export function ChatHub() {
             <div className="chat-detail-section">
               <b>Shared files</b>
               {messages.filter((message) => message.attachment_name && isChatMessageActive(message, logicalNow)).slice(-6).map((message) => (
-                <MessageFile key={message.id} message={message} />
+                <MessageFile key={message.id} message={message} compact />
               ))}
               {!messages.some((message) => message.attachment_name && isChatMessageActive(message, logicalNow)) && <small>No files shared yet.</small>}
             </div>
@@ -1118,7 +1124,7 @@ export function ChatHub() {
                 </select> : <span className="chat-retention-chevron" aria-hidden="true">›</span>}
               </div>
             </div>
-            {isGroup && isAdmin && !active.chat_conversations.is_system_group && <div className="chat-detail-section"><b>Group lifecycle</b><small>Archiving removes this group from active conversations while preserving its history.</small><button type="button" className="chat-leave" onClick={() => setArchiveOpen(true)}>Archive group</button></div>}
+            {isGroup && isAdmin && !active.chat_conversations.is_system_group && <div className="chat-detail-section"><b>Group lifecycle</b><small>Deleting removes this group from active Teams while preserving its history for audit purposes.</small><button type="button" className="chat-leave" onClick={() => setArchiveOpen(true)}>Delete group</button></div>}
           </aside>
         )}
       </div>
@@ -1285,7 +1291,7 @@ export function ChatHub() {
           </section>
         </div>
       )}
-      {archiveOpen && <div className="chat-modal-backdrop" role="presentation"><section className="chat-modal" role="alertdialog" aria-modal="true" aria-labelledby="archive-group-title"><header><div><h2 id="archive-group-title">Archive this group?</h2><p>The group will leave everyone&apos;s active conversation list. Message history is preserved.</p></div></header><footer><button type="button" className="button button-secondary" disabled={archiveBusy} onClick={() => setArchiveOpen(false)}>Cancel</button><button type="button" className="btn btn-primary" disabled={archiveBusy} onClick={() => void archiveGroup()}>{archiveBusy ? "Archiving…" : "Archive group"}</button></footer></section></div>}
+      {archiveOpen && <div className="chat-modal-backdrop" role="presentation"><section className="chat-modal" role="alertdialog" aria-modal="true" aria-labelledby="archive-group-title"><header><div><h2 id="archive-group-title">Delete group?</h2><p>The group will be removed from active Teams for everyone. Its message history remains protected for audit purposes.</p></div></header><footer><button type="button" className="button button-secondary" disabled={archiveBusy} onClick={() => setArchiveOpen(false)}>Cancel</button><button type="button" className="btn btn-primary" disabled={archiveBusy} onClick={() => void archiveGroup()}>{archiveBusy ? "Deleting…" : "Delete group"}</button></footer></section></div>}
     </section>
   );
 }
@@ -1523,7 +1529,7 @@ function VoiceMessage({ message }: { message: any }) {
     </div>
   );
 }
-function MessageFile({ message }: { message: any }) {
+function MessageFile({ message, compact = false }: { message: any; compact?: boolean }) {
   const [url, setUrl] = useState("");
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -1543,7 +1549,7 @@ function MessageFile({ message }: { message: any }) {
         : "FILE";
   return (
     <a
-      className={`chat-attachment ${image ? "chat-image-attachment" : ""}`}
+      className={`chat-attachment ${image ? "chat-image-attachment" : ""} ${compact ? "compact" : ""}`}
       href={url || undefined}
       target="_blank"
       rel="noreferrer"
@@ -1556,8 +1562,7 @@ function MessageFile({ message }: { message: any }) {
       ) : (
         <span>{failed ? "UNAVAILABLE" : fileKind}</span>
       )}
-      <b>{message.attachment_name}</b>
-      <small>{size(message.attachment_size)}</small>
+      {image && !compact ? <small className="chat-image-caption">{message.attachment_name}</small> : <><b>{message.attachment_name}</b><small>{size(message.attachment_size)}</small></>}
     </a>
   );
 }

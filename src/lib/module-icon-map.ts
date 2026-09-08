@@ -7,6 +7,7 @@ export const SEMANTIC_ICON_NAMES = {
   'Data & Settings': 'Database', 'All Modules': 'Grid3X3', 'Create': 'CirclePlus',
   'Employees': 'UsersRound', 'People': 'UsersRound', 'My Profile': 'UserRound', 'Profile': 'UserRound',
   'Staff Attendance': 'UserCheck', 'My Attendance': 'Clock3', 'Attendance': 'UserCheck',
+  'Daily Work Update': 'BriefcaseBusiness', 'Daily Work Updates': 'BriefcaseBusiness',
   'Leave Approvals': 'CalendarCheck', 'Leave Requests': 'CalendarHeart', 'My Leave': 'CalendarHeart',
   'Leave': 'CalendarHeart', 'Tasks': 'ListChecks', 'Task': 'ListChecks', 'My Tasks': 'ListChecks',
   'Manage Tasks': 'ClipboardCheck', 'Task Access': 'ClipboardList', 'Calendar': 'CalendarDays',

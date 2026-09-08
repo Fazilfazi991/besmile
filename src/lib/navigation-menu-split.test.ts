@@ -14,7 +14,7 @@ describe('Performance and Communication navigation split', () => {
       'Overview', 'Operations', 'Performance', 'Communication', 'CRM', 'Finance', 'Data & Settings',
     ]);
     expect(sections.find(section => section.title === 'Performance')?.links.map(link => link.label)).toEqual([
-      'Staff Attendance', 'My Calendar', 'Meetings', 'Leave Approvals', 'Tasks',
+      'Staff Attendance', 'Daily Work Updates', 'My Calendar', 'Meetings', 'Leave Approvals', 'Tasks',
       'Appointment & Scheduling', 'Innovation Hub',
     ]);
     expect(sections.find(section => section.title === 'Communication')?.links.map(link => link.label)).toEqual([

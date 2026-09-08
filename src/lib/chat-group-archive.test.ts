@@ -15,7 +15,8 @@ describe("Teams group archival", () => {
     expect(migration).toContain("revoke all on function public.archive_group_chat(uuid) from public, anon");
   });
   it("requires confirmation in the existing group details UI", () => {
-    expect(hub).toContain("Archive this group?");
+    expect(hub).toContain("Delete group?");
+    expect(hub).toContain('history remains protected for audit purposes');
     expect(hub).toContain("isAdmin && !active.chat_conversations.is_system_group");
   });
 });

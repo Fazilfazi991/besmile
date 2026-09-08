@@ -14,5 +14,8 @@ describe('Teams media presentation', () => {
     expect(isChatImageAttachment({ attachment_type: 'application/pdf' })).toBe(false);
     expect(hub).toContain('onError={() => setFailed(true)}');
     expect(hub).toContain('UNAVAILABLE');
+    expect(hub).toContain('image && !compact');
+    expect(hub).toContain('chat-image-caption');
+    expect(hub).toContain('<MessageFile key={message.id} message={message} compact />');
   });
 });

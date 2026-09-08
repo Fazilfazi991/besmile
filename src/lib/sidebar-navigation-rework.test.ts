@@ -25,7 +25,7 @@ describe('Batch 13 sidebar navigation architecture', () => {
     // Chat and Meetings are universal active-employee workspaces; the
     // navigation must keep them available even when a role has no optional
     // module grants in this synthetic permission set.
-    expect(labels(visible)).toEqual(['Dashboard', 'My Attendance', 'My Calendar', 'Holiday Calendar', 'Leave', 'Tasks', 'Notifications', 'Profile']);
+    expect(labels(visible)).toEqual(['Dashboard', 'My Attendance', 'Daily Work Update', 'My Calendar', 'Holiday Calendar', 'Leave', 'Tasks', 'Notifications', 'Profile']);
     expect(labels(visible)).not.toEqual(expect.arrayContaining(['Employees', 'Staff Attendance', 'Finance Dashboard', 'Roles & Access', 'CRM Overview']));
   });
 

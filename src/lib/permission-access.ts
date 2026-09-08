@@ -144,6 +144,7 @@ export function sectionNavigation(
     if (
       href.includes("/tasks") ||
       href.includes("/attendance") ||
+      href.includes("/daily-work") ||
       href.includes("/leave") ||
       href.includes("/calendar") ||
       href.includes("/holidays") ||
@@ -382,6 +383,11 @@ export const adminNavigation: readonly NavigationGroup[] = [
         requirement: anyOf("attendance.view", "attendance.manage"),
       },
       {
+        label: "Daily Work Updates",
+        href: "/admin/daily-work",
+        requirement: anyOf("attendance.view", "attendance.manage"),
+      },
+      {
         label: "My Calendar",
         href: "/admin/calendar",
         requirement: anyOf(
@@ -560,6 +566,16 @@ export const employeeNavigation: readonly NavigationGroup[] = [
       {
         label: "My Attendance",
         href: "/employee/attendance",
+        requirement: anyOf(
+          "attendance.self",
+          "attendance.view_self",
+          "attendance.view",
+          "attendance.manage",
+        ),
+      },
+      {
+        label: "Daily Work Update",
+        href: "/employee/daily-work",
         requirement: anyOf(
           "attendance.self",
           "attendance.view_self",
