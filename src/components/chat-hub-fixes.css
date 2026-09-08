@@ -89,3 +89,4 @@
 .chat-hub .chat-voice-progress div{display:flex;justify-content:space-between;font-size:10px;opacity:.78}
 .chat-hub .chat-voice-mic{color:#7ad8c8;font-size:11px}
 @media(max-width:760px){.chat-hub .chat-image-attachment,.chat-hub .chat-voice-message{width:100%;max-width:100%}}
+@media(max-width:760px){.chat-hub .chat-details-panel{padding-bottom:max(88px,calc(76px + env(safe-area-inset-bottom)))}}

@@ -47,6 +47,8 @@ describe('employee removal management', () => {
 
   it('keeps historical/admin visibility while defaulting the directory to current workforce', () => {
     expect(repository).toContain('removed_at,removal_reason,removed_by');
+    expect(repository).not.toContain('remover:profiles!profiles_removed_by_fkey');
+    expect(repository).toContain("r.from('profiles').select('id,full_name').in('id',removerIds)");
     expect(listPage).toContain("useState<WorkforceView>('active')");
     expect(listPage).toContain('Removed / inactive');
     expect(detailPage).toContain('Historical attendance, payroll, tasks, CRM, Teams, meetings, finance and audit records remain available.');

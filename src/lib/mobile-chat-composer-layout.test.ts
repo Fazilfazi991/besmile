@@ -49,4 +49,10 @@ describe("mobile chat composer layout", () => {
     expect(component).toContain("onSubmit={send}");
     expect(component).toContain("<SendIcon />");
   });
+
+  it("keeps conversation lifecycle actions above the fixed mobile navigation", () => {
+    expect(styles).toContain(
+      ".chat-hub .chat-details-panel{padding-bottom:max(88px,calc(76px + env(safe-area-inset-bottom)))}",
+    );
+  });
 });
