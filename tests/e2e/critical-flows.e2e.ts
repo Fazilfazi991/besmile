@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { assertNoRawDatabaseError, login, QaRole } from './helpers';
+import { assertNoRawDatabaseError, login, navigateAfterLogin, QaRole } from './helpers';
 
 const roleLandings: Array<[QaRole, RegExp]> = [['admin', /admin/], ['general_manager', /admin/], ['manager', /admin|employee/], ['employee', /employee/]];
 for (const [role, landing] of roleLandings) test(`${role} login`, async ({ page }) => { await login(page, role); await expect(page).toHaveURL(landing); await assertNoRawDatabaseError(page); });
@@ -30,7 +30,7 @@ test('employee critical workspace surfaces', async ({ page }) => { await login(p
 test('employee denied management modules', async ({ page }) => { await login(page, 'employee'); for (const route of ['/admin/tasks', '/admin/reports']) { await page.goto(route); await expect(page).toHaveURL(/unauthorized|employee/); } });
 
 test('employee submits Daily Work and manager can review it', async ({ page, browser }) => {
-  const marker = `Release gate work ${Date.now()}`; await login(page, 'employee'); await page.goto('/employee/daily-work'); const summary = page.getByLabel('Work summary'); const saveButton = page.getByRole('button', { name: /save summary|update summary/i }); await expect(saveButton).toBeEnabled(); await summary.fill(marker);
+  const marker = `Release gate work ${Date.now()}`; await login(page, 'employee'); await navigateAfterLogin(page, '/employee/daily-work'); const summary = page.getByLabel('Work summary'); const saveButton = page.getByRole('button', { name: /save summary|update summary/i }); await expect(saveButton).toBeEnabled(); await summary.fill(marker);
   const saved = page.waitForResponse(response => response.url().includes('/daily_work_updates') && response.request().method() !== 'GET');
   await saveButton.click(); const savedResponse = await saved; expect(savedResponse.ok()).toBe(true); await expect(summary).toHaveValue(marker); await expect(page.getByText(/saved/i)).toBeVisible();
   const manager = await browser.newPage(); await login(manager, 'general_manager'); await manager.goto('/admin/daily-work'); await manager.getByRole('textbox', { name: /^search$/i }).fill(marker); await expect(manager.getByText(marker)).toBeVisible(); await manager.close();
@@ -43,4 +43,4 @@ test('authorized manager has leave review controls when a pending request exists
 
 test('Teams supports messages, images, voice surface and safe group authorization', async ({ page }) => { await login(page, 'employee'); await page.goto('/employee/chat'); const composer = page.getByRole('textbox', { name: /type a message/i }); await expect(composer).toBeVisible(); await composer.fill(`Release gate message ${Date.now()}`); await composer.locator('xpath=..').getByRole('button').last().click(); await expect(page.getByRole('button', { name: /voice|record/i }).first()).toBeVisible(); await expect(page.getByRole('menuitem', { name: /delete group/i })).toHaveCount(0); await assertNoRawDatabaseError(page); });
 
-test('employee task completion requires an update', async ({ page }) => { await login(page, 'employee'); try { await page.goto('/employee/tasks'); } catch { await page.goto('/employee/tasks'); } const completed = page.getByRole('button', { name: /complete/i }).first(); if (await completed.count()) { await completed.click(); await expect(page.getByRole('button', { name: /complete task/i })).toBeDisabled(); await page.getByLabel(/completion update/i).fill('Completed during automated release verification.'); await expect(page.getByRole('button', { name: /complete task/i })).toBeEnabled(); } });
+test('employee task completion requires an update', async ({ page }) => { await login(page, 'employee'); await navigateAfterLogin(page, '/employee/tasks'); const completed = page.getByRole('button', { name: /complete/i }).first(); if (await completed.count()) { await completed.click(); await expect(page.getByRole('button', { name: /complete task/i })).toBeDisabled(); await page.getByLabel(/completion update/i).fill('Completed during automated release verification.'); await expect(page.getByRole('button', { name: /complete task/i })).toBeEnabled(); } });
