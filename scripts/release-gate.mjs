@@ -69,7 +69,7 @@ try {
     results.push({ name: 'QA configuration', status: 'FAIL', reason: 'QA project identity mismatch or Production project supplied' });
   } else {
     for (const step of steps) if (!runStep(step)) break;
-    if (results.length === steps.length && results.every(result => result.status === 'PASS')) {
+    if (results.length === steps.length + 1 && results.every(result => result.status === 'PASS')) {
       const baseUrl = new URL(process.env.BSMILE_QA_BASE_URL);
       const localQa = ['127.0.0.1', 'localhost'].includes(baseUrl.hostname);
       if (localQa) {
