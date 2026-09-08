@@ -5,6 +5,13 @@ const output = 'release-evidence';
 mkdirSync(output, { recursive: true });
 if (existsSync('.env.release-gate.local')) process.loadEnvFile('.env.release-gate.local');
 
+const releaseConfig = JSON.parse(readFileSync('release-gate.config.json', 'utf8'));
+const approvedDeployAuthorEmails = releaseConfig.approvedDeployAuthorEmails
+  .map(email => email.trim().toLowerCase());
+const gitAuthorEmail = spawnSync('git', ['log', '-1', '--format=%ae'], { encoding: 'utf8' })
+  .stdout.trim().toLowerCase();
+const authorizedCommitAuthor = approvedDeployAuthorEmails.includes(gitAuthorEmail);
+
 const requiredEnvironment = [
   'BSMILE_QA_BASE_URL', 'BSMILE_QA_SUPABASE_URL', 'BSMILE_QA_SUPABASE_ANON_KEY', 'BSMILE_QA_PROJECT_REF',
   'BSMILE_QA_ADMIN_EMAIL', 'BSMILE_QA_ADMIN_PASSWORD',
@@ -31,7 +38,11 @@ const steps = [
   ['production build', 'npm', ['run', 'build']],
   ['QA database/RLS probes', 'node', ['scripts/qa-security-probes.mjs']],
 ];
-const results = [];
+const results = [{
+  name: 'commit author authorization',
+  status: authorizedCommitAuthor ? 'PASS' : 'FAIL',
+  authorEmail: gitAuthorEmail || 'MISSING',
+}];
 function runStep([name, command, args]) {
   const run = spawnSync(command, args, { shell: process.platform === 'win32', stdio: 'inherit', env: process.env });
   const status = run.status === 0 ? 'PASS' : 'FAIL';
@@ -50,7 +61,9 @@ async function waitForServer(url, timeoutMs = 30_000) {
 
 let appServer;
 try {
-  if (missingEnvironment.length) {
+  if (!authorizedCommitAuthor) {
+    console.error('RELEASE GATE FAIL — UNAUTHORIZED COMMIT AUTHOR');
+  } else if (missingEnvironment.length) {
     results.push({ name: 'QA configuration', status: 'FAIL', missing: missingEnvironment });
   } else if (unsafeQaEnvironment) {
     results.push({ name: 'QA configuration', status: 'FAIL', reason: 'QA project identity mismatch or Production project supplied' });
@@ -79,8 +92,12 @@ const readJson = file => { try { return JSON.parse(readFileSync(file, 'utf8')); 
 const e2e = readJson(`${output}/playwright-results.json`)?.stats || null;
 const unit = readJson(`${output}/vitest-results.json`);
 const security = readJson(`${output}/security-results.json`);
-const expectedSteps = steps.length + 1;
-const verdict = results.length === expectedSteps && results.every(result => result.status === 'PASS') ? 'RELEASE GATE PASS' : 'RELEASE GATE FAIL';
+const expectedSteps = steps.length + 2;
+const verdict = !authorizedCommitAuthor
+  ? 'RELEASE GATE FAIL — UNAUTHORIZED COMMIT AUTHOR'
+  : results.length === expectedSteps && results.every(result => result.status === 'PASS')
+    ? 'RELEASE GATE PASS'
+    : 'RELEASE GATE FAIL';
 const report = {
   generatedAt: new Date().toISOString(), gitSha: sha, qaProjectRef: qaRef || 'MISSING', requiredViewports: ['390x844', '1366x768'], steps: results,
   unitTests: unit ? { total: unit.numTotalTests, passed: unit.numPassedTests, failed: unit.numFailedTests } : null,
