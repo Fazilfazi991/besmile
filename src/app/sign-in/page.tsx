@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from '@/lib/auth';
 import { signInValidationMessage } from '@/lib/sign-in-validation';
+import { clientSafeError } from '@/lib/client-error';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -25,7 +26,7 @@ export default function SignIn() {
       // The employee resolver also redirects management roles to the admin shell.
       window.location.assign('/employee');
     } catch (caughtError: any) {
-      setError(caughtError.message || 'Unable to sign in. Please try again.');
+      setError(clientSafeError(caughtError, 'Unable to sign in. Please check your details and try again.', { route: '/sign-in', action: 'login' }));
       setBusy(false);
     }
   };

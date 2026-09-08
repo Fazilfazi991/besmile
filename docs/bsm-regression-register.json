@@ -1,0 +1,22 @@
+[
+  {"id":"BSM-01","guard":"src/lib/mobile-chat-composer-layout.test.ts"},
+  {"id":"BSM-02","guard":"src/lib/sidebar-navigation-rework.test.ts"},
+  {"id":"BSM-03","guard":"src/lib/mobile-bottom-navigation.test.ts"},
+  {"id":"BSM-04","guard":"src/lib/task-form-submit.test.ts"},
+  {"id":"BSM-05","guard":"src/lib/task-workspace-integration.test.ts"},
+  {"id":"BSM-06","guard":"src/lib/task-sla.test.ts"},
+  {"id":"BSM-07","guard":"src/lib/task-completion-workflow.test.ts"},
+  {"id":"BSM-08","guard":"src/lib/daily-work-update.test.ts"},
+  {"id":"BSM-09","guard":"src/lib/attendance-export.test.ts"},
+  {"id":"BSM-10","guard":"src/lib/task-workspace.test.ts"},
+  {"id":"BSM-11","guard":"src/lib/chat-group-archive.test.ts"},
+  {"id":"BSM-12","guard":"src/lib/mobile-back-navigation.test.ts"},
+  {"id":"BSM-13","guard":"src/lib/chat-media-presentation.test.ts"},
+  {"id":"BSM-14","guard":"src/lib/operational-workforce-visibility.test.ts"},
+  {"id":"BSM-15","guard":"src/lib/profile-rules.test.ts"},
+  {"id":"BSM-16","guard":"src/lib/post-release-follow-up.test.ts"},
+  {"id":"BSM-17","guard":"src/lib/operational-workforce-visibility.test.ts"},
+  {"id":"PATCH-1","guard":"src/lib/post-release-follow-up.test.ts"},
+  {"id":"PATCH-2","guard":"src/lib/post-release-patch-2.test.ts"},
+  {"id":"PATCH-3","guard":"src/lib/task-creation-rls.test.ts"}
+]

@@ -8,6 +8,7 @@ import { isOverdue } from '@/lib/task-rules';
 import { completionUpdateError, taskCompletionUpdateMaxLength } from '@/lib/task-workspace';
 import { defaultTaskWorkSchedule, loadTaskWorkSchedule, taskCompletionSlaLabel } from '@/lib/task-sla';
 import { useAutoSizeTextareas } from '@/lib/use-auto-size-textareas';
+import { clientSafeError } from '@/lib/client-error';
 
 const labels: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', completed: 'Completed' };
 const emptyTask = { title: '', description: '', priority: 'medium', due_date: '', assigneeIds: [] as string[] };
@@ -114,13 +115,13 @@ export default function AdminTasksPage() {
       await adminRepository.createTask({ ...payload, assigneeIds: form.assigneeIds, created_by: profile.id });
       setForm(emptyTask); setAssigneeQuery(''); setCreateOpen(false); setNotice('Task created and assigned.');
       await loadTasks();
-    } catch (cause: any) { setError(cause?.message || 'Task could not be created.'); }
+    } catch (cause: any) { setError(clientSafeError(cause, "We couldn't create the task. Please try again.", { route: '/admin/tasks', action: 'create', role: profile?.role })); }
     finally { setSaving(false); }
   };
   const saveEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setSaving(true); setError(''); const payload = taskFormPayload(event.currentTarget);
     try { await adminRepository.updateTask(editing.id, { ...payload, status: editing.status }); await adminRepository.setTaskAssignees(editing.id, editing.assigneeIds); setEditing(null); setNotice('Task updated.'); await loadTasks(); }
-    catch (cause: any) { setError(cause?.message || 'Task could not be updated.'); }
+    catch (cause: any) { setError(clientSafeError(cause, "We couldn't update the task. Please try again.", { route: '/admin/tasks', action: 'edit', role: profile?.role })); }
     finally { setSaving(false); }
   };
   const changeStatus = async (task: any, nextStatus: 'todo'|'in_progress'|'completed') => {
@@ -130,7 +131,7 @@ export default function AdminTasksPage() {
     setSaving(true); setError(''); setNotice('');
     setTasks(current => current.map(item => item.id === task.id ? { ...item, status: nextStatus, task_assignments: item.task_assignments.map((assignment: any) => ({ ...assignment, status: nextStatus })) } : item));
     try { await adminRepository.setTaskStatus(task.id, nextStatus); setNotice(task.status === 'completed' ? 'Task reopened.' : `Task moved to ${labels[nextStatus]}.`); }
-    catch (cause: any) { setTasks(previous); setError(cause?.message || 'Task update failed.'); }
+    catch (cause: any) { setTasks(previous); setError(clientSafeError(cause, 'Task status could not be updated. Please try again.', { route: '/admin/tasks', action: 'status', role: profile?.role })); }
     finally { setSaving(false); }
   };
   const completeTask = async () => {
@@ -141,7 +142,7 @@ export default function AdminTasksPage() {
     setSaving(true); setError(''); setNotice('');
     setTasks(current => current.map(item => item.id === completionTarget.id ? { ...item, status: 'completed', task_assignments: item.task_assignments.map((assignment: any) => ({ ...assignment, status: 'completed' })) } : item));
     try { await adminRepository.completeTask(completionTarget.id, completionUpdate); setCompletionTarget(undefined); setCompletionUpdate(''); setNotice('Task completed with an update.'); await loadTasks(); }
-    catch (cause: any) { setTasks(previous); setError(cause?.message || 'Task completion could not be saved.'); }
+    catch (cause: any) { setTasks(previous); setError(clientSafeError(cause, 'Task completion could not be saved. Please try again.', { route: '/admin/tasks', action: 'complete', role: profile?.role })); }
     finally { setSaving(false); }
   };
   const deleteTask = async () => {
@@ -150,7 +151,7 @@ export default function AdminTasksPage() {
     setSaving(true); setError('');
     setTasks(current => current.filter(task => task.id !== deleteTarget.id));
     try { await adminRepository.deleteTask(deleteTarget.id); setNotice('Task deleted.'); setDeleteTarget(undefined); }
-    catch (cause: any) { setTasks(previous); setError(cause?.message || 'Task deletion failed.'); }
+    catch (cause: any) { setTasks(previous); setError(clientSafeError(cause, 'Task deletion failed. Please try again.', { route: '/admin/tasks', action: 'delete', role: profile?.role })); }
     finally { setSaving(false); }
   };
 
