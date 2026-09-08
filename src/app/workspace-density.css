@@ -169,6 +169,19 @@
 @keyframes module-flyout-enter{from{opacity:.7;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
 @media(max-width:900px){.module-flyout{display:none}.sidebar-drawer .nav-section-trigger{min-height:44px!important}.sidebar-drawer .mobile-nav-children{display:grid;margin:0 3px 6px!important;padding:5px!important}.sidebar-drawer .mobile-nav-link-group{display:grid;min-width:0;gap:2px}.sidebar-drawer .mobile-nav-link-group+ .mobile-nav-link-group{margin-top:6px;border-top:1px solid #dce8e5;padding-top:6px}.sidebar-drawer .mobile-nav-link-group h3{margin:0;padding:3px 7px 1px;color:#617974;font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}.sidebar-drawer .mobile-nav-children .nav-card{min-height:40px!important;grid-template-columns:26px minmax(0,1fr)!important;grid-template-rows:1fr!important;gap:8px!important;padding:5px 7px!important}.sidebar-drawer .nav-section-chevron{width:7px;height:7px;margin-right:4px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;font-size:0;transform:rotate(45deg);transition:transform .15s cubic-bezier(.22,1,.36,1)}.sidebar-drawer .nav-section.is-open .nav-section-chevron{transform:rotate(225deg)}}
 
+/* Colorful mode coverage for the newer navigation and compact module framework. */
+html[data-theme="colorful"] .app-sidebar .nav-section{border-color:rgba(158,174,255,.16)!important}
+html[data-theme="colorful"] .app-sidebar .nav-section-trigger{color:#c9d1ee}
+html[data-theme="colorful"] .app-sidebar .nav-section-trigger:hover,html[data-theme="colorful"] .app-sidebar .nav-section.has-open-flyout .nav-section-trigger{background:#202a55!important;color:#fff}
+html[data-theme="colorful"] .app-sidebar .nav-section.contains-active .nav-section-trigger{background:#24305c!important;color:#67e0d5}
+html[data-theme="colorful"] .app-sidebar .nav-section-chevron{color:#9ea9d4}
+html[data-theme="colorful"] .compact-page-header h1{color:#f5f7ff}
+html[data-theme="colorful"] .compact-page-header p{color:#b9c5e6}
+html[data-theme="colorful"] .module-tabs{border-color:rgba(160,178,255,.2)}
+html[data-theme="colorful"] .module-tabs button,html[data-theme="colorful"] .module-tabs>a{color:#b9c5e6}
+html[data-theme="colorful"] .module-tabs button:hover,html[data-theme="colorful"] .module-tabs>a:hover{background:#202a55;color:#fff}
+html[data-theme="colorful"] .module-tabs button.active,html[data-theme="colorful"] .module-tabs>a.active{border-bottom-color:#67e0d5;color:#67e0d5}
+
 /* Phase 3E: thumb-first mobile navigation and permission-aware workspace launcher. */
 .mobile-bottom-nav,.mobile-launcher-layer{display:none}
 @media(max-width:900px){
