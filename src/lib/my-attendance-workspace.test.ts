@@ -17,13 +17,14 @@ describe('personal attendance workspace', () => {
     expect(page).toContain("['last-7', 'Last 7 Days']");
     expect(page).toContain("['month', 'This Month']");
     expect(page).toContain("['custom', 'Custom']");
-    expect(page).toContain("present: 'Present', late: 'Late', absent: 'Absent', leave: 'Leave', holiday: 'Holiday', weekend: 'Weekly Off'");
+    expect(page).toContain("half_day: 'Half Day', regularized: 'Regularized'");
     expect(page).toContain('pageSizeOptions={PAGE_SIZES}');
-    expect(page).toContain('<th>Date</th><th>Shift</th><th>Actual In</th><th>Actual Out</th><th>Work Hours</th><th>Status</th>');
+    expect(page).toContain('<th>Date</th><th>Punch In</th><th>Punch Out</th><th>Total Working Hours</th><th>Status</th><th>Action</th>');
   });
 
-  it('uses the production canonical attendance calculation and does not add correction behavior', () => {
-    expect(page).toContain('minutes(day.row)');
-    expect(page).not.toMatch(/regulari[sz]|correction request/i);
+  it('uses the canonical duration calculation and an auditable regularization request', () => {
+    expect(page).toContain('attendanceDuration(day.row');
+    expect(page).toContain('requestAttendanceRegularization');
+    expect(page).toContain('Your original punch data will remain unchanged.');
   });
 });
