@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { completionUpdateError } from './task-workspace';
 
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260907202602_require_task_completion_update.sql'), 'utf8');
+const aclMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260908033418_revoke_anonymous_task_completion_execution.sql'), 'utf8');
 const employeeRepository = readFileSync(resolve(process.cwd(), 'src/lib/employee-repository.ts'), 'utf8');
 const adminRepository = readFileSync(resolve(process.cwd(), 'src/lib/admin-repository.ts'), 'utf8');
 const adminPage = readFileSync(resolve(process.cwd(), 'src/app/admin/tasks/page.tsx'), 'utf8');
@@ -35,6 +36,13 @@ describe('required task completion update', () => {
     expect(migration).toContain('public.can_manage_task_assignment(task.id, assignment.profile_id)');
     expect(migration).toContain('author_id, body) values (task.id, auth.uid(), message)');
     expect(migration).toContain('revoke all on function public.complete_task_assignment(uuid, text) from public');
+  });
+
+  it('explicitly revokes anonymous completion RPC execution', () => {
+    expect(aclMigration).toContain('revoke execute on function public.complete_task_assignment(uuid, text) from public, anon;');
+    expect(aclMigration).toContain('revoke execute on function public.complete_managed_task(uuid, text) from public, anon;');
+    expect(aclMigration).toContain('grant execute on function public.complete_task_assignment(uuid, text) to authenticated;');
+    expect(aclMigration).toContain('grant execute on function public.complete_managed_task(uuid, text) to authenticated;');
   });
 
   it('leaves non-completion status changes on the existing repository path', () => {
