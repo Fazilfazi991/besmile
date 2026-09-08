@@ -11,6 +11,8 @@ describe('Teams media presentation', () => {
   });
   it('recognizes supported images without treating documents as images', () => {
     for (const type of ['image/jpeg','image/png','image/webp','image/gif']) expect(isChatImageAttachment({ attachment_type: type })).toBe(true);
+    expect(isChatImageAttachment({ attachment_type: null, attachment_name: 'DSC02165.jpeg' })).toBe(true);
+    expect(isChatImageAttachment({ attachment_type: 'application/octet-stream', attachment_name: 'photo.PNG' })).toBe(true);
     expect(isChatImageAttachment({ attachment_type: 'application/pdf' })).toBe(false);
     expect(hub).toContain('onError={() => setFailed(true)}');
     expect(hub).toContain('UNAVAILABLE');
