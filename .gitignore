@@ -63,3 +63,4 @@ app.*.map.json
 /android/app/release
 .vercel
 release-evidence/
+test-results/

@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: [['list'], ['json', { outputFile: 'release-evidence/playwright-results.json' }]],
   use: { baseURL: baseURL || 'http://127.0.0.1:3000', trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   projects: [
-    { name: 'mobile-390', use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } } },
+    { name: 'mobile-390', use: { ...devices['iPhone 13'], browserName: 'chromium', viewport: { width: 390, height: 844 } } },
     { name: 'desktop-1366', use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 768 } } },
   ],
 });
