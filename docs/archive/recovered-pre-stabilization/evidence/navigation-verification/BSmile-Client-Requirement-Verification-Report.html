@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BSmile CRM — Client Requirement Completion &amp; Verification Report</title>
+  <style>
+    :root{--ink:#163d3c;--muted:#617572;--line:#d9e8e5;--brand:#087a64;--soft:#f2faf8;--warn:#9a5b00;--bad:#a33a35}*{box-sizing:border-box}body{margin:0;background:#eef4f3;color:var(--ink);font:15px/1.55 Arial,Helvetica,sans-serif}.page{width:min(1120px,calc(100% - 32px));margin:32px auto;background:#fff;box-shadow:0 8px 32px #173e3a18}.cover{padding:58px 64px 46px;background:linear-gradient(135deg,#073f3b,#09846f);color:#fff}.cover p{margin:8px 0;color:#d8f4ed}.cover h1{max-width:720px;margin:0;font-size:42px;line-height:1.08;letter-spacing:-.04em}.eyebrow{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}.content{padding:38px 64px 64px}h2{margin:40px 0 12px;padding-bottom:9px;border-bottom:1px solid var(--line);font-size:25px;letter-spacing:-.02em}h3{margin:28px 0 6px;font-size:18px}h4{margin:14px 0 4px;font-size:14px}p{margin:7px 0}a{color:#056d60;text-decoration-thickness:1px}table{width:100%;border-collapse:collapse;margin:14px 0 24px;font-size:13px}th,td{padding:10px;vertical-align:top;border:1px solid var(--line);text-align:left}th{background:#edf7f5;font-size:12px}.status{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700}.source{background:#e4f5f0;color:#086650}.partial{background:#fff2d8;color:var(--warn)}.notdone{background:#fde9e7;color:var(--bad)}.callout{margin:15px 0;padding:14px 16px;border-left:4px solid var(--brand);background:var(--soft)}.gap{border-color:#d49a27;background:#fff9e9}.figure-missing{margin:12px 0;padding:22px;border:1px dashed #a8c1bc;border-radius:10px;background:#fbfdfd;color:var(--muted);text-align:center}.meta{display:grid;grid-template-columns:160px 1fr;gap:4px;margin-top:34px}.meta b{color:#ccefe7}@media print{body{background:#fff}.page{width:auto;margin:0;box-shadow:none}.cover{break-after:page}.content{padding:34px 42px}a{color:inherit}.page{font-size:11pt}h2{break-after:avoid}tr{break-inside:avoid}}@media(max-width:700px){.cover,.content{padding:34px 24px}.cover h1{font-size:33px}.meta{grid-template-columns:1fr}table{font-size:12px;display:block;overflow:auto}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="cover">
+      <div class="eyebrow">BSmile CRM</div>
+      <h1>Client Requirement Completion &amp; Verification Report</h1>
+      <div class="meta"><b>Date</b><span>24 August 2026</span><b>Prepared for</b><span>BSmile</span><b>Scope</b><span>Web App Navigation &amp; Module Structure</span></div>
+    </section>
+    <section class="content">
+      <h2>1. Executive Summary</h2>
+      <p>This report records source-control, deployment, automated QA, and browser-verification evidence for the requested navigation work. It separates development/preview delivery from production deployment and from visual confirmation.</p>
+      <div class="callout gap"><b>Evidence limitation.</b> Chrome navigation to the preview timed out twice before page content could be inspected. No screenshots, mock images, or substitute visual proof are included. Active production and the latest feature preview are different commits.</div>
+
+      <h2>2. Requirement Verification Matrix</h2>
+      <table><thead><tr><th>#</th><th>Client requirement</th><th>Implementation / verification</th><th>Deployment</th></tr></thead><tbody>
+        <tr><td>1</td><td>Simplify standalone modules</td><td><span class="status source">Completed in source</span> Derived accordion sections exist; visual proof unavailable.</td><td>Latest feature preview</td></tr>
+        <tr><td>2</td><td>Clean left-side navigation</td><td><span class="status source">Completed in source</span> Persistent sidebar/mobile drawer; visual proof unavailable.</td><td>Latest feature preview</td></tr>
+        <tr><td>3</td><td>Communication as its own parent</td><td><span class="status notdone">Not implemented as specified</span> Current derivation maps communication links into Work Management.</td><td>No completion claim</td></tr>
+        <tr><td>4</td><td>Work Management parent</td><td><span class="status source">Completed in source</span> Toggleable section with route cards.</td><td>Latest feature preview</td></tr>
+        <tr><td>5</td><td>Role-specific Intern navigation</td><td><span class="status partial">Partially completed</span> Source test specifies three derived sections; no Intern UI proof.</td><td>Latest feature preview</td></tr>
+        <tr><td>6</td><td>Compact, uncrowded sidebar</td><td><span class="status partial">Partially completed</span> CSS density/overflow work exists; visual acceptance unavailable.</td><td>Latest feature preview</td></tr>
+        <tr><td>7</td><td>Alignment and active states</td><td><span class="status source">Completed in source</span> Shared controls and route-aware active state; no visual proof.</td><td>Latest feature preview</td></tr>
+        <tr><td>8</td><td>Mobile navigation</td><td><span class="status source">Completed in source</span> Drawer, trigger, Escape/backdrop close; 390px test unavailable.</td><td>Latest feature preview</td></tr>
+        <tr><td>9</td><td>Notifications presentation</td><td><span class="status source">Completed in source</span> Focused notification test passed 8/8; no visual proof.</td><td>Latest feature preview; production differs</td></tr>
+      </tbody></table>
+
+      <h2>3. Detailed Requirement Evidence</h2>
+      <h3>Grouped navigation and left-side structure</h3><p><b>Implementation:</b> <code>sectionNavigation()</code> produces Overview, Operations, Work Management, CRM, Finance, and Data &amp; Settings. <code>PermissionSidebar</code> renders a toggleable section for each derived group.</p><p><b>Source proof:</b> <a href="../../src/lib/permission-access.ts">permission-access.ts</a>; <a href="../../src/components/permission-sidebar.tsx">permission-sidebar.tsx</a>; <a href="https://github.com/Fazilfazi991/besmile/commit/b316715">commit b316715</a>.</p>
+      <h3>Communication</h3><p><b>Result:</b> Not implemented as specified. The canonical source has a Communication group, but the derived UI maps Chat, Announcements, Notifications, and Customer Feedback to Work Management. Therefore the present derived sidebar cannot demonstrate Communication as a separate primary parent.</p><p><b>Source proof:</b> <a href="../../src/lib/permission-access.ts">permission-access.ts, section mapping</a>.</p>
+      <h3>Work Management, role filtering, alignment and mobile</h3><p><b>Implementation:</b> Work Management is an accessible toggle with cards displayed when open. Permission filtering precedes section derivation. The sidebar derives its active open section from the route, supports collapse, and renders a mobile drawer with close/backdrop/Escape behavior.</p><p><b>Source proof:</b> <a href="../../src/components/permission-sidebar.tsx">permission-sidebar.tsx</a>; <a href="../../src/components/mobile-navigation.tsx">mobile-navigation.tsx</a>; <a href="https://github.com/Fazilfazi991/besmile/commit/466c4c3">466c4c3</a>; <a href="https://github.com/Fazilfazi991/besmile/commit/f9beffa">f9beffa</a>.</p>
+      <h3>Density and notifications</h3><p><b>Implementation:</b> CSS provides expanded/collapsed widths, compact trigger/card dimensions, controlled scrolling and horizontal-overflow constraints. Notification categories, cards and responsive styles are present; the focused notification suite passes.</p><p><b>Source proof:</b> <a href="../../src/app/globals.css">globals.css</a>; <a href="../../src/lib/notification-presentation.ts">notification-presentation.ts</a>; <a href="https://github.com/Fazilfazi991/besmile/commit/2545a68">2545a68</a>.</p>
+      <div class="figure-missing"><b>Visual evidence status:</b> no real browser screenshots captured. Required desktop, expanded-section, Intern, notifications and 390px mobile capture set remains outstanding.</div>
+
+      <h2>4. Git Change Evidence</h2>
+      <table><thead><tr><th>Commit</th><th>Description</th><th>Requirement</th></tr></thead><tbody>
+        <tr><td><a href="https://github.com/Fazilfazi991/besmile/commit/b316715">b316715</a></td><td>Group sidebar navigation into accordion sections</td><td>1, 2, 4, 5, 7</td></tr>
+        <tr><td><a href="https://github.com/Fazilfazi991/besmile/commit/466c4c3">466c4c3</a></td><td>Derive sidebar accordion state from route</td><td>4, 7</td></tr>
+        <tr><td><a href="https://github.com/Fazilfazi991/besmile/commit/2bffba2">2bffba2</a>, <a href="https://github.com/Fazilfazi991/besmile/commit/e398868">e398868</a>, <a href="https://github.com/Fazilfazi991/besmile/commit/5c83213">5c83213</a>, <a href="https://github.com/Fazilfazi991/besmile/commit/14f7ca0">14f7ca0</a></td><td>Wrapping, grid constraints and long-label fitting</td><td>6, 7</td></tr>
+        <tr><td><a href="https://github.com/Fazilfazi991/besmile/commit/f9beffa">f9beffa</a></td><td>Mobile navigation refinement</td><td>8</td></tr>
+        <tr><td><a href="https://github.com/Fazilfazi991/besmile/commit/2545a68">2545a68</a></td><td>Sidebar and notification layout tightening</td><td>6, 8, 9</td></tr>
+      </tbody></table>
+      <p>The earlier references <code>8cfd04f</code> and <code>8f6615a</code> exist on <code>origin/production-readiness</code>, but are not ancestors of the current feature HEAD. The evidence table uses commits in the current feature history.</p>
+
+      <h2>5. Deployment Verification</h2>
+      <table><tbody><tr><th>Feature branch</th><td><code>feature/batch-13-sidebar-navigation-rework</code></td></tr><tr><th>Feature SHA / pushed remote SHA</th><td><code>2f009570f75b2a0326abbc4f71718cb0eab295b0</code></td></tr><tr><th>Preview</th><td><a href="https://besmile-h6gjvoj50-faziils-projects.vercel.app">Ready preview deployment</a>, built from feature SHA <code>2f009570</code>.</td></tr><tr><th>Configured production branch</th><td><code>origin/production-readiness</code> at <code>d39c2bd64881afd815552938b9a9d158ea3d9b14</code>.</td></tr><tr><th>Active production</th><td><a href="https://besmile-eu10knhck-faziils-projects.vercel.app">Ready production deployment</a>, promoted from <code>recovery/bsmile-ui-regressions</code> at <code>bf5654045d19b9ccbec6f828c3e915e4f2a5c50e</code>.</td></tr></tbody></table>
+      <div class="callout gap"><b>Deployment gap:</b> Preview and production do not point to the same implementation. The feature branch is 57 commits ahead and 28 commits behind the configured production branch. No production-live claim is made for the feature implementation.</div>
+
+      <h2>6. QA Results</h2>
+      <table><thead><tr><th>Command</th><th>Result</th></tr></thead><tbody><tr><td><code>npm test -- --run src/lib/sidebar-navigation-rework.test.ts</code></td><td><span class="status notdone">FAIL</span> 18/19. Expected staff-menu list omits Holiday Calendar.</td></tr><tr><td><code>npm test -- --run src/lib/notification-presentation.test.ts</code></td><td><span class="status source">PASS</span> 8/8.</td></tr><tr><td><code>npm run typecheck</code></td><td><span class="status source">PASS</span></td></tr><tr><td><code>npm run lint</code></td><td><span class="status source">PASS</span></td></tr><tr><td><code>npm run build</code></td><td><span class="status partial">INCOMPLETE</span> Optimized-build phase began but did not finish; verification build processes were stopped.</td></tr><tr><td>Chrome preview verification</td><td><span class="status partial">INCOMPLETE</span> Two navigation attempts timed out before inspection/capture.</td></tr></tbody></table>
+
+      <h2>7. Remaining Items</h2><ol><li>Create a separate Communication derived section if that is the required primary navigation behavior.</li><li>Capture the required authenticated desktop, Intern, notifications, and 390px mobile evidence.</li><li>Resolve the stale sidebar-test expectation following the Holiday Calendar addition.</li><li>Obtain a completed production-build result.</li><li>Promote/reconcile only after the outstanding evidence is accepted.</li></ol>
+      <h2>8. Conclusion</h2><p>Grouped sidebar, route-aware accordion, mobile-drawer, density, and notification work is present in source and included in the latest feature preview. Active production is a different commit, and Communication is not currently rendered as a separate primary parent in the derived UI. The report therefore does not make a visual or production-live claim for the feature implementation.</p>
+    </section>
+  </main>
+</body>
+</html>
+
+

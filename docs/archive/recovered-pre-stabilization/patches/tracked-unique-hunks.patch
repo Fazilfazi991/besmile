@@ -1,0 +1,200 @@
+warning: in the working copy of 'src/app/admin/employees/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/employee/calendar/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/browser-push-settings.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/idea-hub.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/production-user-cleanup.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/staff-managed-outsourced-psychologist.test.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/src/app/admin/employees/page.tsx b/src/app/admin/employees/page.tsx
+index b10c00e..e08b9de 100644
+--- a/src/app/admin/employees/page.tsx
++++ b/src/app/admin/employees/page.tsx
+@@ -22,10 +22,10 @@ export default function EmployeesPage() {
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState('');
+ 
+-  const load = async (value = query) => {
++  const load = async (value = query, view = workforceView) => {
+     setLoading(true);
+     try {
+-      const result = await adminRepository.employees(value, 0, 150, 'all');
++      const result = await adminRepository.employees(value, 0, 150, view === 'active' ? 'current' : 'all');
+       setEmployees(result.data);
+       setError('');
+     } catch (caught: any) {
+@@ -36,9 +36,9 @@ export default function EmployeesPage() {
+   };
+ 
+   useEffect(() => {
+-    const timer = window.setTimeout(() => void load(''), 0);
++    const timer = window.setTimeout(() => void load('', workforceView), 0);
+     return () => window.clearTimeout(timer);
+-  }, []);
++  }, [workforceView]);
+ 
+   const departments = [...new Set(employees.map((employee) => employee.department?.name).filter(Boolean))];
+   const roles = [...new Set(employees.map((employee) => employee.role).filter(Boolean))];
+diff --git a/src/app/employee/calendar/page.tsx b/src/app/employee/calendar/page.tsx
+index b0341a7..0f928f3 100644
+--- a/src/app/employee/calendar/page.tsx
++++ b/src/app/employee/calendar/page.tsx
+@@ -5,6 +5,7 @@ import { currentProfile } from '@/lib/auth';
+ import { blockFieldsFromStored, blockPayloadFromFields, BlockTimeFields } from '@/lib/calendar-block-rules';
+ import { calendarMeetingRepository } from '@/lib/calendar-meeting-repository';
+ import { businessLocalToStored, formatBusinessDateTime, storedToBusinessParts } from '@/lib/calendar-meeting-rules';
++import { ConfirmationDialog } from '@/components/confirmation-dialog';
+ 
+ type CalendarItem = { id: string; kind: 'blocked' | 'meeting'; start_at: string; end_at: string; title?: string | null; all_day?: boolean; status?: string };
+ const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+@@ -28,6 +29,7 @@ export default function MyCalendarPage() {
+   const [formError, setFormError] = useState('');
+   const [saving, setSaving] = useState(false);
+   const [deleting, setDeleting] = useState(false);
++  const [confirmRemove, setConfirmRemove] = useState(false);
+ 
+   const loadCalendar = useCallback(async (userId: string) => {
+     const calendar = await calendarMeetingRepository.myCalendar(userId);
+@@ -42,7 +44,7 @@ export default function MyCalendarPage() {
+         if (!active) return;
+         setProfileId(profile.id);
+         await loadCalendar(profile.id);
+-      } catch (cause: any) { if (active) setError(cause?.message || 'Unable to load your calendar.'); }
++      } catch (cause: unknown) { console.error('Unable to load My Calendar', cause); if (active) setError('Unable to load your calendar. Please try again.'); }
+     })();
+     return () => { active = false; };
+   }, [loadCalendar]);
+@@ -75,14 +77,14 @@ export default function MyCalendarPage() {
+       else await calendarMeetingRepository.createMyBlock(profileId, payload);
+       await loadCalendar(profileId);
+       setDialog(null); setEditingBlock(null);
+-    } catch (cause: any) { setFormError(cause?.message || 'Unable to save blocked time.'); }
++    } catch (cause: unknown) { console.error('Unable to save blocked time', cause); setFormError('Unable to save blocked time. Please try again.'); }
+     finally { setSaving(false); }
+   };
+   const removeBlock = async () => {
+-    if (!profileId || !editingBlock || deleting || !window.confirm('Remove this blocked time?')) return;
++    if (!profileId || !editingBlock || deleting) return;
+     setFormError(''); setDeleting(true);
+-    try { await calendarMeetingRepository.removeMyBlock(profileId, editingBlock.id); await loadCalendar(profileId); setDialog(null); setEditingBlock(null); }
+-    catch (cause: any) { setFormError(cause?.message || 'Unable to remove blocked time.'); }
++    try { await calendarMeetingRepository.removeMyBlock(profileId, editingBlock.id); await loadCalendar(profileId); setDialog(null); setEditingBlock(null); setConfirmRemove(false); }
++    catch (cause: unknown) { console.error('Unable to remove blocked time', cause); setFormError('Unable to remove blocked time. Please try again.'); }
+     finally { setDeleting(false); }
+   };
+ 
+@@ -94,7 +96,8 @@ export default function MyCalendarPage() {
+       <section className="employee-section calendar-month" aria-label="Month calendar"><div className="calendar-toolbar"><div><button type="button" className="btn calendar-nav" onClick={() => shiftMonth(-1)} aria-label="Previous month">‹</button><button type="button" className="btn calendar-nav" onClick={() => shiftMonth(1)} aria-label="Next month">›</button></div><h2>{monthTitle(displayMonth.year, displayMonth.month)}</h2><button type="button" className="btn btn-primary calendar-today" onClick={selectToday}>Today</button></div><div className="calendar-weekdays">{weekdays.map(day => <span key={day}>{day}</span>)}</div><div className="calendar-grid">{days.map((date, index) => date ? <button type="button" key={date} onClick={() => setSelectedDate(date)} className={`calendar-date${date === today ? ' is-today' : ''}${date === selectedDate ? ' is-selected' : ''}`} aria-pressed={date === selectedDate}><span className="calendar-date-number">{Number(date.slice(-2))}</span><span className="calendar-date-events">{itemsForDate(date).slice(0, 2).map(item => <span key={`${item.kind}-${item.id}`} className={`calendar-event calendar-event-${item.kind}`}>{item.kind === 'blocked' ? 'Unavailable' : item.title || 'Meeting'}</span>)}</span>{itemsForDate(date).length > 2 ? <small>+{itemsForDate(date).length - 2} more</small> : null}</button> : <div className="calendar-blank" aria-hidden="true" key={`blank-${index}`} />)}</div></section>
+       <aside className="employee-section calendar-agenda" aria-label="Selected day agenda"><div className="employee-section-heading"><div><h2>{new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(`${selectedDate}T00:00:00Z`))}</h2><p>Selected-day agenda</p></div></div>{agenda.length ? <div className="calendar-agenda-list">{agenda.map(item => item.kind === 'blocked' ? <button type="button" key={`${item.kind}-${item.id}`} className="agenda-item agenda-item-blocked" onClick={() => openEdit(item)}><span>Unavailable</span><b>{item.title || 'Unavailable'}</b><time dateTime={item.start_at}>{formatTimeRange(item)} · {formatBusinessDateTime(item.start_at).slice(0, 10)}</time></button> : <article key={`${item.kind}-${item.id}`} className="agenda-item agenda-item-meeting"><span>Meeting</span><b>{item.title || 'Meeting'}</b><time dateTime={item.start_at}>{formatTimeRange(item)} · {formatBusinessDateTime(item.start_at).slice(0, 10)}</time></article>)}</div> : <div className="employee-empty"><span>○</span><b>No calendar items</b><p>You have no unavailable time or scheduled meetings on this date.</p></div>}</aside>
+     </div> : null}
+-    {dialog ? <div className="block-dialog-backdrop" role="presentation"><section className="block-dialog" role="dialog" aria-modal="true" aria-labelledby="block-dialog-title"><header><div><h2 id="block-dialog-title">{dialog === 'edit' ? 'Edit Block Time' : 'Block Time'}</h2><p>Unavailable time is shown only on your personal calendar.</p></div><button type="button" onClick={closeDialog} aria-label="Close">×</button></header><form onSubmit={saveBlock}><label>Date<input type="date" value={blockFields.date} onChange={event => updateField('date', event.target.value)} required /></label><label className="all-day-field"><input type="checkbox" checked={blockFields.allDay} onChange={event => updateField('allDay', event.target.checked)} /> All day</label><div className="block-time-fields"><label>Start time<input type="time" value={blockFields.startTime} onChange={event => updateField('startTime', event.target.value)} disabled={blockFields.allDay} required /></label><label>End time<input type="time" value={blockFields.endTime} onChange={event => updateField('endTime', event.target.value)} disabled={blockFields.allDay} required /></label></div><label>Title / reason <small>Optional — visible only to you</small><input type="text" value={blockFields.title} onChange={event => updateField('title', event.target.value)} maxLength={160} placeholder="e.g. Personal appointment" /></label>{formError ? <p className="block-form-error" role="alert">{formError}</p> : null}<footer>{dialog === 'edit' ? <button type="button" className="btn block-remove" onClick={removeBlock} disabled={saving || deleting}>{deleting ? 'Removing…' : 'Remove'}</button> : <span />}<div><button type="button" className="btn" onClick={closeDialog} disabled={saving || deleting}>Cancel</button><button type="submit" className="btn btn-primary" disabled={saving || deleting}>{saving ? 'Saving…' : 'Save Block Time'}</button></div></footer></form></section></div> : null}
++    {dialog ? <div className="block-dialog-backdrop" role="presentation"><section className="block-dialog" role="dialog" aria-modal="true" aria-labelledby="block-dialog-title"><header><div><h2 id="block-dialog-title">{dialog === 'edit' ? 'Edit Block Time' : 'Block Time'}</h2><p>Unavailable time is shown only on your personal calendar.</p></div><button type="button" onClick={closeDialog} aria-label="Close">×</button></header><form onSubmit={saveBlock}><label>Date<input type="date" value={blockFields.date} onChange={event => updateField('date', event.target.value)} required /></label><label className="all-day-field"><input type="checkbox" checked={blockFields.allDay} onChange={event => updateField('allDay', event.target.checked)} /> All day</label><div className="block-time-fields"><label>Start time<input type="time" value={blockFields.startTime} onChange={event => updateField('startTime', event.target.value)} disabled={blockFields.allDay} required /></label><label>End time<input type="time" value={blockFields.endTime} onChange={event => updateField('endTime', event.target.value)} disabled={blockFields.allDay} required /></label></div><label>Title / reason <small>Optional — visible only to you</small><input type="text" value={blockFields.title} onChange={event => updateField('title', event.target.value)} maxLength={160} placeholder="e.g. Personal appointment" /></label>{formError ? <p className="block-form-error" role="alert">{formError}</p> : null}<footer>{dialog === 'edit' ? <button type="button" className="btn block-remove" onClick={() => setConfirmRemove(true)} disabled={saving || deleting}>{deleting ? 'Removing…' : 'Remove'}</button> : <span />}<div><button type="button" className="btn" onClick={closeDialog} disabled={saving || deleting}>Cancel</button><button type="submit" className="btn btn-primary" disabled={saving || deleting}>{saving ? 'Saving…' : 'Save Block Time'}</button></div></footer></form></section></div> : null}
++    <ConfirmationDialog open={confirmRemove} title="Remove blocked time?" description={`Remove ${editingBlock?.title || 'this unavailable time'} from your calendar?`} confirmLabel="Remove block" destructive pending={deleting} error={formError} onClose={() => { if (!deleting) setConfirmRemove(false); }} onConfirm={removeBlock} />
+     <style jsx>{`
+       .my-calendar{max-width:1080px;margin:0 auto;min-width:0}.calendar-header-actions,.calendar-key{display:flex;align-items:center;flex-wrap:wrap;gap:7px}.calendar-key span,.agenda-item>span{border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800}.calendar-key-block,.agenda-item-blocked>span{background:#fff1e8;color:#a94a16}.calendar-key-meeting,.agenda-item-meeting>span{background:#e3f4ff;color:#126389}.calendar-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(285px,.8fr);gap:14px;align-items:start}.calendar-month,.calendar-agenda{background:#fff;border:1px solid #dfe8e6;border-radius:10px}.calendar-toolbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;border-bottom:1px solid #edf1f0;padding:11px 13px}.calendar-toolbar>div{display:flex;gap:5px}.calendar-toolbar h2{margin:0;text-align:center;font-size:14px}.calendar-today{justify-self:end}.calendar-nav{min-width:32px;border:1px solid #d6e6e2;background:#fff;color:#006b64;font-size:20px;line-height:1}.calendar-weekdays,.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}.calendar-weekdays{border-bottom:1px solid #edf1f0;background:#f6faf9}.calendar-weekdays span{padding:8px 2px;text-align:center;color:#667773;font-size:10px;font-weight:800}.calendar-grid{gap:1px;background:#e7eeec}.calendar-date,.calendar-blank{min-width:0;min-height:105px;background:#fff}.calendar-date{display:grid;align-content:start;gap:5px;border:0;padding:7px;text-align:left;cursor:pointer;font:inherit}.calendar-date:hover{background:#f4fbfa}.calendar-date.is-selected{box-shadow:inset 0 0 0 2px #007d74;background:#f4fbfa}.calendar-date-number{display:grid;width:23px;height:23px;place-items:center;border-radius:50%;font-size:11px;font-weight:800}.calendar-date.is-today .calendar-date-number{background:#006b64;color:#fff}.calendar-date-events{display:grid;gap:3px;min-width:0}.calendar-event{overflow:hidden;border-radius:4px;padding:3px 4px;font-size:9px;font-weight:700;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}.calendar-event-blocked{background:#fff1e8;color:#9a4315}.calendar-event-meeting{background:#e3f4ff;color:#126389}.calendar-date small{color:#667773;font-size:9px}.calendar-agenda{overflow:hidden}.calendar-agenda-list{display:grid}.agenda-item{display:grid;width:100%;gap:5px;border:0;border-bottom:1px solid #edf1f0;background:#fff;padding:12px 14px;text-align:left;font:inherit}.agenda-item:last-child{border-bottom:0}.agenda-item-blocked{cursor:pointer}.agenda-item-blocked:hover{background:#fffaf7}.agenda-item>span{justify-self:start}.agenda-item b{font-size:12px}.agenda-item time{color:#667773;font-size:11px}.calendar-state{padding:15px}.calendar-state p{margin:11px 0 0;color:#667773;text-align:center;font-size:12px}.block-dialog-backdrop{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,30,28,.42);padding:16px}.block-dialog{width:min(460px,100%);max-height:calc(100vh - 32px);overflow:auto;border-radius:12px;background:#fff;box-shadow:0 18px 45px rgba(15,30,28,.24)}.block-dialog header{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf1f0;padding:15px}.block-dialog h2{margin:0;font-size:16px}.block-dialog header p{margin:4px 0 0;color:#667773;font-size:11px}.block-dialog header button{border:0;background:transparent;color:#006b64;font-size:23px;line-height:1;cursor:pointer}.block-dialog form{display:grid;gap:12px;padding:15px}.block-dialog label{display:grid;gap:5px;color:#38514d;font-size:11px;font-weight:800}.block-dialog label small{font-weight:400;color:#667773}.block-dialog input[type=date],.block-dialog input[type=time],.block-dialog input[type=text]{box-sizing:border-box;width:100%;min-width:0;border:1px solid #cbd9d6;border-radius:7px;background:#fff;padding:8px 9px;color:#1d3531;font:inherit;font-size:12px}.all-day-field{display:flex!important;align-items:center;grid-template-columns:auto 1fr;gap:7px!important}.block-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.block-form-error{margin:0;border-radius:7px;background:#fff0ee;padding:8px 9px;color:#a23b31;font-size:11px}.block-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #edf1f0;margin:2px -15px -15px;padding:12px 15px}.block-dialog footer>div{display:flex;gap:7px}.block-remove{border:1px solid #f0c8cc;background:#fff;color:#a23b31}.block-dialog button:disabled{cursor:wait;opacity:.65}@media(max-width:700px){.calendar-layout{grid-template-columns:minmax(0,1fr)}.calendar-date,.calendar-blank{min-height:82px}.calendar-date{padding:5px}.calendar-event{padding:2px 3px;font-size:8px}.calendar-toolbar{padding:10px}.calendar-toolbar h2{font-size:12px}}@media(max-width:420px){.calendar-header-actions{width:100%;justify-content:space-between}.calendar-weekdays span{font-size:9px}.calendar-date,.calendar-blank{min-height:68px}.calendar-date-events{gap:2px}.calendar-date .calendar-event:nth-child(n+2){display:none}.calendar-date small{font-size:8px}.calendar-today{padding:7px 8px;font-size:11px}.block-dialog-backdrop{align-items:end;padding:0}.block-dialog{width:100%;max-height:calc(100vh - 12px);border-radius:12px 12px 0 0}.block-time-fields{grid-template-columns:minmax(0,1fr)}.block-dialog footer{align-items:stretch;flex-direction:column}.block-dialog footer>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.block-dialog footer .btn{width:100%}}
+     `}</style>
+diff --git a/src/components/browser-push-settings.tsx b/src/components/browser-push-settings.tsx
+index 8c1bc74..e1ba72a 100644
+--- a/src/components/browser-push-settings.tsx
++++ b/src/components/browser-push-settings.tsx
+@@ -5,6 +5,7 @@ import { pushRegistration, pushSupported, vapidKeyBytes } from '@/lib/push-clien
+ 
+ type Device = { id: string; device_name: string | null; browser_name: string | null; platform: string | null; created_at: string; is_active: boolean };
+ type State = 'loading' | 'unsupported' | 'default' | 'granted' | 'denied' | 'subscribed';
++const within = <T,>(promise: Promise<T>, ms = 15_000) => Promise.race<T>([promise, new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error('timeout')), ms))]);
+ 
+ const deviceLabel = (device: Device) => [device.browser_name, device.platform].filter(Boolean).join(' on ') || device.device_name || 'This device';
+ 
+@@ -17,7 +18,7 @@ export function BrowserPushSettings() {
+     const response = await fetch('/api/push/subscription'); if (response.ok) { const data = await response.json(); setDevices(data.devices || []); }
+   };
+   useEffect(() => { const timer = window.setTimeout(() => void refresh().catch(() => setState('unsupported')), 0); return () => window.clearTimeout(timer); }, []);
+-  const enable = async () => { setBusy(true); setNotice(''); try { if (!pushSupported()) throw new Error('unsupported'); const permission = await Notification.requestPermission(); if (permission !== 'granted') { setState('denied'); return; } const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY; if (!publicKey) throw new Error('not-configured'); const registration = await pushRegistration(); const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKeyBytes(publicKey) }); const response = await fetch('/api/push/subscription', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subscription: subscription.toJSON(), deviceName: navigator.userAgent }) }); if (!response.ok) throw new Error('save'); setNotice('Desktop notifications are enabled on this device.'); await refresh(); } catch (cause: any) { setNotice(cause.message === 'not-configured' ? 'Desktop notifications are not configured yet.' : 'Notifications could not be enabled on this device. Check your browser settings and try again.'); } finally { setBusy(false); } };
++  const enable = async () => { setBusy(true); setNotice(''); try { if (!pushSupported()) throw new Error('unsupported'); const permission = await within(Notification.requestPermission()); if (permission !== 'granted') { setState('denied'); setNotice('Notification permission is blocked. Enable it in browser settings and try again.'); return; } const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY; if (!publicKey) throw new Error('not-configured'); let key: Uint8Array; try { key = vapidKeyBytes(publicKey); } catch { throw new Error('not-configured'); } const registration = await within(pushRegistration()); const subscription = await within(registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key as unknown as BufferSource })); const response = await within(fetch('/api/push/subscription', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subscription: subscription.toJSON(), deviceName: navigator.userAgent }) })); if (!response.ok) throw new Error('save'); setNotice('Desktop notifications are enabled on this device.'); await refresh(); } catch (cause: any) { const code = cause?.message; setNotice(code === 'unsupported' ? 'Push notifications are not supported in this browser.' : code === 'not-configured' ? 'Push notifications are not configured for this environment.' : code === 'timeout' ? 'Notification setup timed out. Please try again.' : code === 'save' ? 'Your browser subscription could not be saved. Please try again.' : 'Notifications could not be enabled. Check browser settings and try again.'); } finally { setBusy(false); } };
+   const disable = async () => { setBusy(true); setNotice(''); try { const registration = await pushRegistration(); const subscription = await registration.pushManager.getSubscription(); if (subscription) { await fetch('/api/push/subscription', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ endpoint: subscription.endpoint }) }); await subscription.unsubscribe(); } setNotice('Desktop notifications are disabled on this device.'); await refresh(); } catch { setNotice('Notifications could not be changed on this device.'); } finally { setBusy(false); } };
+   const test = async () => { setBusy(true); setNotice(''); try { const registration = await pushRegistration(); const subscription = await registration.pushManager.getSubscription(); if (!subscription) throw new Error('missing'); const response = await fetch('/api/push/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ endpoint: subscription.endpoint }) }); const data = await response.json(); if (response.status === 429) { setNotice('Please wait a few minutes before sending another test notification.'); return; } if (!response.ok || !data.delivered) throw new Error('failed'); setNotice('A test notification was sent to this device.'); } catch { setNotice('The test notification could not be delivered. Your in-app notifications will continue to work.'); } finally { setBusy(false); } };
+   const message = state === 'unsupported' ? 'This browser does not support background notifications. You will continue receiving in-app notifications.' : state === 'denied' ? 'Notifications are blocked in your browser settings. Allow notifications for this site to enable alerts.' : state === 'subscribed' ? 'Desktop notifications are enabled on this device.' : state === 'granted' ? 'Permission is granted. Finish enabling notifications on this device.' : 'Enable alerts for messages, tasks, leave decisions, and important announcements.';
+diff --git a/src/components/idea-hub.tsx b/src/components/idea-hub.tsx
+index 2457061..53823af 100644
+--- a/src/components/idea-hub.tsx
++++ b/src/components/idea-hub.tsx
+@@ -108,23 +108,23 @@ function IdeaFields({ form, setForm, categories }: { form: IdeaPayload; setForm:
+ }
+ 
+ export function IdeaDetailPage({ id, mode }: { id: string; mode: 'employee' | 'admin' }) {
+-  const [profile, setProfile] = useState<any>(); const [data, setData] = useState<any>(); const [categories, setCategories] = useState<any[]>([]); const [comment, setComment] = useState(''); const [replyTo, setReplyTo] = useState<string | null>(null); const [editing, setEditing] = useState(false); const [form, setForm] = useState<IdeaPayload>(emptyForm); const [status, setStatus] = useState<IdeaStatus>('Submitted'); const [note, setNote] = useState(''); const [response, setResponse] = useState(''); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [loading, setLoading] = useState(true); const [likeBusy, setLikeBusy] = useState(false);
++  const [profile, setProfile] = useState<any>(); const [data, setData] = useState<any>(); const [categories, setCategories] = useState<any[]>([]); const [comment, setComment] = useState(''); const [replyTo, setReplyTo] = useState<string | null>(null); const [editing, setEditing] = useState(false); const [form, setForm] = useState<IdeaPayload>(emptyForm); const [status, setStatus] = useState<IdeaStatus>('Submitted'); const [note, setNote] = useState(''); const [response, setResponse] = useState(''); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [loading, setLoading] = useState(true); const [likeBusy, setLikeBusy] = useState(false); const [editBusy, setEditBusy] = useState(false);
+   const load = useCallback(async () => { setLoading(true); try { const [person, detail, active] = await Promise.all([currentProfile(), ideaRepository.detail(id), ideaRepository.categories()]); if (!person) throw new Error('Your session has expired.'); setProfile(person); setData(detail); setCategories(active); setForm({ title: detail.idea.title, problem_or_opportunity: detail.idea.problem_or_opportunity, proposed_solution: detail.idea.proposed_solution, expected_benefit: detail.idea.expected_benefit, category_id: detail.idea.category_id }); setStatus(detail.idea.status); setNote(detail.idea.status_note || ''); setResponse(detail.idea.official_response || ''); setError(''); } catch (caught: any) { setError(caught.message || 'Unable to load idea.'); } finally { setLoading(false); } }, [id]);
+   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
+   const idea = data?.idea; const comments = data?.comments || []; const roots = comments.filter((item: any) => !item.parent_comment_id); const replies = (parentId: string) => comments.filter((item: any) => item.parent_comment_id === parentId); const supported = idea?.supports?.some((support: any) => support.employee_id === profile?.id); const canEdit = profile?.id === idea?.submitted_by && idea?.status === 'Submitted';
+   if (loading) return <section><EmployeePageHeader title="Idea Details" subtitle="Loading Innovation Hub item." /><EmployeeLoading cards={3} /></section>;
+   if (error && !idea) return <section><EmployeePageHeader title="Idea Details" subtitle="Innovation Hub item." /><EmployeeBanner>{error}</EmployeeBanner></section>;
+   const addComment = async () => { try { await ideaRepository.addComment(id, profile.id, comment, replyTo); setComment(''); setReplyTo(null); await load(); } catch (caught: any) { setError(caught.message || 'Unable to add comment.'); } };
+-  const saveEdit = async () => { try { await ideaRepository.updateIdea(id, form); setEditing(false); await load(); } catch (caught: any) { setError(caught.message || 'Unable to update idea.'); } };
++  const saveEdit = async () => { if (editBusy) return; setEditBusy(true); setError(''); try { await ideaRepository.updateIdea(id, form); await load(); setEditing(false); setNotice('Idea updated.'); } catch (caught: any) { setError(caught.message || 'Unable to update idea.'); } finally { setEditBusy(false); } };
+   const changeStatus = async () => { try { await ideaRepository.changeStatus(id, status, note, response); await load(); } catch (caught: any) { setError(caught.message || 'Unable to change status.'); } };
+   const openAttachment = async (attachment: any) => { const result = await fetch(`/api/ideas/${id}/attachments/${attachment.id}/signed-url`); const body = await result.json(); if (!result.ok) { setError(body.error || 'Unable to open attachment.'); return; } window.open(body.url, '_blank', 'noopener,noreferrer'); };
+   const toggleLike = async () => { if (likeBusy || !profile || !idea) return; const liked = idea.supports?.some((support: any) => support.employee_id === profile.id); const originalSupports = idea.supports || []; setLikeBusy(true); setError(''); setNotice(''); setData((current: any) => ({ ...current, idea: { ...current.idea, supports: liked ? originalSupports.filter((support: any) => support.employee_id !== profile.id) : [...originalSupports, { id: `local-${Date.now()}`, employee_id: profile.id }] } })); try { await ideaRepository.toggleSupport(idea, profile.id); setNotice(liked ? 'Like removed.' : 'Idea liked.'); } catch (caught: any) { setData((current: any) => ({ ...current, idea: { ...current.idea, supports: originalSupports } })); setError(caught.message || 'Unable to update like.'); } finally { setLikeBusy(false); } };
+   return <section className="space-y-4">
+-    <EmployeePageHeader title={idea.title} subtitle={`${idea.category?.name || 'Other'} - ${date(idea.created_at)}`} />
++    <EmployeePageHeader title={idea.title} subtitle={`${idea.category?.name || 'Other'} - ${date(idea.created_at)}`} action={<Link className="btn border" href={mode === 'admin' ? '/admin/ideas' : '/employee/ideas'}>Back</Link>} />
+     {error && <EmployeeBanner>{error}</EmployeeBanner>}{notice && <EmployeeBanner tone="success">{notice}</EmployeeBanner>}
+     <EmployeeMetricGrid columns={3}><EmployeeMetric label="Status" value={<EmployeeStatusBadge tone={ideaStatusTone(idea.status)}>{idea.status}</EmployeeStatusBadge>} /><EmployeeMetric label="Likes" value={idea.supports?.length || 0} /><EmployeeMetric label="Comments" value={comments.filter((item: any) => !item.is_deleted).length} /></EmployeeMetricGrid>
+     <EmployeeSection title="Idea" description={`${idea.submitter?.full_name || 'Employee'} - ${idea.submitter?.department?.name || 'No department'}`} action={canEdit && !editing ? <button className="btn border" onClick={() => setEditing(true)}>Edit</button> : undefined}>
+-      {editing ? <><IdeaFields form={form} setForm={setForm} categories={categories} /><div className="flex justify-end gap-2 border-t border-slate-100 p-4"><button className="btn border" onClick={() => setEditing(false)}>Cancel</button><button className="btn btn-primary" onClick={saveEdit}>Save Idea</button></div></> : <div className="grid gap-4 p-4 text-sm leading-6 text-slate-700"><Block label="Problem or Opportunity" value={idea.problem_or_opportunity} /><Block label="Proposed Idea or Solution" value={idea.proposed_solution} /><Block label="Expected Benefit" value={idea.expected_benefit} />{idea.official_response && <Block label="Official Management Response" value={idea.official_response} />}</div>}
++      {editing ? <><IdeaFields form={form} setForm={setForm} categories={categories} /><div className="flex justify-end gap-2 border-t border-slate-100 p-4"><button className="btn border" disabled={editBusy} onClick={() => setEditing(false)}>Cancel</button><button className="btn btn-primary" disabled={editBusy} onClick={saveEdit}>{editBusy ? 'Saving...' : 'Save Idea'}</button></div></> : <div className="grid gap-4 p-4 text-sm leading-6 text-slate-700"><Block label="Problem or Opportunity" value={idea.problem_or_opportunity} /><Block label="Proposed Idea or Solution" value={idea.proposed_solution} /><Block label="Expected Benefit" value={idea.expected_benefit} />{idea.official_response && <Block label="Official Management Response" value={idea.official_response} />}</div>}
+     </EmployeeSection>
+     <EmployeeSection title="Engagement" action={<button aria-label={`${supported ? 'Unlike' : 'Like'} ${idea.title}; ${idea.supports?.length || 0} likes`} aria-pressed={supported} className={`btn min-w-28 ${supported ? 'border border-teal-300 bg-teal-50 text-teal-800' : 'border'}`} disabled={likeBusy} onClick={() => void toggleLike()} type="button"><span aria-hidden="true">{supported ? '\u2665' : '\u2661'}</span> {likeBusy ? 'Updating...' : supported ? 'Liked' : 'Like'} <span aria-hidden="true">&middot; {idea.supports?.length || 0}</span><span className="sr-only" role="status">{likeBusy ? 'Updating like' : `${idea.supports?.length || 0} likes`}</span></button>}>
+       <div className="border-t border-slate-100 p-4"><textarea className="input min-h-24" placeholder={replyTo ? 'Write a reply' : 'Add a comment'} value={comment} onChange={event => setComment(event.target.value)} /><div className="mt-2 flex justify-end gap-2">{replyTo && <button className="btn border" onClick={() => setReplyTo(null)}>Cancel reply</button>}<button className="btn btn-primary" onClick={addComment}>Post</button></div></div>
+diff --git a/src/lib/production-user-cleanup.test.ts b/src/lib/production-user-cleanup.test.ts
+index e7656a3..21f468b 100644
+--- a/src/lib/production-user-cleanup.test.ts
++++ b/src/lib/production-user-cleanup.test.ts
+@@ -19,6 +19,17 @@ describe("production workforce cleanup", () => {
+     expect(migration.toLowerCase()).not.toContain("delete from public.profiles");
+   });
+ 
++  it("skips only incomplete legacy identity pairs during a fresh replay", () => {
++    expect(migration).toContain("A clean environment intentionally has none of these rows");
++    expect(migration).toMatch(
++      /if not exists \(select 1 from public\.profiles where id = identity\.source_id\)\s+or not exists \(select 1 from public\.profiles where id = identity\.target_id\) then\s+continue;/m,
++    );
++    expect(migration).not.toContain("Identity merge precondition failed");
++    expect(migration).toContain("for reference in");
++    expect(migration).toContain("from public.profiles where id = identity.source_id");
++    expect(migration).not.toMatch(/exception\s+when/i);
++  });
++
+   it("keeps restricted Assistant Manager permissions out of HR and finance", () => {
+     expect(migration).toContain("'crm.view_team'");
+     expect(migration).toContain("'leads.assign'");
+@@ -27,6 +38,12 @@ describe("production workforce cleanup", () => {
+     expect(migration).toContain("permission.code like 'payroll.%'");
+   });
+ 
++  it("does not create direct grants when the reviewed production profiles are absent", () => {
++    expect(migration).toMatch(
++      /insert into public\.user_permission_grants[\s\S]*?and exists \(\s*select 1 from public\.profiles[\s\S]*?and exists \(\s*select 1 from public\.profiles[\s\S]*?and not exists \(/m,
++    );
++  });
++
+   it("filters shared active-workforce selectors by employment, visibility, login and status", () => {
+     for (const source of [adminRepository, globalSearch, employees]) {
+       expect(source).toContain("is_employee");
+diff --git a/src/lib/staff-managed-outsourced-psychologist.test.ts b/src/lib/staff-managed-outsourced-psychologist.test.ts
+index bd34aaa..6034df9 100644
+--- a/src/lib/staff-managed-outsourced-psychologist.test.ts
++++ b/src/lib/staff-managed-outsourced-psychologist.test.ts
+@@ -3,11 +3,12 @@ import { readFileSync } from 'node:fs';
+ import { resolve } from 'node:path';
+ 
+ const sql=readFileSync(resolve(process.cwd(),'supabase/migrations/20260814063306_staff_managed_outsourced_psychologist_sessions.sql'),'utf8');
++const lifecycle=readFileSync(resolve(process.cwd(),'supabase/migrations/20260814143000_outsourced_clinician_payable_sync.sql'),'utf8');
+ const scheduling=readFileSync(resolve(process.cwd(),'src/components/doctor-scheduling.tsx'),'utf8');
+ const repository=readFileSync(resolve(process.cwd(),'src/lib/doctor-scheduling-repository.ts'),'utf8');
+ describe('staff-managed outsourced psychologist sessions',()=>{
+   it('authorizes only RBAC-approved internal users to submit a completed online outsourced session',()=>{expect(sql).toContain("public.has_permission('online_psychologists.manage')");expect(sql).toContain("submitted_by = (select auth.uid())");expect(sql).toContain("appointment.status='completed'");expect(sql).toContain("appointment.consultation_type='online'");expect(sql).toContain("clinician.clinician_type='outsourced'");});
+   it('does not require an outsourced clinician auth profile or grant finance settlement',()=>{expect(sql).not.toContain('clinician.profile_id=(select auth.uid())');expect(sql).not.toContain('psychologist_payments.settle');expect(sql).toContain("('Chairman'), ('Director'), ('General Manager')");});
+-  it('exposes session submission only to the operational permission, not the clinician login',()=>{expect(repository).toContain("'online_psychologists.manage'");expect(scheduling).toContain("const canSubmitOutsourcedSessionRecord = permissions['online_psychologists.manage']");expect(scheduling).toContain("selected.doctor?.clinician_type === 'outsourced'");expect(scheduling).not.toContain("selected.doctor?.profile_id === profile?.id");});
++  it('uses the completed-appointment lifecycle instead of a duplicate client-side submission',()=>{expect(repository).toContain("'online_psychologists.manage'");expect(lifecycle).toContain("if new.status='completed' then perform public.create_psychologist_session_payable(new.id); end if;");expect(lifecycle).toContain('create trigger psychologist_appointment_payable_lifecycle');expect(scheduling).not.toContain('Submit session record');expect(scheduling).not.toContain("selected.doctor?.profile_id === profile?.id");});
+   it('keeps the clinician-management flow account-free for outsourced clinicians',()=>{expect(scheduling).toContain("clinician_type: 'outsourced', profile_id: null");expect(scheduling).toContain('external clinician record; an account is only needed for internal clinician self-service');});
+ });
+
