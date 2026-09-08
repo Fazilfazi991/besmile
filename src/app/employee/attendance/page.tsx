@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
-import { canClockIn, classify, dateKey, minutes } from '@/lib/attendance-rules';
+import { attendanceException, attendanceDuration, canClockIn, classify, dateKey } from '@/lib/attendance-rules';
 import { freshLocation, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { CompactEmptyState, Pagination, StatusBadge } from '@/components/compact-module';
 import './attendance-workspace.css';
@@ -13,7 +13,7 @@ type Period = 'last-7' | 'month' | 'custom';
 type AttendanceDay = { key: string; row: any; status: string };
 
 const PAGE_SIZES = [10, 20, 50];
-const labels: Record<string, string> = { all: 'All', present: 'Present', late: 'Late', absent: 'Absent', leave: 'Leave', holiday: 'Holiday', weekend: 'Weekly Off' };
+const labels: Record<string, string> = { all: 'All', present: 'Present', late: 'Late', absent: 'Absent', leave: 'Leave', holiday: 'Holiday', weekend: 'Weekly Off', half_day: 'Half Day', regularized: 'Regularized' };
 const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const addDays = (date: Date, days: number) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
 const parseDate = (value: string) => new Date(`${value}T12:00:00`);
@@ -23,10 +23,9 @@ const rangeFor = (period: Period, customFrom: string, customTo: string) => {
   if (period === 'custom') return { from: customFrom, to: customTo };
   return { from: iso(new Date(today.getFullYear(), today.getMonth(), 1)), to: iso(new Date(today.getFullYear(), today.getMonth() + 1, 0)) };
 };
-const time = (value?: string | null) => value ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : '—';
+const time = (value?: string | null, timeZone = 'Asia/Kolkata') => value ? new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone }).format(new Date(value)) : '—';
 const durationLabel = (minutes: number) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
 const dateLabel = (value: string) => new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(parseDate(value));
-const shiftLabel = (status: string, settings: any) => status === 'weekend' ? 'Weekly off' : status === 'holiday' ? 'Holiday' : status === 'leave' ? 'Approved leave' : `${String(settings.work_start).slice(0, 5)} – ${String(settings.work_end).slice(0, 5)}`;
 
 function daysInRange(from: string, to: string, result: any): AttendanceDay[] {
   const holidays = new Set<string>((result.holidays || []).map((holiday: any) => holiday.holiday_date));
@@ -36,7 +35,7 @@ function daysInRange(from: string, to: string, result: any): AttendanceDay[] {
     const key = iso(cursor);
     const row = rows.get(key);
     const onLeave = (result.leaves || []).some((leave: any) => leave.starts_on <= key && leave.ends_on >= key);
-    const status = row?.status === 'late' ? 'late' : classify(cursor, row, result.settings, holidays, onLeave);
+    const status = ['late', 'regularized'].includes(row?.status) ? row.status : classify(cursor, row, result.settings, holidays, onLeave);
     if (status !== 'future') days.push({ key, row, status });
   }
   return days.sort((a, b) => b.key.localeCompare(a.key));
@@ -59,6 +58,10 @@ export default function AttendancePage() {
   const [notice, setNotice] = useState('');
   const [acting, setActing] = useState(false);
   const [attendanceStatus, setAttendanceStatus] = useState('');
+  const [regularizing, setRegularizing] = useState<AttendanceDay | null>(null);
+  const [regularizationReason, setRegularizationReason] = useState('');
+  const [requestedPunches, setRequestedPunches] = useState({ clockIn: '', clockOut: '' });
+  const [savingRegularization, setSavingRegularization] = useState(false);
   const attendanceRequest = useRef(false);
   const range = useMemo(() => rangeFor(period, customFrom, customTo), [period, customFrom, customTo]);
   const invalidRange = Boolean(range.from && range.to && range.from > range.to);
@@ -89,7 +92,18 @@ export default function AttendancePage() {
 
   const today = data ? dateKey(new Date(), data.settings.timezone) : '';
   const activeBreak = todayEntry?.row?.attendance_breaks?.find((item: any) => !item.ended_at);
-  const durationFor = (day: AttendanceDay) => ({ minutes: day.row?.clock_in ? minutes(day.row) : null });
+  const durationFor = (day: AttendanceDay) => day.row?.clock_in ? attendanceDuration(day.row, { timeZone: data?.settings?.timezone, workDate: day.key }) : { minutes: null, isIncomplete: false };
+  const regularizationFor = (attendanceId?: string) => (data?.regularizations || []).find((item: any) => item.attendance_id === attendanceId && item.status === 'pending');
+  const exceptionFor = (day: AttendanceDay) => attendanceException(day.row, data.settings, { workDate: day.key });
+  const submitRegularization = async () => {
+    if (!regularizing?.row || !profile) return;
+    setSavingRegularization(true); setError('');
+    try {
+      await employeeRepository.requestAttendanceRegularization({ attendance_id: regularizing.row.id, profile_id: profile.id, reason: regularizationReason, requested_clock_in: requestedPunches.clockIn ? new Date(requestedPunches.clockIn).toISOString() : null, requested_clock_out: requestedPunches.clockOut ? new Date(requestedPunches.clockOut).toISOString() : null });
+      setNotice('Regularization request submitted for review.'); setRegularizing(null); setRegularizationReason(''); setRequestedPunches({ clockIn: '', clockOut: '' }); await load();
+    } catch (caught: any) { setError(caught.message || 'Regularization could not be submitted.'); }
+    finally { setSavingRegularization(false); }
+  };
   const attendanceAction = async (action: 'clockIn' | 'clockOut' | 'startBreak' | 'endBreak') => {
     if (!profile || attendanceRequest.current) return;
     attendanceRequest.current = true; setActing(true); setError(''); setNotice('');
@@ -104,7 +118,7 @@ export default function AttendancePage() {
     finally { attendanceRequest.current = false; setAttendanceStatus(''); setActing(false); }
   };
 
-  const statuses = useMemo(() => ['all', ...['present', 'late', 'absent', 'leave', 'holiday', 'weekend'].filter(value => days.some(day => day.status === value))], [days]);
+  const statuses = useMemo(() => ['all', ...['present', 'late', 'half_day', 'regularized', 'absent', 'leave', 'holiday', 'weekend'].filter(value => days.some(day => day.status === value))], [days]);
   const counts = useMemo(() => Object.fromEntries(statuses.map(value => [value, value === 'all' ? days.length : days.filter(day => day.status === value).length])), [days, statuses]);
   const filtered = status === 'all' ? days : days.filter(day => day.status === status);
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -139,20 +153,21 @@ export default function AttendancePage() {
 
     <div className="attendance-records" aria-busy={loading}>
       <table aria-label="Personal attendance records">
-        <thead><tr><th>Date</th><th>Shift</th><th>Actual In</th><th>Actual Out</th><th>Work Hours</th><th>Status</th></tr></thead>
+        <thead><tr><th>Date</th><th>Punch In</th><th>Punch Out</th><th>Total Working Hours</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
-          {loading ? Array.from({ length: 7 }, (_, index) => <tr className="attendance-loading-row" key={index}><td colSpan={6}><span /></td></tr>) : visible.map(day => { const worked = durationFor(day); return <tr key={day.key}>
+          {loading ? Array.from({ length: 7 }, (_, index) => <tr className="attendance-loading-row" key={index}><td colSpan={6}><span /></td></tr>) : visible.map(day => { const worked = durationFor(day); const exception = exceptionFor(day); const pending = regularizationFor(day.row?.id); return <tr className={exception ? 'attendance-exception-row' : ''} key={day.key}>
             <td data-label="Date"><time dateTime={day.key}>{dateLabel(day.key)}</time></td>
-            <td data-label="Shift">{shiftLabel(day.status, data.settings)}</td>
-            <td data-label="Actual In">{time(day.row?.clock_in)}</td>
-            <td data-label="Actual Out">{time(day.row?.clock_out)}</td>
-            <td data-label="Work Hours">{worked.minutes === null ? '—' : durationLabel(worked.minutes)}</td>
-            <td data-label="Status"><StatusBadge status={labels[day.status] || day.status} /></td>
+            <td data-label="Punch In">{time(day.row?.clock_in, data.settings.timezone)}</td>
+            <td data-label="Punch Out">{time(day.row?.clock_out, data.settings.timezone)}</td>
+            <td data-label="Total Working Hours">{worked.minutes === null ? (worked.isIncomplete ? 'Punch out required' : '—') : durationLabel(worked.minutes)}</td>
+            <td data-label="Status"><StatusBadge status={exception === 'missing_punch' ? 'Half Day · Missed Punch' : exception === 'under_hours' ? 'Under Required Hours' : labels[day.status] || day.status} />{exception ? <small>{exception === 'missing_punch' ? 'Punch out was not recorded after shift close.' : `Less than ${durationLabel(Number(data.settings.overtime_after_minutes))} required.`}</small> : null}</td>
+            <td data-label="Action">{exception ? pending ? <small className="attendance-pending">Regularization pending</small> : <button className="attendance-regularize" type="button" onClick={() => setRegularizing(day)}>Regularize</button> : '—'}</td>
           </tr>; })}
         </tbody>
       </table>
       {!loading && !visible.length ? <CompactEmptyState title="No attendance records" description="No records match this period and status." /> : null}
     </div>
     {!loading ? <Pagination page={page} pageSize={pageSize} pageSizeOptions={PAGE_SIZES} total={filtered.length} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} /> : null}
+    {regularizing ? <div className="attendance-regularization" role="dialog" aria-modal="true" aria-labelledby="regularization-title"><form onSubmit={event => { event.preventDefault(); void submitRegularization(); }}><h2 id="regularization-title">Regularize attendance</h2><p>{dateLabel(regularizing.key)} needs review. Your original punch data will remain unchanged.</p><div className="attendance-requested-punches"><label>Proposed punch in <span>(optional)</span><input type="datetime-local" value={requestedPunches.clockIn} onChange={event => setRequestedPunches(current => ({ ...current, clockIn: event.target.value }))} /></label><label>Proposed punch out <span>(optional)</span><input type="datetime-local" value={requestedPunches.clockOut} onChange={event => setRequestedPunches(current => ({ ...current, clockOut: event.target.value }))} /></label></div><label>Reason<textarea value={regularizationReason} maxLength={1000} minLength={3} required onChange={event => setRegularizationReason(event.target.value)} placeholder="Explain the missed punch or short working time." /></label><div><button type="button" className="btn" onClick={() => { setRegularizing(null); setRegularizationReason(''); setRequestedPunches({ clockIn: '', clockOut: '' }); }}>Cancel</button><button className="btn btn-primary" disabled={savingRegularization}>{savingRegularization ? 'Submitting…' : 'Submit for approval'}</button></div></form></div> : null}
   </section>;
 }

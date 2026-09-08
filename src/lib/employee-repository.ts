@@ -440,6 +440,11 @@ export const employeeRepository = {
       on_leave: onLeave.has(person.id),
     }));
   },
+  async attendanceSettings() {
+    const { data, error } = await required().from("company_attendance_settings").select("timezone,work_start,work_end,overtime_after_minutes,working_days").single();
+    if (error) throw error;
+    return data;
+  },
   async myDailyWorkUpdate(profileId: string, workDate: string) {
     const { data, error } = await required().from("daily_work_updates").select("*").eq("profile_id", profileId).eq("work_date", workDate).maybeSingle();
     if (error) throw error;
@@ -470,7 +475,7 @@ export const employeeRepository = {
   },
   async attendanceRules(userId: string, from: string, to: string) {
     const r = required();
-    const [settings, holidays, attendance, leaves, awareness] =
+    const [settings, holidays, attendance, leaves, awareness, regularizations] =
       await Promise.all([
         r.from("company_attendance_settings").select("*").single(),
         r
@@ -496,8 +501,12 @@ export const employeeRepository = {
           .from("awareness_events")
           .select("name,recurrence_rule,notes,is_active")
           .eq("is_active", true),
+        r
+          .from("attendance_regularization_requests")
+          .select("*")
+          .eq("profile_id", userId),
       ]);
-    for (const x of [settings, holidays, attendance, leaves, awareness])
+    for (const x of [settings, holidays, attendance, leaves, awareness, regularizations])
       if (x.error) throw x.error;
     return {
       settings: settings.data,
@@ -505,7 +514,27 @@ export const employeeRepository = {
       attendance: attendance.data,
       leaves: leaves.data,
       awareness: awareness.data,
+      regularizations: regularizations.data || [],
     };
+  },
+  async requestAttendanceRegularization(payload: { attendance_id: string; profile_id: string; reason: string; requested_clock_in?: string | null; requested_clock_out?: string | null }) {
+    const reason = payload.reason.trim();
+    if (reason.length < 3) throw new Error("Provide a brief reason for this regularization.");
+    const { data, error } = await required().from("attendance_regularization_requests").insert({ ...payload, reason }).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async attendanceRegularizations(workDate: string) {
+    const { data, error } = await required().from("attendance_regularization_requests").select("*,attendance:attendance!inner(id,work_date),profile:profiles!attendance_regularization_requests_profile_id_fkey(full_name,employee_code,manager_id)").eq("attendance.work_date", workDate).order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+  async reviewAttendanceRegularization(id: string, decision: "approved" | "rejected", reviewComment = "") {
+    const { data: user } = await required().auth.getUser();
+    if (!user?.user) throw new Error("Your session has expired.");
+    const { data, error } = await required().from("attendance_regularization_requests").update({ status: decision, reviewed_by: user.user.id, reviewed_at: new Date().toISOString(), review_comment: reviewComment.trim() || null, updated_at: new Date().toISOString() }).eq("id", id).eq("status", "pending").select().single();
+    if (error) throw error;
+    return data;
   },
   async myTasks(userId: string) {
     const r = required();
