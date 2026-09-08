@@ -22,7 +22,7 @@ test('general manager task creation, assignment, detail and edit', async ({ page
 test('task navigation uses durable filters', async ({ page }) => { await login(page, 'general_manager'); await page.goto('/admin/tasks'); await page.getByRole('button', { name: /show overdue/i }).click(); await expect(page).toHaveURL(/view=overdue/); await page.goBack(); await page.getByRole('button', { name: /show high priority tasks/i }).click(); await expect(page).toHaveURL(/priority=high/); await page.reload(); await expect(page).toHaveURL(/priority=high/); });
 
 for (const [route, heading] of [['/admin/leaves', /leave/i], ['/admin/attendance', /attendance/i], ['/admin/daily-work', /daily work/i], ['/admin/employees', /employee/i], ['/admin/reports', /report/i]] as const) {
-  test(`management loads ${route}`, async ({ page }) => { await login(page, 'general_manager'); await page.goto(route); await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible(); await assertNoRawDatabaseError(page); });
+  test(`management loads ${route}`, async ({ page }) => { await login(page, 'general_manager'); await navigateAfterLogin(page, route); await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible(); await assertNoRawDatabaseError(page); });
 }
 test('management loads Teams', async ({ page }) => { await login(page, 'general_manager'); await page.goto('/admin/chat'); await expect(page.getByRole('textbox', { name: /type a message/i })).toBeVisible({ timeout: 30_000 }); await expect(page.getByRole('button', { name: /record voice message/i })).toBeVisible(); await assertNoRawDatabaseError(page); });
 

@@ -5,6 +5,7 @@ import { attendanceException, requiredWorkingMinutes } from './attendance-rules'
 
 const settings = { timezone: 'Asia/Kolkata', work_start: '09:00', work_end: '18:00', grace_minutes: 10, overtime_after_minutes: 480, working_days: [1, 2, 3, 4, 5] };
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260908195341_attendance_regularization_and_leave_configuration.sql'), 'utf8');
+const dataApiGrantMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260908205058_grant_attendance_regularization_data_api_access.sql'), 'utf8');
 
 describe('attendance follow-up rules', () => {
   it('uses the canonical configured day length rather than a duplicate hard-coded rule', () => expect(requiredWorkingMinutes(settings)).toBe(480));
@@ -20,5 +21,10 @@ describe('attendance follow-up rules', () => {
     expect(migration).toContain("set status = 'regularized'");
     expect(migration).toContain('enable row level security');
     expect(migration).toContain("code = 'annual'");
+  });
+  it('exposes regularization only to authenticated Data API clients while retaining RLS', () => {
+    expect(dataApiGrantMigration).toContain('revoke all on table public.attendance_regularization_requests from anon');
+    expect(dataApiGrantMigration).toContain('grant select, insert, update on table public.attendance_regularization_requests to authenticated');
+    expect(dataApiGrantMigration).not.toContain('to anon;');
   });
 });

@@ -16,4 +16,4 @@ export async function navigateAfterLogin(page: Page, path: string) {
   }
   throw lastError;
 }
-export async function assertNoRawDatabaseError(page: Page) { await expect(page.getByText(/row-level security|schema cache|postgrest|violates.*constraint|sqlstate/i)).toHaveCount(0); }
+export async function assertNoRawDatabaseError(page: Page) { await expect(page.getByText(/row-level security|schema cache|postgrest|permission denied for (?:table|relation)|violates.*constraint|sqlstate/i)).toHaveCount(0); }
