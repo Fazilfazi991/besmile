@@ -194,7 +194,7 @@ export function adminRouteRequirement(path: string): PermissionRequirement {
   if (path === "/admin/profile") return anyOf("admin.access", "dashboard.view");
   if (path === "/admin/my-attendance") return anyOf("attendance.self");
   if (path === "/admin/attendance")
-    return anyOf("attendance.view", "attendance.manage");
+    return anyOf("attendance.view", "attendance.view_team", "attendance.manage");
   if (path.startsWith("/admin/holidays"))
     return anyOf("holiday_calendar.manage");
   if (path.startsWith("/admin/calendar"))
@@ -380,7 +380,7 @@ export const adminNavigation: readonly NavigationGroup[] = [
       {
         label: "Staff Attendance",
         href: "/admin/attendance",
-        requirement: anyOf("attendance.view", "attendance.manage"),
+        requirement: anyOf("attendance.view", "attendance.view_team", "attendance.manage"),
       },
       {
         label: "Daily Work Updates",
