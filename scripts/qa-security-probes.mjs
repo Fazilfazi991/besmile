@@ -73,6 +73,58 @@ await check('General Manager can create a company document through RLS', async (
     await db.from('documents').delete().eq('id', inserted.data.id);
   }
 });
+await check('meeting participant embeds resolve employee_id instead of invited_by', async () => {
+  for (const role of ['GENERAL_MANAGER', 'EMPLOYEE']) {
+    const db = await signed(role);
+    const result = await db.from('meetings').select('id,meeting_participants(employee_id,profiles!meeting_participants_employee_id_fkey(id,full_name))').limit(10);
+    if (result.error) throw result.error;
+    for (const meeting of result.data || []) {
+      for (const participant of meeting.meeting_participants || []) {
+        if (participant.profiles && participant.profiles.id !== participant.employee_id) throw new Error('Wrong participant profile relationship');
+      }
+    }
+  }
+});
+await check('payroll embeds resolve employee profile instead of finalizer', async () => {
+  const db = await signed('GENERAL_MANAGER');
+  const result = await db.from('payroll_entries').select('id,profile_id,profile:profiles!payroll_entries_profile_id_fkey(id)').limit(1);
+  if (result.error) throw result.error;
+  if (result.data?.some(row => row.profile && row.profile.id !== row.profile_id)) throw new Error('Wrong payroll profile relationship');
+});
+await check('canonical meeting lifecycle and employee/anonymous authorization', async () => {
+  const gm = await signed('GENERAL_MANAGER');
+  const employee = await signed('EMPLOYEE');
+  const gmUser = (await gm.auth.getUser()).data.user;
+  const employeeUser = (await employee.auth.getUser()).data.user;
+  const hosts = await gm.rpc('meeting_hosts');
+  if (hosts.error) throw hosts.error;
+  const host = hosts.data.find(item => item.id === gmUser.id);
+  if (!host) throw new Error('GM fixture is not an authorized host');
+  const start = new Date(Date.now() + 80 * 86400_000);
+  const payload = { target_meeting: null, host_profile_id: host.id, meeting_title: 'RELEASE_GATE_MEETING_SECURITY', meeting_agenda: 'Verify lifecycle authorization', meeting_start: start.toISOString(), meeting_end: new Date(+start + 600_000).toISOString(), meeting_type_value: 'office', meeting_venue: '', meeting_url_value: '', meeting_description: '', participant_ids: [employeeUser.id] };
+  const denied = result => { if (result.error?.code !== '42501') throw new Error('Expected explicit permission denial, not a contract/schema error'); };
+  denied(await client().rpc('save_meeting', payload));
+  denied(await employee.rpc('save_meeting', payload));
+  denied(await gm.rpc('save_meeting', { ...payload, host_profile_id: employeeUser.id }));
+  const created = await gm.rpc('save_meeting', payload);
+  if (created.error) throw created.error;
+  try {
+    const row = await employee.from('meetings').select('id,host_user_id,agenda,meeting_participants(employee_id)').eq('id', created.data).single();
+    if (row.error) throw row.error;
+    if (row.data.host_user_id !== host.id || row.data.agenda !== payload.meeting_agenda || !row.data.meeting_participants.some(item => item.employee_id === employeeUser.id)) throw new Error('Meeting host/agenda/participation did not persist');
+    denied(await employee.rpc('save_meeting', { ...payload, target_meeting: created.data }));
+    denied(await employee.rpc('cancel_meeting', { target_meeting: created.data, cancel_reason: 'Unauthorized cancellation probe' }));
+    denied(await client().rpc('cancel_meeting', { target_meeting: created.data, cancel_reason: 'Anonymous cancellation probe' }));
+    const edited = await gm.rpc('save_meeting', { ...payload, target_meeting: created.data, meeting_agenda: 'Updated security probe agenda' });
+    if (edited.error) throw edited.error;
+  } finally {
+    const cancelled = await gm.rpc('cancel_meeting', { target_meeting: created.data, cancel_reason: 'Release gate security verification complete' });
+    if (cancelled.error) throw cancelled.error;
+  }
+  const final = await gm.from('meetings').select('status,cancellation_reason,agenda').eq('id', created.data).single();
+  if (final.error) throw final.error;
+  if (final.data.status !== 'cancelled' || final.data.cancellation_reason !== 'Release gate security verification complete' || final.data.agenda !== 'Updated security probe agenda') throw new Error('Meeting edit/cancellation audit was not retained');
+});
 const failed = results.filter(result => result.status === 'FAIL');
 const report = { qaProjectRef: actualRef, total: results.length, passed: results.length - failed.length, failed: failed.length, results };
 mkdirSync('release-evidence', { recursive: true }); writeFileSync('release-evidence/security-results.json', JSON.stringify(report, null, 2)); console.log(JSON.stringify(report, null, 2)); if (failed.length) process.exitCode = 1;

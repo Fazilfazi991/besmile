@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { availabilityIgnoreMeetingId, canEditMeeting, meetingFieldsFromRecord, participantIdsFromMeeting } from './meeting-form-state';
-const meeting = { id: 'meeting-1', organizer_id: 'organizer-1', title: 'Weekly planning', agenda: 'Review priorities', start_at: '2026-08-11T09:30:00.000Z', end_at: '2026-08-11T10:30:00.000Z', meeting_type: 'google_meet', venue: 'Room 4', meeting_url: 'https://meet.google.com/example', description: 'Bring the roadmap', meeting_participants: [{ employee_id: 'employee-1', profiles: { full_name: 'Asha' } }, { employee_id: 'employee-1' }, { employee_id: 'employee-2' }, { employee_id: '' }, { employee_id: null }] };
+const meeting = { id: 'meeting-1', organizer_id: 'organizer-1', host_user_id: 'host-1', title: 'Weekly planning', agenda: 'Review priorities', start_at: '2026-08-11T09:30:00.000Z', end_at: '2026-08-11T10:30:00.000Z', meeting_type: 'google_meet', venue: 'Room 4', meeting_url: 'https://meet.google.com/example', description: 'Bring the roadmap', meeting_participants: [{ employee_id: 'employee-1', profiles: { full_name: 'Asha' } }, { employee_id: 'employee-1' }, { employee_id: 'employee-2' }, { employee_id: '' }, { employee_id: null }] };
 describe('meeting edit form state', () => {
+  it('preserves the canonical host in edit state', () => expect(meetingFieldsFromRecord(meeting).host).toBe('host-1'));
+  it('recognizes host management and never an absent identity', () => { expect(canEditMeeting({}, meeting, 'host-1')).toBe(true); expect(canEditMeeting({}, meeting, undefined)).toBe(false); });
   it('allows a meeting manager to see Edit Meeting', () => expect(canEditMeeting({ 'meetings.manage': true }, meeting, 'staff-1')).toBe(true));
   it('does not allow a view-only staff user to see Edit Meeting', () => expect(canEditMeeting({ 'meetings.view': true }, meeting, 'staff-1')).toBe(false));
   it('allows the organizer to edit their meeting using the existing management rule', () => expect(canEditMeeting({ 'meetings.view': true }, meeting, 'organizer-1')).toBe(true));

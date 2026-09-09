@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { clientSafeError } from '@/lib/client-error';
 import { currentProfile } from '@/lib/auth';
 import { blockFieldsFromStored, blockPayloadFromFields, BlockTimeFields } from '@/lib/calendar-block-rules';
 import { calendarMeetingRepository } from '@/lib/calendar-meeting-repository';
@@ -42,7 +43,7 @@ export default function MyCalendarPage() {
         if (!active) return;
         setProfileId(profile.id);
         await loadCalendar(profile.id);
-      } catch (cause: any) { if (active) setError(cause?.message || 'Unable to load your calendar.'); }
+      } catch (cause: any) { if (active) setError(clientSafeError(cause, 'Unable to load your calendar. Please try again.', { route: 'calendar', action: 'load' })); }
     })();
     return () => { active = false; };
   }, [loadCalendar]);
@@ -75,14 +76,14 @@ export default function MyCalendarPage() {
       else await calendarMeetingRepository.createMyBlock(profileId, payload);
       await loadCalendar(profileId);
       setDialog(null); setEditingBlock(null);
-    } catch (cause: any) { setFormError(cause?.message || 'Unable to save blocked time.'); }
+    } catch (cause: any) { setFormError(clientSafeError(cause, 'Unable to save blocked time.', { route: 'calendar', action: 'save-block' })); }
     finally { setSaving(false); }
   };
   const removeBlock = async () => {
     if (!profileId || !editingBlock || deleting || !window.confirm('Remove this blocked time?')) return;
     setFormError(''); setDeleting(true);
     try { await calendarMeetingRepository.removeMyBlock(profileId, editingBlock.id); await loadCalendar(profileId); setDialog(null); setEditingBlock(null); }
-    catch (cause: any) { setFormError(cause?.message || 'Unable to remove blocked time.'); }
+    catch (cause: any) { setFormError(clientSafeError(cause, 'Unable to remove blocked time.', { route: 'calendar', action: 'remove-block' })); }
     finally { setDeleting(false); }
   };
 

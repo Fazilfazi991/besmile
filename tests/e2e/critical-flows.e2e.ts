@@ -1,7 +1,88 @@
 import { expect, test } from '@playwright/test';
 import { assertNoRawDatabaseError, login, navigateAfterLogin, QaRole } from './helpers';
 
+for (const role of ['general_manager', 'employee'] as const) {
+  for (const surface of ['meetings', 'calendar'] as const) {
+    test(`${role} loads ${surface} with participant relationships`, async ({ page }) => {
+      await login(page, role);
+      const response = page.waitForResponse(r => r.url().includes('/rest/v1/meetings?') && r.request().method() === 'GET');
+      await navigateAfterLogin(page, `/${role === 'employee' ? 'employee' : 'admin'}/${surface}`);
+      expect((await response).ok()).toBe(true);
+      await expect(page.getByRole('heading', { name: surface === 'calendar' ? 'My Calendar' : 'Meetings', exact: true })).toBeVisible();
+      if (surface === 'meetings') await expect(page.getByRole('tabpanel')).toBeVisible();
+      else await expect(page.getByRole('region', { name: 'Month calendar' })).toBeVisible();
+      await expect(page.locator('.dashboard-error')).toHaveCount(0);
+      await assertNoRawDatabaseError(page);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    });
+  }
+}
+
 const roleLandings: Array<[QaRole, RegExp]> = [['admin', /admin/], ['general_manager', /admin/], ['manager', /admin|employee/], ['employee', /employee/]];
+test('meeting create, participant detail, edit and calendar remain connected', async ({ page, browser }, testInfo) => {
+  test.setTimeout(90_000);
+  if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe') throw new Error('Meeting write fixture requires QA');
+  await login(page, 'general_manager');
+  await navigateAfterLogin(page, '/admin/meetings');
+  const marker = `RELEASE_GATE_MEETING_${Date.now()}`;
+  await page.getByRole('button', { name: 'Create Meeting', exact: false }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Meeting title').fill(marker);
+  await dialog.getByLabel('Agenda', { exact: true }).fill('QA lifecycle agenda');
+  await dialog.getByRole('combobox', { name: 'Host', exact: true }).selectOption({ label: 'QA General Manager' });
+  const date = new Date(Date.now() + 60 * 86400_000).toISOString().slice(0, 10);
+  await dialog.getByLabel('Date', { exact: true }).fill(date);
+  await dialog.getByLabel('Start time').fill('03:00');
+  await dialog.getByLabel('End time').fill('03:10');
+  const participant = dialog.locator('.people label').filter({ hasText: 'QA Employee' }).first();
+  await participant.getByRole('checkbox').check();
+  const participantName = await participant.locator('b').innerText();
+  await dialog.getByRole('button', { name: 'Create Meeting', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  try {
+    await page.getByRole('button').filter({ hasText: marker }).click();
+    await expect(page.getByRole('dialog').locator('.meeting-detail-row').filter({ hasText: 'Participants' })).toContainText(participantName);
+    await expect(dialog.locator('.meeting-detail-row').filter({ hasText: 'Host' })).toContainText('QA General Manager');
+    await expect(dialog.locator('.meeting-detail-row').filter({ hasText: 'Agenda' })).toContainText('QA lifecycle agenda');
+    const employee = await browser.newPage({ viewport: page.viewportSize()! });
+    try {
+      await login(employee, 'employee');
+      await navigateAfterLogin(employee, '/employee/meetings');
+      await employee.getByRole('button').filter({ hasText: marker }).click();
+      await expect(employee.getByRole('dialog')).toContainText('QA lifecycle agenda');
+      await expect(employee.getByRole('button', { name: 'Edit Meeting', exact: true })).toHaveCount(0);
+      await expect(employee.getByRole('button', { name: 'Cancel Meeting', exact: true })).toHaveCount(0);
+      await assertNoRawDatabaseError(employee);
+    } finally { await employee.close(); }
+    await page.getByRole('button', { name: 'Edit Meeting', exact: true }).click();
+    await dialog.getByLabel('Agenda').fill('QA edit preserves participants');
+    await dialog.getByRole('button', { name: 'Save Changes' }).click();
+    await expect(dialog).toHaveCount(0);
+    const response = page.waitForResponse(r => r.url().includes('/rest/v1/meetings?'));
+    await navigateAfterLogin(page, '/admin/calendar');
+    const meetings = await (await response).json();
+    expect(meetings.some((meeting: { title: string }) => meeting.title === marker)).toBe(true);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const monthDelta = (Number(date.slice(0, 4)) - Number(today.slice(0, 4))) * 12 + Number(date.slice(5, 7)) - Number(today.slice(5, 7));
+    for (let month = 0; month < monthDelta; month++) await page.getByRole('button', { name: 'Next month', exact: true }).click();
+    await page.locator('.calendar-date').filter({ hasText: marker }).click();
+    await expect(page.getByRole('complementary', { name: 'Selected day agenda' })).toContainText(marker);
+    await assertNoRawDatabaseError(page);
+  } finally {
+    await navigateAfterLogin(page, '/admin/meetings');
+    await page.getByRole('button').filter({ hasText: marker }).click();
+    await page.getByRole('button', { name: 'Cancel Meeting', exact: true }).click();
+    await page.getByLabel('Cancellation reason').fill('Release gate lifecycle complete');
+    await page.getByRole('button', { name: 'Confirm cancellation' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByRole('tab', { name: /Cancelled/ }).click();
+    await page.getByRole('button').filter({ hasText: marker }).click();
+    await expect(page.getByRole('dialog')).toContainText('Release gate lifecycle complete');
+    await expect(page.getByRole('dialog')).toContainText('QA edit preserves participants');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath('meeting-lifecycle.png'), fullPage: true });
+  }
+});
 for (const [role, landing] of roleLandings) test(`${role} login`, async ({ page }) => { await login(page, role); await expect(page).toHaveURL(landing); await assertNoRawDatabaseError(page); });
 
 test('general manager task creation, assignment, detail and edit', async ({ page }) => {
