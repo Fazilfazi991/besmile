@@ -52,6 +52,27 @@ await check('General Manager can review attendance regularizations through RLS',
 await check('employee attendance regularization read remains owner-scoped', async () => { const db = await signed('EMPLOYEE'); const { data: { user } } = await db.auth.getUser(); const result = await db.from('attendance_regularization_requests').select('id,profile_id').limit(25); if (result.error) throw result.error; if (result.data?.some(row => row.profile_id !== user?.id)) throw new Error('employee can read another profile regularization'); });
 await check('anonymous awareness-event access denied', async () => mustFail((await client().from('awareness_events').select('name').limit(1)).error, 'anonymous awareness-event read'));
 await check('authenticated employee can read awareness events', async () => { const db = await signed('EMPLOYEE'); const result = await db.from('awareness_events').select('name,is_active').limit(1); if (result.error) throw result.error; });
+await check('General Manager can create a company document through RLS', async () => {
+  const db = await signed('GENERAL_MANAGER');
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) throw new Error('General Manager fixture missing');
+  const inserted = await db.from('documents').insert({
+    title: `RELEASE_GATE_POLICY_${Date.now()}`,
+    description: 'Disposable QA policy authorization probe',
+    category: 'Policy',
+    storage_path: `release-gate/policies/${crypto.randomUUID()}.pdf`,
+    file_name: 'release-gate-policy.pdf',
+    mime_type: 'application/pdf',
+    file_size: 1,
+    uploaded_by: user.id,
+  }).select('id,uploaded_by').single();
+  if (inserted.error || !inserted.data) throw inserted.error || new Error('document not returned');
+  try {
+    if (inserted.data.uploaded_by !== user.id) throw new Error('document uploader mismatch');
+  } finally {
+    await db.from('documents').delete().eq('id', inserted.data.id);
+  }
+});
 const failed = results.filter(result => result.status === 'FAIL');
 const report = { qaProjectRef: actualRef, total: results.length, passed: results.length - failed.length, failed: failed.length, results };
 mkdirSync('release-evidence', { recursive: true }); writeFileSync('release-evidence/security-results.json', JSON.stringify(report, null, 2)); console.log(JSON.stringify(report, null, 2)); if (failed.length) process.exitCode = 1;
