@@ -6,11 +6,11 @@ export async function navigateAfterLogin(page: Page, path: string) {
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      await page.goto(path, { waitUntil: 'domcontentloaded' });
+      await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 10_000 });
       return;
     } catch (error) {
       lastError = error;
-      if (!/ERR_ABORTED|frame was detached/i.test(String(error)) || attempt === 2) throw error;
+      if (!/ERR_ABORTED|frame was detached|Timeout.*exceeded/i.test(String(error)) || attempt === 2) throw error;
       await page.waitForTimeout(500 * (attempt + 1));
     }
   }
