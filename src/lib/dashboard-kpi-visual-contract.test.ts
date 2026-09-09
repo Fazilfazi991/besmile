@@ -31,5 +31,7 @@ describe('dashboard KPI visual contract', () => {
     expect(styles).toContain('pointer-events:none');
     expect(styles).toContain('html[data-theme="colorful"] .kpi-chart-donut>span i');
     expect(styles).toContain('@media(max-width:700px)');
+    expect(styles).toContain('.director-kpis{display:flex;gap:10px;margin-right:0;overflow-x:auto');
+    expect(styles).not.toContain('.director-kpis{display:flex;gap:10px;margin-right:-16px');
   });
 });
