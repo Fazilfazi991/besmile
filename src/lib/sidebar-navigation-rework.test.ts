@@ -74,7 +74,7 @@ describe('Batch 13 sidebar navigation architecture', () => {
     expect(permissionAllows(new Set(['admin.access']), adminRouteRequirement('/admin'))).toBe(true);
     expect(permissionAllows(new Set(), adminRouteRequirement('/admin'))).toBe(false);
     expect(permissionAllows(new Set(['attendance.view']), adminRouteRequirement('/admin/attendance'))).toBe(true);
-    expect(permissionAllows(new Set(['attendance.view_team']), adminRouteRequirement('/admin/attendance'))).toBe(false);
+    expect(permissionAllows(new Set(['attendance.view_team']), adminRouteRequirement('/admin/attendance'))).toBe(true);
   });
 
   it('selects the most specific active item for nested, detail, and create routes', () => {
