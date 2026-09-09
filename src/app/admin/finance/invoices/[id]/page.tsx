@@ -59,7 +59,12 @@ export default function InvoiceDetail() {
         columns: [{ key: 'description', label: 'Description', weight: 2.2 }, { key: 'quantity', label: 'Quantity', align: 'right' }, { key: 'rate', label: 'Rate', align: 'right' }, { key: 'amount', label: 'Amount', align: 'right' }],
         rows: invoice.finance_invoice_items.map((item: any) => ({ description: item.description, quantity: item.quantity, rate: inr(item.rate), amount: inr(Number(item.quantity) * Number(item.rate)) })),
         period: `Invoice ${invoice.invoice_number} | Issued ${invoice.issue_date}${invoice.due_date ? ` | Due ${invoice.due_date}` : ''}`,
-        filters: [`Bill to: ${invoice.customer_name}`, `Status: ${displayStatus}`],
+        filters: [`Status: ${displayStatus}`],
+        details: [
+          { label: 'Bill to', value: invoice.customer_name },
+          { label: 'Email', value: invoice.customer_email || 'Not provided' },
+          { label: 'Phone', value: invoice.customer_phone || 'Not provided' },
+        ],
         totals: [{ label: 'Subtotal', value: inr(totals.subtotal) }, { label: 'Discount', value: inr(invoice.discount) }, { label: 'Tax', value: inr(invoice.tax) }, { label: 'Total', value: inr(totals.total) }, { label: 'Paid', value: inr(totals.paid) }, { label: 'Balance', value: inr(totals.outstanding) }],
         context: { invoice_id: id, invoice_number: invoice.invoice_number },
         filenameSuffix: invoice.invoice_number,

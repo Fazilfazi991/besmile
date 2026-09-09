@@ -17,6 +17,7 @@ export type OfficialReportInput = {
   period?: string;
   filters?: string[];
   totals?: Array<{ label: string; value: string }>;
+  details?: Array<{ label: string; value: string }>;
 };
 
 function formattedDate(value?: string) {
@@ -75,7 +76,8 @@ export async function generateOfficialDocument(input: NormalizedOfficialDocument
   doc.on('pageAdded', decoratePage);
   doc.addPage();
 
-  doc.font('Noto-Bold').fontSize(16).fillColor('#26384d').text(input.heading, { align: 'center', characterSpacing: 0.7 });
+  const isOfferLetter = input.documentType === 'offer_letter';
+  doc.font('Noto-Bold').fontSize(isOfferLetter ? 19 : 16).fillColor('#26384d').text(input.heading, { align: 'center', characterSpacing: isOfferLetter ? 0.45 : 0.7 });
   doc.moveDown(0.55);
   if (input.title) {
     doc.font('Noto-Bold').fontSize(11).fillColor('#26384d').text(input.title, { align: 'center' });
@@ -86,9 +88,9 @@ export async function generateOfficialDocument(input: NormalizedOfficialDocument
     const labelWidth = 100;
     for (const [label, value] of rows) {
       const y = doc.y;
-      doc.font('Noto-Bold').fontSize(8.5).fillColor('#52626d').text(`${label}:`, content.left, y, { width: labelWidth });
-      doc.font('Noto').fillColor('#26384d').text(value, content.left + labelWidth, y, { width: content.right - content.left - labelWidth });
-      doc.y = Math.max(doc.y, y + 14);
+      doc.font('Noto-Bold').fontSize(isOfferLetter ? 10 : 8.5).fillColor('#52626d').text(`${label}:`, content.left, y, { width: labelWidth });
+      doc.font('Noto').fontSize(isOfferLetter ? 10.5 : 8.5).fillColor('#26384d').text(value, content.left + labelWidth, y, { width: content.right - content.left - labelWidth });
+      doc.y = Math.max(doc.y, y + (isOfferLetter ? 16 : 14));
     }
     doc.moveDown(0.65);
     doc.strokeColor('#b8d9d5').lineWidth(0.6).moveTo(content.left, doc.y).lineTo(content.right, doc.y).stroke();
@@ -97,16 +99,16 @@ export async function generateOfficialDocument(input: NormalizedOfficialDocument
 
   const paragraphs = input.body.replace(/\r\n/g, '\n').split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
   doc.x = content.left;
-  doc.font('Noto').fontSize(10).fillColor('#263238');
+  doc.font('Noto').fontSize(isOfferLetter ? 10.75 : 10).fillColor('#263238');
   for (const paragraph of paragraphs) {
-    doc.text(paragraph, { width: content.right - content.left, align: 'left', lineGap: 3, paragraphGap: 7 });
+    doc.text(paragraph, { width: content.right - content.left, align: 'left', lineGap: isOfferLetter ? 3.4 : 3, paragraphGap: isOfferLetter ? 8 : 7 });
   }
   if (input.signatoryName || input.signatoryTitle) {
     if (doc.y > content.bottom - 92) doc.addPage();
     doc.moveDown(1.4);
     doc.font('Noto').fontSize(9).text('For BSmile - The Mind Studio');
     doc.moveDown(2.3);
-    if (input.signatoryName) doc.font('Noto-Bold').text(input.signatoryName);
+    if (input.signatoryName) doc.font('Noto-Bold').fontSize(isOfferLetter ? 10.5 : 9).text(input.signatoryName);
     if (input.signatoryTitle) doc.font('Noto').fillColor('#52626d').text(input.signatoryTitle);
   }
   doc.end();
@@ -129,10 +131,17 @@ export async function generateOfficialReport(input: OfficialReportInput) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
   });
+  const isInvoice = input.heading === 'INVOICE';
   doc.registerFont('Noto', regularFont);
   doc.registerFont('Noto-Bold', boldFont);
+  const reportRegular = isInvoice ? 'Helvetica' : 'Noto';
+  const reportBold = isInvoice ? 'Helvetica-Bold' : 'Noto-Bold';
 
   const tableWidth = content.right - content.left;
+  // PDFKit's wrapped Helvetica metrics can under-report the final painted line
+  // slightly. Keep an additional invoice buffer so a row never auto-spills
+  // onto an undecorated page between our explicit page breaks.
+  const tableBottom = isInvoice ? 520 : content.bottom - 36;
   const fontSize = input.columns.length > 7 ? 6.3 : input.columns.length > 5 ? 7 : 7.7;
   const padding = 3.5;
   const weights = input.columns.map((column) => Math.max(0.65, Math.min(2.4, column.weight || Math.max(0.8, Math.min(1.8, column.label.length / 9)))));
@@ -145,24 +154,33 @@ export async function generateOfficialReport(input: OfficialReportInput) {
     pageNumber += 1;
     doc.image(letterhead, 0, 0, { width: A4.width, height: A4.height });
     doc.page.margins.bottom = 90;
-    doc.fillColor('#5d6c75').font('Noto').fontSize(7).text(`Page ${pageNumber}`, content.right - 55, content.bottom + 9, { width: 55, align: 'right', lineBreak: false });
-    // Table pagination is handled explicitly below. A lower PDFKit flow margin
-    // prevents an unbranded automatic spill page near the reserved footer.
-    doc.page.margins.bottom = 90;
+    doc.fillColor('#5d6c75').font(reportRegular).fontSize(7).text(`Page ${pageNumber}`, content.right - 55, content.bottom + 9, { width: 55, align: 'right', lineBreak: false });
+    // Table pagination is handled explicitly below. Keep the normal text flow
+    // above the reserved letterhead footer after drawing the page number.
+    doc.page.margins.bottom = A4.height - content.bottom;
     y = content.top;
     doc.x = content.left;
     doc.y = y;
   };
   const drawHeading = (continued = false) => {
-    doc.font('Noto-Bold').fontSize(continued ? 9 : 15).fillColor('#26384d').text(`${input.heading}${continued ? ' - CONTINUED' : ''}`, content.left, y, { width: tableWidth, align: continued ? 'right' : 'center' });
+    doc.font(reportBold).fontSize(continued ? 10 : isInvoice ? 19 : 15).fillColor('#26384d').text(`${input.heading}${continued ? ' - CONTINUED' : ''}`, content.left, y, { width: tableWidth, align: continued ? 'right' : 'center' });
     y = doc.y + (continued ? 8 : 7);
     if (!continued && input.period) {
-      doc.font('Noto').fontSize(8).fillColor('#52626d').text(input.period, content.left, y, { width: tableWidth, align: 'center' });
+      doc.font(reportRegular).fontSize(isInvoice ? 10 : 8).fillColor('#52626d').text(input.period, content.left, y, { width: tableWidth, align: 'center' });
       y = doc.y + 5;
     }
     if (!continued && input.filters?.length) {
-      doc.font('Noto').fontSize(7.5).fillColor('#52626d').text(input.filters.join('  |  '), content.left, y, { width: tableWidth, align: 'center' });
+      doc.font(reportRegular).fontSize(isInvoice ? 10 : 7.5).fillColor('#52626d').text(input.filters.join('  |  '), content.left, y, { width: tableWidth, align: 'center' });
       y = doc.y + 8;
+    }
+    if (!continued && input.details?.length) {
+      y += 4;
+      for (const detail of input.details) {
+        doc.font(reportBold).fontSize(10).fillColor('#26384d').text(`${detail.label}:`, content.left, y, { width: 92, continued: false });
+        doc.font(reportRegular).fontSize(10).fillColor('#263238').text(detail.value, content.left + 96, y, { width: tableWidth - 96 });
+        y = Math.max(doc.y, y + 15);
+      }
+      y += 8;
     }
   };
   const drawTableHeader = () => {
@@ -170,7 +188,7 @@ export async function generateOfficialReport(input: OfficialReportInput) {
     doc.rect(content.left, y, tableWidth, headerHeight).fill('#dcefeb');
     let x = content.left;
     input.columns.forEach((column, index) => {
-      doc.font('Noto-Bold').fontSize(fontSize).fillColor('#26384d').text(column.label, x + padding, y + 6, { width: widths[index] - padding * 2, height: headerHeight - 8, align: column.align || 'left', ellipsis: true });
+      doc.font(reportBold).fontSize(isInvoice ? 10 : fontSize).fillColor('#26384d').text(column.label, x + padding, y + 6, { width: widths[index] - padding * 2, height: headerHeight - 8, align: column.align || 'left', ellipsis: true });
       x += widths[index];
     });
     y += headerHeight;
@@ -184,25 +202,26 @@ export async function generateOfficialReport(input: OfficialReportInput) {
 
   addTablePage(false);
   for (const [rowIndex, row] of input.rows.entries()) {
-    const cellHeights = input.columns.map((column, index) => doc.font('Noto').fontSize(fontSize).heightOfString(String(row[column.key] ?? ''), { width: widths[index] - padding * 2, lineGap: 1 }));
-    const rowHeight = Math.max(20, Math.min(58, Math.max(...cellHeights) + padding * 2));
-    if (y + rowHeight > content.bottom) addTablePage(true);
+    const bodyFontSize = isInvoice ? 10 : fontSize;
+    const cellHeights = input.columns.map((column, index) => doc.font(reportRegular).fontSize(bodyFontSize).heightOfString(String(row[column.key] ?? ''), { width: widths[index] - padding * 2, lineGap: 1.5 }));
+    const rowHeight = Math.max(isInvoice ? 24 : 20, Math.max(...cellHeights) + padding * 2);
+    if (y + rowHeight > tableBottom) addTablePage(true);
     if (rowIndex % 2 === 1) doc.rect(content.left, y, tableWidth, rowHeight).fill('#f7faf9');
     doc.strokeColor('#d8e2e0').lineWidth(0.35).moveTo(content.left, y + rowHeight).lineTo(content.right, y + rowHeight).stroke();
     let x = content.left;
     input.columns.forEach((column, index) => {
-      doc.font('Noto').fontSize(fontSize).fillColor('#263238').text(String(row[column.key] ?? ''), x + padding, y + padding, { width: widths[index] - padding * 2, height: rowHeight - padding * 2, lineGap: 1, align: column.align || 'left', ellipsis: true });
+      doc.font(reportRegular).fontSize(bodyFontSize).fillColor('#263238').text(String(row[column.key] ?? ''), x + padding, y + padding, { width: widths[index] - padding * 2, height: rowHeight - padding * 2, lineGap: 1.5, align: column.align || 'left', ellipsis: true });
       x += widths[index];
     });
     y += rowHeight;
   }
   if (!input.rows.length) {
-    doc.font('Noto').fontSize(8).fillColor('#52626d').text('No records match this report.', content.left, y + 12, { width: tableWidth, align: 'center' });
+    doc.font(reportRegular).fontSize(8).fillColor('#52626d').text('No records match this report.', content.left, y + 12, { width: tableWidth, align: 'center' });
     y = doc.y + 12;
   }
   if (input.totals?.length) {
     const totalsHeight = input.totals.length * 15 + 12;
-    if (y + totalsHeight > content.bottom) {
+    if (y + totalsHeight > tableBottom) {
       doc.addPage();
       decorate();
       drawHeading(true);
@@ -211,8 +230,9 @@ export async function generateOfficialReport(input: OfficialReportInput) {
     doc.strokeColor('#8fbcb6').lineWidth(0.7).moveTo(content.left, y).lineTo(content.right, y).stroke();
     y += 7;
     for (const total of input.totals) {
-      doc.font('Noto-Bold').fontSize(8).fillColor('#26384d').text(total.label, content.right - 210, y, { width: 100, align: 'right' });
-      doc.font('Noto').text(total.value, content.right - 100, y, { width: 100, align: 'right' });
+      const isGrandTotal = isInvoice && total.label === 'Total';
+      doc.font(reportBold).fontSize(isGrandTotal ? 13.5 : isInvoice ? 10.5 : 8).fillColor('#26384d').text(total.label, content.right - 210, y, { width: 100, align: 'right' });
+      doc.font(isGrandTotal ? reportBold : reportRegular).fontSize(isGrandTotal ? 13.5 : isInvoice ? 10.5 : 8).text(total.value, content.right - 100, y, { width: 100, align: 'right' });
       y += 15;
     }
   }

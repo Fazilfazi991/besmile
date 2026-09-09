@@ -49,6 +49,11 @@ async function main() {
   const finance = await generateOfficialReport({ heading: 'FINANCE REPORT', filename: 'BSmile_Finance_Report_QA_2026-08-14.pdf', columns: [{ key: 'date', label: 'Date' }, { key: 'type', label: 'Type' }, { key: 'account', label: 'Account' }, { key: 'category', label: 'Category' }, { key: 'description', label: 'Description', weight: 1.8 }, { key: 'amount', label: 'Amount', align: 'right' }], rows: financeRows, period: 'Period: 01 August 2026 - 31 August 2026', totals: [{ label: 'Total', value: '₹907,500.00' }] });
   await writeFile(resolve(output, 'BSmile_Finance_Report_QA_2026-08-14.pdf'), finance.buffer);
   console.log(`BSmile_Finance_Report_QA_2026-08-14.pdf: ${finance.pageCount} page(s), ${finance.buffer.length} bytes`);
+
+  const invoiceRows = Array.from({ length: 24 }, (_, index) => ({ description: `Employee wellbeing and clinical support service ${index + 1} with an intentionally long line-item description`, quantity: '2', rate: 'AED 1,250.00', amount: 'AED 2,500.00' }));
+  const invoice = await generateOfficialReport({ heading: 'INVOICE', filename: 'BSmile_Invoice_QA_2026-09-09.pdf', columns: [{ key: 'description', label: 'Description', weight: 2.2 }, { key: 'quantity', label: 'Quantity', align: 'right' }, { key: 'rate', label: 'Rate', align: 'right' }, { key: 'amount', label: 'Amount', align: 'right' }], rows: invoiceRows, period: 'Invoice INV-QA-001 | Issued 09 September 2026 | Due 30 September 2026', filters: ['Status: Sent'], details: [{ label: 'Bill to', value: 'A Customer With An Intentionally Long Trading Name LLC' }, { label: 'Email', value: 'accounts@example.test' }, { label: 'Phone', value: '+971 50 000 0000' }], totals: [{ label: 'Subtotal', value: 'AED 60,000.00' }, { label: 'Tax', value: 'AED 3,000.00' }, { label: 'Total', value: 'AED 63,000.00' }, { label: 'Paid', value: 'AED 10,000.00' }, { label: 'Balance', value: 'AED 53,000.00' }] });
+  await writeFile(resolve(output, 'BSmile_Invoice_QA_2026-09-09.pdf'), invoice.buffer);
+  console.log(`BSmile_Invoice_QA_2026-09-09.pdf: ${invoice.pageCount} page(s), ${invoice.buffer.length} bytes`);
 }
 
 void main().catch((error) => { console.error(error); process.exitCode = 1; });

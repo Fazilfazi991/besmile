@@ -40,6 +40,7 @@ export function validateOfficialReportPayload(raw: any): OfficialReportInput & {
   const rows = raw.rows.map((row: any) => Object.fromEntries(columns.map((column) => [column.key, clean(row?.[column.key], 700)])));
   const filters = Array.isArray(raw?.filters) ? raw.filters.slice(0, 8).map((value: unknown) => clean(value, 160)).filter(Boolean) : [];
   const totals = Array.isArray(raw?.totals) ? raw.totals.slice(0, 12).map((item: any) => ({ label: clean(item?.label, 80), value: clean(item?.value, 100) })).filter((item: any) => item.label) : [];
+  const details = Array.isArray(raw?.details) ? raw.details.slice(0, 12).map((item: any) => ({ label: clean(item?.label, 80), value: clean(item?.value, 300) })).filter((item: any) => item.label && item.value) : [];
   const context = Object.fromEntries(Object.entries(raw?.context || {}).slice(0, 12).map(([key, value]) => [clean(key, 60), clean(value, 160)]));
   const suffix = clean(raw?.filenameSuffix, 90).replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
   return {
@@ -51,6 +52,7 @@ export function validateOfficialReportPayload(raw: any): OfficialReportInput & {
     period: clean(raw?.period, 160),
     filters,
     totals,
+    details,
     context,
   };
 }

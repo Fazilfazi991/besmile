@@ -5,6 +5,7 @@ export type DownloadReportPayload = {
   period?: string;
   filters?: string[];
   totals?: Array<{ label: string; value: string }>;
+  details?: Array<{ label: string; value: string }>;
   context?: Record<string, string>;
   filenameSuffix?: string;
 };

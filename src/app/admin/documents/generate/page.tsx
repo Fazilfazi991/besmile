@@ -5,7 +5,7 @@ import { officialDocumentTypes, type OfficialDocumentInput, type OfficialDocumen
 
 type Employee = { id: string; full_name: string; designation?: string | null; joining_date?: string | null; department?: { name?: string } | null };
 type HistoryItem = { id: string; title: string; category: string; file_name: string; created_at: string; storage_path: string };
-type Context = { profile: { full_name?: string; designation?: string }; employees: Employee[]; history: HistoryItem[] };
+type Context = { profile: { full_name?: string; designation?: string }; history: HistoryItem[] };
 
 const today = new Date().toISOString().slice(0, 10);
 const initialForm: OfficialDocumentInput = {
@@ -40,6 +40,11 @@ export default function OfficialDocumentGeneratorPage() {
   const [notice, setNotice] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewPages, setPreviewPages] = useState(0);
+  const [employeeQuery, setEmployeeQuery] = useState('');
+  const [employeeOptions, setEmployeeOptions] = useState<Employee[]>([]);
+  const [employeeSearchBusy, setEmployeeSearchBusy] = useState(false);
+  const [employeeSearchOpen, setEmployeeSearchOpen] = useState(false);
+  const [activeEmployeeOption, setActiveEmployeeOption] = useState(-1);
 
   const loadContext = async () => {
     const response = await fetch('/api/documents/official/context', { cache: 'no-store' });
@@ -58,6 +63,30 @@ export default function OfficialDocumentGeneratorPage() {
     return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+  useEffect(() => {
+    const query = employeeQuery.trim();
+    if (form.documentType !== 'offer_letter' || query.length < 2 || form.relatedProfileId) {
+      const resetTimer = window.setTimeout(() => { setEmployeeOptions([]); setEmployeeSearchOpen(false); }, 0);
+      return () => window.clearTimeout(resetTimer);
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setEmployeeSearchBusy(true);
+      try {
+        const response = await fetch(`/api/documents/official/employees?q=${encodeURIComponent(query)}`, { cache: 'no-store', signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Employee search failed.');
+        setEmployeeOptions(data.employees || []);
+        setEmployeeSearchOpen(true);
+        setActiveEmployeeOption((data.employees || []).length ? 0 : -1);
+      } catch (caught) {
+        if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : 'Employee search failed.');
+      } finally {
+        if (!controller.signal.aborted) setEmployeeSearchBusy(false);
+      }
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [employeeQuery, form.documentType, form.relatedProfileId]);
 
   const config = useMemo(() => officialDocumentTypes.find((item) => item.key === form.documentType)!, [form.documentType]);
   const update = (key: keyof OfficialDocumentInput, value: string) => setForm((current) => ({ ...current, [key]: value }));
@@ -75,7 +104,7 @@ export default function OfficialDocumentGeneratorPage() {
     setNotice('');
   };
   const selectEmployee = (id: string) => {
-    const employee = context?.employees.find((item) => item.id === id);
+    const employee = employeeOptions.find((item) => item.id === id);
     setForm((current) => ({
       ...current,
       relatedProfileId: id,
@@ -85,6 +114,20 @@ export default function OfficialDocumentGeneratorPage() {
       joiningDate: employee?.joining_date || '',
       body: current.documentType === 'offer_letter' ? templateBody('offer_letter', employee?.full_name, employee?.designation || '', employee?.joining_date || '') : current.body,
     }));
+    setEmployeeQuery(employee?.full_name || '');
+    setEmployeeSearchOpen(false);
+  };
+  const clearEmployee = () => {
+    setEmployeeQuery('');
+    setEmployeeOptions([]);
+    setForm((current) => ({ ...current, relatedProfileId: '', relatedName: '', position: '', department: '', joiningDate: '', body: templateBody('offer_letter') }));
+  };
+  const employeeSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!employeeSearchOpen || !employeeOptions.length) return;
+    if (event.key === 'ArrowDown') { event.preventDefault(); setActiveEmployeeOption((current) => (current + 1) % employeeOptions.length); }
+    else if (event.key === 'ArrowUp') { event.preventDefault(); setActiveEmployeeOption((current) => (current - 1 + employeeOptions.length) % employeeOptions.length); }
+    else if (event.key === 'Enter' && activeEmployeeOption >= 0) { event.preventDefault(); selectEmployee(employeeOptions[activeEmployeeOption].id); }
+    else if (event.key === 'Escape') setEmployeeSearchOpen(false);
   };
 
   const generate = async (mode: 'preview' | 'generate') => {
@@ -140,7 +183,7 @@ export default function OfficialDocumentGeneratorPage() {
       <div className="official-generator-form space-y-4">
         <article className="card official-step"><Step number="1" title="Select document type" /><label>Document type<select className="input" value={form.documentType} onChange={(event) => changeType(event.target.value as OfficialDocumentType)}>{officialDocumentTypes.map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}</select></label><div className="official-auto-heading"><small>Automatic heading</small><b>{form.documentType === 'custom_official_document' ? form.customHeading || 'Enter a custom heading below' : config.heading}</b></div>{form.documentType === 'custom_official_document' && <label>Custom heading<input required className="input" maxLength={80} value={form.customHeading || ''} onChange={(event) => update('customHeading', event.target.value)} /></label>}</article>
 
-        <article className="card official-step"><Step number="2" title="Related record" />{form.documentType === 'offer_letter' && <label>Select employee (optional)<select className="input" value={form.relatedProfileId || ''} onChange={(event) => selectEmployee(event.target.value)}><option value="">Enter candidate manually</option>{context.employees.map((employee) => <option value={employee.id} key={employee.id}>{employee.full_name}{employee.designation ? ` - ${employee.designation}` : ''}</option>)}</select></label>}<div className="official-field-grid"><label>{config.relatedLabel}<input className="input" value={form.relatedName || ''} onChange={(event) => update('relatedName', event.target.value)} /></label><label>Date of issue<input required type="date" className="input" value={form.issueDate} onChange={(event) => update('issueDate', event.target.value)} /></label>{form.documentType === 'offer_letter' ? <><label>Position / designation<input required className="input" value={form.position || ''} onChange={(event) => update('position', event.target.value)} /></label><label>Department<input className="input" value={form.department || ''} onChange={(event) => update('department', event.target.value)} /></label><label>Joining date<input required type="date" className="input" value={form.joiningDate || ''} onChange={(event) => update('joiningDate', event.target.value)} /></label><label>Compensation (authorized use only)<input className="input" value={form.compensation || ''} onChange={(event) => update('compensation', event.target.value)} placeholder="Optional" /></label></> : <><label className="official-span-2">Document title<input required className="input" maxLength={140} value={form.title || ''} onChange={(event) => update('title', event.target.value)} /></label>{form.documentType === 'policy' && <label className="official-span-2">Policy category<input className="input" value={form.policyCategory || ''} onChange={(event) => update('policyCategory', event.target.value)} placeholder="e.g. Human Resources" /></label>}</>}</div></article>
+        <article className="card official-step"><Step number="2" title="Related record" />{form.documentType === 'offer_letter' && <div className="official-employee-search"><label htmlFor="official-employee-search">Select employee (optional)</label><div className="official-employee-search-control"><input id="official-employee-search" className="input" role="combobox" aria-autocomplete="list" aria-expanded={employeeSearchOpen} aria-controls="official-employee-options" aria-activedescendant={activeEmployeeOption >= 0 ? `official-employee-${employeeOptions[activeEmployeeOption]?.id}` : undefined} autoComplete="off" placeholder="Type at least 2 letters" value={employeeQuery} onChange={(event) => { const value = event.target.value; setEmployeeQuery(value); if (form.relatedProfileId) setForm((current) => ({ ...current, relatedProfileId: '' })); }} onFocus={() => employeeOptions.length && setEmployeeSearchOpen(true)} onKeyDown={employeeSearchKeyDown} />{form.relatedProfileId && <button type="button" onClick={clearEmployee}>Clear</button>}</div>{employeeSearchBusy && <small>Searching employees...</small>}{employeeSearchOpen && <div id="official-employee-options" role="listbox" className="official-employee-options">{employeeOptions.map((employee, index) => <button id={`official-employee-${employee.id}`} type="button" role="option" aria-selected={index === activeEmployeeOption} className={index === activeEmployeeOption ? 'is-active' : ''} key={employee.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectEmployee(employee.id)}><span>{employee.full_name}</span><small>{employee.designation || 'Employee'}</small></button>)}{!employeeOptions.length && !employeeSearchBusy && <p>No matching employees.</p>}</div>}</div>}<div className="official-field-grid"><label>{config.relatedLabel}<input className="input" value={form.relatedName || ''} onChange={(event) => update('relatedName', event.target.value)} /></label><label>Date of issue<input required type="date" className="input" value={form.issueDate} onChange={(event) => update('issueDate', event.target.value)} /></label>{form.documentType === 'offer_letter' ? <><label>Position / designation<input required className="input" value={form.position || ''} onChange={(event) => update('position', event.target.value)} /></label><label>Department<input className="input" value={form.department || ''} onChange={(event) => update('department', event.target.value)} /></label><label>Joining date<input required type="date" className="input" value={form.joiningDate || ''} onChange={(event) => update('joiningDate', event.target.value)} /></label><label>Compensation (authorized use only)<input className="input" value={form.compensation || ''} onChange={(event) => update('compensation', event.target.value)} placeholder="Optional" /></label></> : <><label className="official-span-2">Document title<input required className="input" maxLength={140} value={form.title || ''} onChange={(event) => update('title', event.target.value)} /></label>{form.documentType === 'policy' && <label className="official-span-2">Policy category<input className="input" value={form.policyCategory || ''} onChange={(event) => update('policyCategory', event.target.value)} placeholder="e.g. Human Resources" /></label>}</>}</div></article>
 
         <article className="card official-step"><Step number="3" title="Document content" /><label>Official content<textarea required className="input official-content-input" maxLength={30000} value={form.body} onChange={(event) => update('body', event.target.value)} /></label><small className="official-help">Use blank lines between paragraphs. Long content paginates automatically without crossing the branded footer.</small><div className="official-field-grid"><label>Authorized signatory<input className="input" value={form.signatoryName || ''} onChange={(event) => update('signatoryName', event.target.value)} /></label><label>Signatory title<input className="input" value={form.signatoryTitle || ''} onChange={(event) => update('signatoryTitle', event.target.value)} /></label></div></article>
 
