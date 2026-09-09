@@ -14,6 +14,8 @@ import { TeamAttendanceStrip, type TeamMember } from '@/components/team-attendan
 import { ModuleIcon } from '@/components/module-icon';
 import { DirectorExecutiveDashboard } from '@/components/director-executive-dashboard';
 import { usesExecutiveDashboard } from '@/lib/executive-dashboard';
+import { businessMonthKeys, operationalKpiCharts } from '@/lib/dashboard-kpi-model';
+import { KpiMiniChart } from '@/components/kpi-mini-chart';
 
 const fmtDate = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(new Date(value)) : 'Not scheduled';
 
@@ -35,8 +37,9 @@ function OperationalDashboard() {
   const securityAdministrator = isSecurityAdministratorRole(role);
   useEffect(() => { document.title = `${title} | BSmile CRM`; }, [title]);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 3500); return () => window.clearTimeout(timer); }, [notice]);
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const previousMonthDate = new Date(); previousMonthDate.setMonth(previousMonthDate.getMonth() - 1); const previousMonth = previousMonthDate.toISOString().slice(0, 7);
+  const monthKeys = businessMonthKeys(new Date(), summary?.timezone || 'Asia/Kolkata');
+  const currentMonth = monthKeys.current;
+  const previousMonth = monthKeys.previous;
   const monthly = useMemo(() => monthTotals(finance?.monthly || [], currentMonth, previousMonth), [finance, currentMonth, previousMonth]);
   const activeBreak = todayAttendance?.attendance_breaks?.find((item: any) => !item.ended_at);
   const attendanceTotal = Math.max(1, (summary?.presentToday || 0) + (summary?.lateToday || 0) + (summary?.onLeave || 0) + Math.max(0, (summary?.employees || 0) - (summary?.presentToday || 0) - (summary?.onLeave || 0)));
@@ -47,15 +50,31 @@ function OperationalDashboard() {
   if (!summary) return <DashboardSkeleton />;
   const presentPercent = Math.round(((summary.presentToday || 0) / Math.max(1, summary.employees || 1)) * 100);
   const conversion = summary.leads ? Math.round(((summary.sales || 0) / summary.leads) * 100) : 0;
+  const charts = operationalKpiCharts({
+    employees: summary.employees,
+    presentToday: summary.presentToday,
+    onLeave: summary.onLeave,
+    leads: summary.leads,
+    newLeads: summary.newLeads,
+    monthlyIncome: monthly.income,
+    previousIncome: monthly.previousIncome,
+    pendingLeave: summary.pendingLeave,
+    openTasks: summary.openTasks,
+    overdueTasks: summary.overdueTasks,
+    outstandingInvoices: finance?.outstanding || 0,
+    totalInvoices: finance?.totalInvoices || 0,
+    salariesPending: finance?.salariesPending || 0,
+    salariesTotal: finance?.salariesTotal || 0,
+  });
   const kpis = [
-    { icon: 'Employees', tone: 'people', title: 'Total employees', value: summary.employees, detail: `${summary.presentToday || 0} active today`, href: '/admin/employees', visual: presentPercent, visualLabel: 'Present today' },
-    { icon: 'Attendance', tone: 'attendance', title: 'Present today', value: summary.presentToday, detail: `${presentPercent}% attendance`, href: '/admin/attendance', visual: presentPercent, visualLabel: 'Attendance rate' },
-    { icon: 'Leads', tone: 'crm', title: 'Active leads', value: summary.leads, detail: `${summary.newLeads || 0} new today`, href: '/admin/crm', visual: summary.leads ? Math.round(((summary.newLeads || 0) / summary.leads) * 100) : 0, visualLabel: 'New today share' },
-    { icon: 'Finance Dashboard', tone: 'finance', title: 'Monthly revenue', value: inr(monthly.income), detail: trendLabel(monthly.income, monthly.previousIncome), href: '/admin/finance', visual: monthly.income || monthly.previousIncome ? Math.round((monthly.income / Math.max(monthly.income, monthly.previousIncome)) * 100) : 0, visualLabel: 'Current vs previous month' },
-    { icon: 'Leave', tone: 'leave', title: 'Pending leave', value: summary.pendingLeave, detail: 'Requires review', href: '/admin/leaves' },
-    { icon: 'Tasks', tone: 'tasks', title: 'Open tasks', value: summary.openTasks, detail: `${summary.overdueTasks || 0} overdue`, href: '/admin/tasks' },
-    { icon: 'Invoices', tone: 'finance', title: 'Outstanding invoices', value: inr(finance?.outstandingAmount || 0), detail: `${finance?.outstanding || 0} unpaid invoice${finance?.outstanding === 1 ? '' : 's'}`, href: '/admin/finance/invoices' },
-    { icon: 'Payroll', tone: 'finance', title: 'Payroll status', value: finance?.salariesPending ? 'Pending' : 'Clear', detail: finance?.recentRuns?.find((run: any) => run.status !== 'paid') ? `Period ends ${fmtDate(finance.recentRuns.find((run: any) => run.status !== 'paid').period_end)}` : 'No pending payroll', href: '/admin/finance/payroll' },
+    { icon: 'Employees', tone: 'people', title: 'Total employees', value: summary.employees, detail: `${summary.presentToday || 0} active today`, href: '/admin/employees', chart: charts.employees },
+    { icon: 'Attendance', tone: 'attendance', title: 'Present today', value: summary.presentToday, detail: `${presentPercent}% attendance`, href: '/admin/attendance', chart: charts.attendance },
+    { icon: 'Leads', tone: 'crm', title: 'Active leads', value: summary.leads, detail: `${summary.newLeads || 0} new today`, href: '/admin/crm', chart: charts.leads },
+    { icon: 'Finance Dashboard', tone: 'finance', title: 'Monthly revenue', value: inr(monthly.income), detail: trendLabel(monthly.income, monthly.previousIncome), href: '/admin/finance', chart: charts.revenue },
+    { icon: 'Leave', tone: 'leave', title: 'Pending leave', value: summary.pendingLeave, detail: 'Requires review', href: '/admin/leaves', chart: charts.leave },
+    { icon: 'Tasks', tone: 'tasks', title: 'Open tasks', value: summary.openTasks, detail: `${summary.overdueTasks || 0} overdue`, href: '/admin/tasks', chart: charts.tasks },
+    { icon: 'Invoices', tone: 'finance', title: 'Outstanding invoices', value: inr(finance?.outstandingAmount || 0), detail: `${finance?.outstanding || 0} unpaid invoice${finance?.outstanding === 1 ? '' : 's'}`, href: '/admin/finance/invoices', chart: charts.invoices },
+    { icon: 'Payroll', tone: 'finance', title: 'Payroll status', value: finance?.salariesPending ? 'Pending' : 'Clear', detail: finance?.recentRuns?.find((run: any) => run.status !== 'paid') ? `Period ends ${fmtDate(finance.recentRuns.find((run: any) => run.status !== 'paid').period_end)}` : 'No pending payroll', href: '/admin/finance/payroll', chart: charts.payroll },
   ];
 
   const displayDate = new Intl.DateTimeFormat('en', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
@@ -69,7 +88,7 @@ function OperationalDashboard() {
     <header className="executive-header"><div><h1>{title}</h1><p>Company operations at a glance · <time>{displayDate}</time></p></div><div className="executive-header-actions"><Link className="btn btn-primary" href={securityAdministrator ? '/admin/access' : '/admin/profile'}>{securityAdministrator ? 'Profile & access' : 'My profile'}</Link></div></header>
     {error && <p className="executive-alert">{error} Available sections still show live data.</p>}
 
-    <div className="executive-kpis executive-kpis-primary">{kpis.slice(0, 4).map(kpi => <Link href={kpi.href} className={`executive-kpi executive-kpi-${kpi.tone}`} key={kpi.title}><ModuleIcon label={kpi.icon} className="executive-kpi-icon" /><div><p>{kpi.title}</p><b>{kpi.value}</b><small>{kpi.detail}</small><KpiFactBar percent={kpi.visual} label={kpi.visualLabel} /></div><span className="executive-arrow">→</span></Link>)}</div>
+    <div className="executive-kpis executive-kpis-primary">{kpis.slice(0, 4).map(kpi => <Link href={kpi.href} className={`executive-kpi executive-kpi-${kpi.tone}`} key={kpi.title}><ModuleIcon label={kpi.icon} className="executive-kpi-icon" /><div><p>{kpi.title}</p><b>{kpi.value}</b><small>{kpi.detail}</small><KpiMiniChart model={kpi.chart} /></div><span className="executive-arrow">→</span></Link>)}</div>
     <section className="standard-needs-attention"><div className="attention-heading"><div><h2>Needs attention</h2><p>Priority work requiring management review</p></div><Link href="/admin/tasks">View all</Link></div>{attentionItems.length ? <div className="attention-list">{attentionItems.slice(0, 3).map(item => <Link href={item.href} key={item.label}><span>{item.label}</span><b>{item.value}</b><i>Review →</i></Link>)}</div> : <p className="attention-clear">Nothing overdue or due soon.</p>}</section>
 
     <div className="executive-grid executive-grid-primary"><DashboardCard title="Attendance overview" subtitle="Today’s live workforce status" action={<Link href="/admin/attendance">View attendance</Link>}><div className="attendance-overview"><div className="attendance-ring" style={{ background: `conic-gradient(#007d74 0 ${presentPercent}%, #eab308 ${presentPercent}% ${Math.min(100, presentPercent + Math.round((summary.lateToday / attendanceTotal) * 100))}%, #60a5fa 0 ${Math.min(100, presentPercent + Math.round(((summary.lateToday + summary.onLeave) / attendanceTotal) * 100))}%, #f3f4f6 0)` }}><div><b>{presentPercent}%</b><small>present</small></div></div><div className="attendance-legend"><Legend label="Present" value={summary.presentToday} tone="teal" /><Legend label="Late" value={summary.lateToday} tone="amber" /><Legend label="Leave" value={summary.onLeave} tone="blue" /><Legend label="Absent" value={absent} tone="slate" /></div></div><p className="card-footnote">{summary.presentToday} clocked in across {summary.employees} active employees today.</p></DashboardCard><DashboardCard title="Quick actions" subtitle="Common management workflows"><div className="quick-action-grid">{[['Add employee','Employees','/admin/employees'],['New lead','Leads','/admin/crm'],['Create invoice','Invoices','/admin/finance/invoices/new'],['Announcement','Announcements','/admin/announcements'],['Grant access','Roles & Access','/admin/access'],['View reports','Reports','/admin/finance/reports']].filter(([, , href]) => securityAdministrator || href !== '/admin/access').map(([label, icon, href]) => <Link className="quick-action" href={href} key={label}><ModuleIcon label={icon} /><span className="quick-action-copy">{label}<small>Open workspace</small></span><i>→</i></Link>)}</div></DashboardCard></div>
@@ -80,7 +99,7 @@ function OperationalDashboard() {
     {attendanceError && <p className="executive-alert">{attendanceError} {attendanceError === locationBlockedMessage && <button className="btn" disabled={refreshingAttendance} onClick={() => void attendanceAction(todayAttendance && !todayAttendance.clock_out ? 'clockOut' : 'clockIn')}>Try again</button>}</p>}
     {notice && <p className="executive-notice" role="status">{notice}</p>}
     {canViewTeam && <TeamAttendanceStrip employees={team} loading={!team} canOpenEmployees={canOpenEmployees} standardHub />}
-    <div className="executive-kpis executive-kpis-secondary">{kpis.slice(4).map(kpi => <Link href={kpi.href} className={`executive-kpi executive-kpi-${kpi.tone}`} key={kpi.title}><ModuleIcon label={kpi.icon} className="executive-kpi-icon" /><div><p>{kpi.title}</p><b>{kpi.value}</b><small>{kpi.detail}</small></div><span className="executive-arrow">→</span></Link>)}</div>
+    <div className="executive-kpis executive-kpis-secondary">{kpis.slice(4).map(kpi => <Link href={kpi.href} className={`executive-kpi executive-kpi-${kpi.tone}`} key={kpi.title}><ModuleIcon label={kpi.icon} className="executive-kpi-icon" /><div><p>{kpi.title}</p><b>{kpi.value}</b><small>{kpi.detail}</small><KpiMiniChart model={kpi.chart} /></div><span className="executive-arrow">→</span></Link>)}</div>
 
     <div className="executive-grid executive-grid-primary"><DashboardCard title="Revenue overview" subtitle="Current month cash movement" action={<Link href="/admin/finance">Open finance</Link>}><div className="revenue-stats"><Stat label="Income" value={inr(monthly.income)} tone="teal" /><Stat label="Expenses" value={inr(monthly.expenses)} tone="rose" /><Stat label="Profit" value={inr(monthly.income - monthly.expenses)} tone="blue" /></div><MiniBars data={[monthly.previousIncome, monthly.income, monthly.previousExpenses, monthly.expenses]} labels={['Prev income', 'This income', 'Prev expenses', 'This expenses']} /></DashboardCard><DashboardCard title="CRM snapshot" subtitle="Lead activity and conversion" action={<Link href="/admin/crm">Open CRM</Link>}><div className="crm-snapshot"><Snapshot label="New leads" value={summary.newLeads || 0} detail="Today" /><Snapshot label="Follow-ups due" value={summary.followupsDue || 0} detail="Action today" /><Snapshot label="Deals won" value={summary.sales || 0} detail="All sales" /><Snapshot label="Conversion" value={`${conversion}%`} detail="Lead to sale" /></div></DashboardCard></div>
 
@@ -96,7 +115,6 @@ function OperationalDashboard() {
   </section>;
 }
 
-function KpiFactBar({ percent, label }: { percent?: number; label?: string }) { const value = Math.max(0, Math.min(100, percent || 0)); return <span className="kpi-fact" title={`${label || 'Current proportion'}: ${value}%`} aria-label={`${label || 'Current proportion'}: ${value}%`}><i style={{ width: `${value}%` }} /></span>; }
 function DashboardCard({ title, subtitle, action, children }: any) { return <section className="executive-card"><div className="executive-card-heading"><div><h2>{title}</h2><p>{subtitle}</p></div>{action && <div>{action}</div>}</div>{children}</section>; }
 function Legend({ label, value, tone }: any) { return <div><span className={`legend-dot ${tone}`} /><b>{value}</b><small>{label}</small></div>; }
 function Stat({ label, value, tone }: any) { return <div className={`revenue-stat ${tone}`}><small>{label}</small><b>{value}</b></div>; }

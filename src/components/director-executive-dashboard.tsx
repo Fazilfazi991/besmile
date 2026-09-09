@@ -7,6 +7,8 @@ import { adminRepository } from '@/lib/admin-repository';
 import { chartInr, compactInr } from '@/lib/finance-format';
 import { ModuleIcon } from '@/components/module-icon';
 import { businessDateParts, executiveFirstName, executivePeriodRange, invoiceBalance, isActiveLead, isInRange, percentageChange, type ExecutivePeriod } from '@/lib/executive-dashboard';
+import { executiveKpiCharts } from '@/lib/dashboard-kpi-model';
+import { KpiMiniChart } from '@/components/kpi-mini-chart';
 
 const PERIOD_LABELS: Record<ExecutivePeriod, string> = { month: 'This month', previous_month: 'Last month', quarter: 'Last 3 months', year: 'This year' };
 const REVENUE_TYPES = new Set(['income', 'invoice_payment']);
@@ -26,6 +28,7 @@ export function DirectorExecutiveDashboard({ name }: { name?: string | null }) {
   if (loading && !metrics) return <DirectorSkeleton />;
   if (!metrics) return <section className="director-dashboard"><div className="director-state" role="alert"><ModuleIcon label="Finance Dashboard" /><h1>Executive overview unavailable</h1><p>{error || 'Live dashboard data could not be loaded.'}</p><button className="btn btn-primary" onClick={() => window.location.reload()}>Try again</button></div></section>;
   const firstName = executiveFirstName(name);
+  const charts = executiveKpiCharts(metrics);
   return <section className="director-dashboard">
     <header className="director-heading">
       <div><h1>Good {dayPart()}{firstName ? `, ${firstName}` : ''}</h1><p>Here’s how BSmile is performing across the business.</p></div>
@@ -33,11 +36,11 @@ export function DirectorExecutiveDashboard({ name }: { name?: string | null }) {
     </header>
     {error && <p className="director-inline-error" role="status">Some data could not be refreshed. The figures below are from the latest successful load.</p>}
     <div className="director-kpis">
-      <Kpi icon="Revenue" label="Revenue" value={compactInr(metrics.revenue)} change={metrics.revenueChange} noActivity={!metrics.revenue} href="/admin/finance" />
-      <Kpi icon="Income" label="Collections" value={compactInr(metrics.collections)} change={metrics.collectionsChange} noActivity={!metrics.collections} href="/admin/finance/income" />
-      <Kpi icon="Leads" label="Active leads" value={String(metrics.activeLeads)} href="/admin/crm/leads" />
-      <Kpi icon="Sales" label="Conversion rate" value={`${metrics.conversion.toFixed(1)}%`} change={metrics.conversionPointChange} changeUnit="pp" noActivity={!metrics.periodLeadCount} href="/admin/crm" />
-      <Kpi icon="Invoices" label="Outstanding invoices" value={compactInr(metrics.outstanding)} detail={`${metrics.openInvoiceCount} open balance${metrics.openInvoiceCount === 1 ? '' : 's'}`} href="/admin/finance/invoices" warning />
+      <Kpi icon="Revenue" label="Revenue" value={compactInr(metrics.revenue)} change={metrics.revenueChange} noActivity={!metrics.revenue} href="/admin/finance" chart={charts.revenue} />
+      <Kpi icon="Income" label="Collections" value={compactInr(metrics.collections)} change={metrics.collectionsChange} noActivity={!metrics.collections} href="/admin/finance/income" chart={charts.collections} />
+      <Kpi icon="Leads" label="Active leads" value={String(metrics.activeLeads)} href="/admin/crm/leads" chart={charts.leads} />
+      <Kpi icon="Sales" label="Conversion rate" value={`${metrics.conversion.toFixed(1)}%`} change={metrics.conversionPointChange} changeUnit="pp" noActivity={!metrics.periodLeadCount} href="/admin/crm" chart={charts.conversion} />
+      <Kpi icon="Invoices" label="Outstanding invoices" value={compactInr(metrics.outstanding)} detail={`${metrics.openInvoiceCount} open balance${metrics.openInvoiceCount === 1 ? '' : 's'}`} href="/admin/finance/invoices" warning chart={charts.invoices} />
     </div>
     <div className="director-layout">
       <Panel title="Revenue & sales trend" subtitle="Last 6 months" action={<Link href="/admin/finance/reports">View reports</Link>} className="director-trend-panel"><ExecutiveTrendChart rows={metrics.trend} /></Panel>
@@ -60,9 +63,9 @@ function buildMetrics(data: any, period: ExecutivePeriod) {
   const previousCollections = total(new Set(['invoice_payment']), previous);
   const leads = data.leads || [];
   const periodLeads = leads.filter((lead: any) => isInRange(lead.lead_date || lead.created_at, range));
-  const periodConverted = leads.filter((lead: any) => lead.converted_at && isInRange(lead.converted_at, range));
+  const periodConverted = periodLeads.filter((lead: any) => lead.converted_at && isInRange(lead.converted_at, range));
   const previousLeads = leads.filter((lead: any) => isInRange(lead.lead_date || lead.created_at, previous));
-  const previousConverted = leads.filter((lead: any) => lead.converted_at && isInRange(lead.converted_at, previous));
+  const previousConverted = previousLeads.filter((lead: any) => lead.converted_at && isInRange(lead.converted_at, previous));
   const conversion = periodLeads.length ? periodConverted.length / periodLeads.length * 100 : 0;
   const previousConversion = previousLeads.length ? previousConverted.length / previousLeads.length * 100 : null;
   const openInvoices = (data.invoices || []).map((invoice: any) => ({ ...invoice, balance: invoiceBalance(invoice) })).filter((invoice: any) => invoice.balance > 0 && !['paid', 'cancelled'].includes(invoice.status));
@@ -73,13 +76,17 @@ function buildMetrics(data: any, period: ExecutivePeriod) {
   const today = businessDateParts(new Date(), data.timezone).key;
   const overdueInvoices = openInvoices.filter((invoice: any) => invoice.due_date && String(invoice.due_date).slice(0, 10) < today);
   const overdueBalance = overdueInvoices.reduce((sum: number, invoice: any) => sum + invoice.balance, 0);
+  const activeLeadRows = leads.filter(isActiveLead);
+  const activeLeadMap = new Map<string, number>();
+  activeLeadRows.forEach((lead: any) => { const stage = lead.status?.name || 'Unassigned'; activeLeadMap.set(stage, (activeLeadMap.get(stage) || 0) + 1); });
+  const activeLeadDistribution = [...activeLeadMap].map(([label, value], index) => ({ label, value, color: ['#14988c', '#4f86d9', '#8a68d6', '#dc729d', '#de9a35'][index % 5] }));
   const priorities = [
     overdueInvoices.length && { icon: 'Invoices', label: `${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? '' : 's'}`, detail: `${compactInr(overdueBalance)} outstanding`, href: '/admin/finance/invoices', action: 'Review', tone: 'danger' },
     Number(data.summary?.followupsDue) > 0 && { icon: 'Follow-ups', label: `${data.summary.followupsDue} lead follow-up${data.summary.followupsDue === 1 ? '' : 's'} due`, detail: 'CRM follow-up required today', href: '/admin/crm/follow-ups', action: 'Follow up', tone: 'warning' },
     Number(data.summary?.overdueTasks) > 0 && { icon: 'Overdue tasks', label: `${data.summary.overdueTasks} overdue task${data.summary.overdueTasks === 1 ? '' : 's'}`, detail: 'Past the assigned due date', href: '/admin/tasks', action: 'Review', tone: 'info' },
     Number(data.summary?.pendingLeave) > 0 && { icon: 'Leave approvals', label: `${data.summary.pendingLeave} leave request${data.summary.pendingLeave === 1 ? '' : 's'} pending`, detail: 'Awaiting management decision', href: '/admin/leaves', action: 'Decide', tone: 'neutral' },
   ].filter(Boolean).slice(0, 4);
-  return { revenue, collections, expenses, profit: revenue - expenses, margin: revenue ? (revenue - expenses) / revenue * 100 : null, revenueChange: period === 'month' ? percentageChange(revenue, previousRevenue) : null, collectionsChange: period === 'month' ? percentageChange(collections, previousCollections) : null, activeLeads: leads.filter(isActiveLead).length, periodLeadCount: periodLeads.length, conversion, conversionPointChange: period === 'month' && previousConversion !== null ? conversion - previousConversion : null, outstanding, openInvoiceCount: openInvoices.length, pipeline, priorities, trend: lastSixMonths(data.finance?.monthly || [], data.sales || [], data.timezone) };
+  return { revenue, collections, expenses, profit: revenue - expenses, margin: revenue ? (revenue - expenses) / revenue * 100 : null, revenueChange: period === 'month' ? percentageChange(revenue, previousRevenue) : null, collectionsChange: period === 'month' ? percentageChange(collections, previousCollections) : null, activeLeads: activeLeadRows.length, activeLeadDistribution, periodLeadCount: periodLeads.length, periodConvertedCount: periodConverted.length, conversion, conversionPointChange: period === 'month' && previousConversion !== null ? conversion - previousConversion : null, outstanding, overdueOutstanding: overdueBalance, openInvoiceCount: openInvoices.length, pipeline, priorities, trend: lastSixMonths(data.finance?.monthly || [], data.sales || [], data.timezone) };
 }
 
 function lastSixMonths(transactions: any[], sales: any[], timeZone: string) {
@@ -87,11 +94,12 @@ function lastSixMonths(transactions: any[], sales: any[], timeZone: string) {
   return Array.from({ length: 6 }, (_, index) => {
     const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (5 - index), 1));
     const key = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit' }).format(date).slice(0, 7);
-    return { key, label: new Intl.DateTimeFormat('en', { month: 'short', timeZone }).format(date), revenue: transactions.filter(row => REVENUE_TYPES.has(row.transaction_type) && String(row.transaction_date).slice(0, 7) === key).reduce((sum, row) => sum + Number(row.amount || 0), 0), sales: sales.filter(row => String(row.closing_date).slice(0, 7) === key).length };
+    return { key, label: new Intl.DateTimeFormat('en', { month: 'short', timeZone }).format(date), revenue: transactions.filter(row => REVENUE_TYPES.has(row.transaction_type) && String(row.transaction_date).slice(0, 7) === key).reduce((sum, row) => sum + Number(row.amount || 0), 0), collections: transactions.filter(row => row.transaction_type === 'invoice_payment' && String(row.transaction_date).slice(0, 7) === key).reduce((sum, row) => sum + Number(row.amount || 0), 0), sales: sales.filter(row => String(row.closing_date).slice(0, 7) === key).length };
   });
 }
 
-function Kpi({ icon, label, value, change, changeUnit = '%', detail, href, warning = false, noActivity = false }: any) { const positive = change !== null && change !== undefined && change >= 0; const showChange = !noActivity && change !== null && change !== undefined; return <Link href={href} className={`director-kpi${warning ? ' is-warning' : ''}`}><ModuleIcon label={icon} /><span><small>{label}</small><strong title={value}>{value}</strong>{showChange ? <em className={positive ? 'is-up' : 'is-down'}>{positive ? '↑' : '↓'} {Math.abs(change).toFixed(1)}{changeUnit} <i>vs last month</i></em> : <em>{noActivity ? 'No activity this period' : detail || 'Live business data'}</em>}</span></Link>; }
+function Kpi({ icon, label, value, change, changeUnit = '%', detail, href, warning = false, noActivity = false, chart }: any) { const positive = change !== null && change !== undefined && change >= 0; const showChange = !noActivity && change !== null && change !== undefined; return <Link href={href} className={`director-kpi${warning ? ' is-warning' : ''}`}><ModuleIcon label={icon} /><span><small>{label}</small><strong title={value}>{value}</strong>{showChange ? <em className={positive ? 'is-up' : 'is-down'}>{positive ? '↑' : '↓'} {Math.abs(change).toFixed(1)}{changeUnit} <i>vs last month</i></em> : <em>{noActivity ? 'No activity this period' : detail || 'Live business data'}</em>}<KpiMiniChart model={chart} /></span></Link>; }
+
 function Panel({ title, subtitle, action, children, className = '' }: any) { return <section className={`director-panel ${className}`}><header><span><h2>{title}</h2><p>{subtitle}</p></span>{action}</header><div className="director-panel-body">{children}</div></section>; }
 function Empty({ text }: { text: string }) { return <p className="director-empty">{text}</p>; }
 function dayPart() { const hour = new Date().getHours(); return hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'; }
