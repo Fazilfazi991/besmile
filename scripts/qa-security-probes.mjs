@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { verifyCrmArchive } from './qa-crm-archive-probes.mjs';
 
 const required = name => { const value = process.env[name]; if (!value) throw new Error(`${name} is required`); return value; };
 const url = required('BSMILE_QA_SUPABASE_URL');
@@ -172,6 +173,7 @@ await check('patient document authenticated grants preserve upload RLS boundarie
     if (removed.error) throw removed.error;
   }
 });
+await check('CRM archive preserves scoped RLS and denies unauthorized callers', verifyCrmArchive);
 const failed = results.filter(result => result.status === 'FAIL');
 const report = { qaProjectRef: actualRef, total: results.length, passed: results.length - failed.length, failed: failed.length, results };
 mkdirSync('release-evidence', { recursive: true }); writeFileSync('release-evidence/security-results.json', JSON.stringify(report, null, 2)); console.log(JSON.stringify(report, null, 2)); if (failed.length) process.exitCode = 1;

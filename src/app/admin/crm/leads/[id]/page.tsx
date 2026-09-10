@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
+import { clientSafeError } from "@/lib/client-error";
 
 const dateInput = (value?: string | null) =>
   value ? String(value).slice(0, 10) : "";
@@ -181,7 +182,7 @@ export default function LeadDetail() {
       await adminRepository.archiveLead(id);
       window.location.assign("/admin/crm");
     } catch (caught: any) {
-      setError(caught.message);
+      setError(clientSafeError(caught, "We couldn't archive the lead. Please try again.", {route: '/admin/crm/leads/[id]', action: 'archive_lead'}));
       setBusy(false);
     }
   };

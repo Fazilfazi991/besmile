@@ -3,6 +3,61 @@ import { assertNoRawDatabaseError, login, navigateAfterLogin, QaRole } from './h
 import { createClient } from '@supabase/supabase-js';
 import { credentials } from './helpers';
 
+for (const role of ['admin', 'general_manager'] as const) {
+  test(`${role} archives a lead through the UI without exposing database errors`, async ({ page }) => {
+    test.setTimeout(90_000);
+    if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe' || new URL(process.env.BSMILE_QA_SUPABASE_URL!).hostname !== 'enylrvmjgbntkrgpqsfe.supabase.co') throw new Error('Archive fixtures require QA');
+    const db = createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, {auth: {persistSession: false, autoRefreshToken: false}});
+    const auth = await db.auth.signInWithPassword(credentials(role));
+    if (auth.error || !auth.data.user) throw new Error('Archive role fixture unavailable');
+    const id = crypto.randomUUID();
+    const marker = `RELEASE_GATE_ARCHIVE_BROWSER_${id}`;
+    const fixture = await db.from('crm_leads').insert({id, full_name: marker, phone: '0000000000', assigned_to: auth.data.user.id, created_by: auth.data.user.id});
+    if (fixture.error) throw fixture.error;
+    try {
+      await login(page, role);
+      await navigateAfterLogin(page, '/admin/crm/leads');
+      const all = page.getByRole('tab', {name: /^All \d+$/});
+      await expect(all).toBeVisible();
+      const before = Number((await all.innerText()).match(/\d+/)![0]);
+      await page.getByRole('searchbox', {name: 'Search leads'}).fill(marker);
+      await page.getByRole('row').filter({hasText: marker}).getByRole('link', {name: 'Open', exact: true}).click();
+      await expect(page.getByRole('heading', {name: marker, exact: true})).toBeVisible();
+      // Exercise the failure path without sending a failing mutation to the DB.
+      const rpc = '**/rest/v1/rpc/archive_crm_lead';
+      await page.route(rpc, route => route.fulfill({status: 403, contentType: 'application/json', body: JSON.stringify({code:'42501',message:'new row violates row-level security policy for table "crm_leads"'})}));
+      page.once('dialog', dialog => dialog.accept());
+      await page.getByRole('button', {name: 'Archive lead', exact: true}).click();
+      await expect(page.getByText("We couldn't archive the lead. Please try again.", {exact: true})).toBeVisible();
+      await assertNoRawDatabaseError(page);
+      const stillLive = await db.from('crm_leads').select('id').eq('id', id).single();
+      expect(stillLive.error).toBeNull();
+      await page.unroute(rpc);
+      page.once('dialog', dialog => dialog.accept());
+      await page.getByRole('button', {name: 'Archive lead', exact: true}).click();
+      await expect(page).toHaveURL(/\/admin\/crm$/);
+      await navigateAfterLogin(page, '/admin/crm/leads');
+      await expect(page.getByRole('tab', {name: `All ${before - 1}`, exact: true})).toBeVisible();
+      await page.getByRole('searchbox', {name: 'Search leads'}).fill(marker);
+      await expect(page.getByRole('row').filter({hasText: marker})).toHaveCount(0);
+      await assertNoRawDatabaseError(page);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await navigateAfterLogin(page, '/admin');
+      await expect(page.getByRole('link').filter({hasText: /Active leads/i}).first()).toBeVisible();
+      await assertNoRawDatabaseError(page);
+    } finally {
+      await page.unroute('**/rest/v1/rpc/archive_crm_lead');
+      const remaining = await db.from('crm_leads').select('id').eq('id', id);
+      if (remaining.error) throw remaining.error;
+      if (remaining.data.length) {
+        const cleanup = await db.rpc('archive_crm_lead', {target_lead: id});
+        if (cleanup.error) throw cleanup.error;
+      }
+      await db.auth.signOut();
+    }
+  });
+}
+
 test('authorized patient upload finalizes and downloads through the application', async ({ page }) => {
   test.setTimeout(90_000);
   if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe') throw new Error('QA only');
