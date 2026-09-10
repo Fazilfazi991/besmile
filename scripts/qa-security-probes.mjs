@@ -36,6 +36,19 @@ async function assertAuthorizedTaskCreation(role) {
 }
 
 await check('QA project identity is non-production', async () => { if (actualRef !== expectedRef) throw new Error('QA project ref mismatch'); });
+for (const role of ['ANONYMOUS', 'EMPLOYEE', 'MANAGER', 'GENERAL_MANAGER', 'ADMIN']) {
+  await check(`${role} cannot directly execute internal psychologist payable helper`, async () => {
+    const db = role === 'ANONYMOUS' ? client() : await signed(role);
+    try {
+      // A nonexistent UUID makes the pre-fix helper return success/null without
+      // touching payroll. Require the specific privilege denial, not any error.
+      const result = await db.rpc('create_psychologist_session_payable', { target_appointment: '00000000-0000-0000-0000-000000000000' });
+      if (result.error?.code !== '42501' || !/permission denied for function create_psychologist_session_payable/i.test(result.error.message)) {
+        throw new Error('Internal payroll helper EXECUTE boundary failed');
+      }
+    } finally { if (role !== 'ANONYMOUS') await db.auth.signOut(); }
+  });
+}
 await check('four distinct authenticated role fixtures', async () => { const identities = []; for (const role of ['ADMIN', 'GENERAL_MANAGER', 'MANAGER', 'EMPLOYEE']) { const db = await signed(role); const { data: { user } } = await db.auth.getUser(); if (!user) throw new Error(`${role} fixture missing`); identities.push(user.id); } if (new Set(identities).size !== 4) throw new Error('Role fixtures must be distinct users'); });
 await check('Manager fixture uses canonical profile and task permissions', async () => { const db = await signed('MANAGER'); const { data: { user } } = await db.auth.getUser(); const profile = await db.from('profiles').select('role,status').eq('id', user?.id).single(); if (profile.error) throw profile.error; if (profile.data.role !== 'staff' || profile.data.status !== 'active') throw new Error('Manager must be an active staff profile'); const permissions = await Promise.all(['tasks.assign', 'tasks.manage'].map(code => db.rpc('has_permission', { permission_code: code }))); if (permissions.some(result => result.error || result.data !== true)) throw new Error('Manager task permission missing'); const admin = await signed('ADMIN'); const reports = await admin.from('profiles').select('id').eq('manager_id', user?.id).limit(1); if (reports.error || !reports.data?.length) throw reports.error || new Error('Manager has no QA direct report'); });
 await check('anonymous task creation denied', async () => mustFail((await client().from('tasks').insert({ title: 'RLS anonymous probe', priority: 'low', status: 'todo' })).error, 'anonymous task insert'));

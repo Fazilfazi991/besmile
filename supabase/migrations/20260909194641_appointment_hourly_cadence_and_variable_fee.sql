@@ -162,7 +162,7 @@ begin
   perform public.psychologist_payable_notify_management(payable);
   return payable.id;
 end $$;
-revoke all on function public.create_psychologist_session_payable(uuid) from public, anon;
-grant execute on function public.create_psychologist_session_payable(uuid) to authenticated, service_role;
+revoke all on function public.create_psychologist_session_payable(uuid) from public, anon, authenticated;
+grant execute on function public.create_psychologist_session_payable(uuid) to service_role;
 
 notify pgrst, 'reload schema';
