@@ -101,10 +101,12 @@ test('Total employees KPI keeps its chart legend inside the mobile card', async 
   await expect(legend.locator('span')).toHaveCount(3);
   const clipped = await legend.evaluate(element => {
     const box = element.getBoundingClientRect();
+    // Font ink can extend beyond its line box without being clipped when overflow is visible.
+    const clipsVertically = getComputedStyle(element).overflowY !== 'visible';
     return [...element.querySelectorAll('small, b')].some(child => {
       const childBox = child.getBoundingClientRect();
       return childBox.top < box.top - 1 || childBox.bottom > box.bottom + 1;
-    }) || element.scrollHeight > element.clientHeight + 1;
+    }) || (clipsVertically && element.scrollHeight > element.clientHeight + 1);
   });
   expect(clipped, 'All legend labels and values must fit without clipping').toBe(false);
   const [cardBox, legendBox] = await Promise.all([card.boundingBox(), legend.boundingBox()]);
