@@ -242,7 +242,7 @@ export function adminRouteRequirement(path: string): PermissionRequirement {
   if (path.startsWith("/admin/access"))
     return anyOf("roles.manage", "permissions.manage");
   if (path.startsWith("/admin/patients"))
-    return anyOf("patients.view", "patients.view_assigned");
+    return anyOf("patients.view", "patients.view_assigned", "patients.view_all");
   if (path.startsWith("/admin/crm/import")) return anyOf("crm.import");
   if (path.startsWith("/admin/crm"))
     return anyOf("crm.manage_all", "crm.view_team", "leads.view", "sales.view");
@@ -303,9 +303,9 @@ export function employeeRouteRequirement(
     );
   if (path.startsWith("/employee/assigned-patients"))
     return anyOf("patients.view_assigned");
-  if (path === "/employee/patients") return anyOf("patients.view");
+  if (path === "/employee/patients") return anyOf("patients.view", "patients.view_all");
   if (path.startsWith("/employee/patients"))
-    return anyOf("patients.view", "patients.view_assigned");
+    return anyOf("patients.view", "patients.view_assigned", "patients.view_all");
   if (path.startsWith("/employee/crm/sales"))
     return anyOf("crm.view_team", "crm.manage_all", "sales.view");
   if (path.startsWith("/employee/crm"))
@@ -631,7 +631,7 @@ export const employeeNavigation: readonly NavigationGroup[] = [
         label: "Clients",
         href: "/employee/patients",
         activeHrefs: ["/admin/patients"],
-        requirement: anyOf("patients.view"),
+        requirement: anyOf("patients.view", "patients.view_all"),
       },
       {
         label: "Assigned Clients",
