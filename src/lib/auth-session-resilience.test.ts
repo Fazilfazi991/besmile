@@ -16,12 +16,12 @@ describe('auth session resilience', () => {
   });
 
   it('does not treat temporary profile lookup errors as sign-out events', () => {
-    expect(middleware).toContain('profileError');
-    expect(middleware).toContain('return response');
-    expect(adminLayout).toContain('profileError');
-    expect(adminLayout).toContain("redirect('/unauthorized')");
-    expect(employeeLayout).toContain('profileError');
-    expect(employeeLayout).toContain("redirect('/unauthorized')");
+    expect(middleware).toContain("'middleware.profile'");
+    expect(middleware).toContain('status: 503');
+    expect(adminLayout).toContain('serverAuthorizationRead');
+    expect(employeeLayout).toContain('serverAuthorizationRead');
+    expect(adminLayout).toContain("if (!profile) redirect('/unauthorized')");
+    expect(employeeLayout).toContain("if (!profile) redirect('/unauthorized')");
     expect(adminLayout).not.toContain("if (!profile || profile.status !== 'active') redirect('/sign-in?inactive=1')");
     expect(employeeLayout).not.toContain("if (!profile || profile.status !== 'active') redirect('/sign-in?inactive=1')");
   });

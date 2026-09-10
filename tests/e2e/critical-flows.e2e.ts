@@ -2,13 +2,14 @@ import { expect, test } from '@playwright/test';
 import { assertNoRawDatabaseError, login, navigateAfterLogin, QaRole } from './helpers';
 import { createClient } from '@supabase/supabase-js';
 import { credentials } from './helpers';
+import { fixtureLogin } from './fixture-auth';
 
 for (const role of ['admin', 'general_manager'] as const) {
   test(`${role} archives a lead through the UI without exposing database errors`, async ({ page }) => {
     test.setTimeout(90_000);
     if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe' || new URL(process.env.BSMILE_QA_SUPABASE_URL!).hostname !== 'enylrvmjgbntkrgpqsfe.supabase.co') throw new Error('Archive fixtures require QA');
     const db = createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, {auth: {persistSession: false, autoRefreshToken: false}});
-    const auth = await db.auth.signInWithPassword(credentials(role));
+    const auth = await fixtureLogin(() => db.auth.signInWithPassword(credentials(role)), role);
     if (auth.error || !auth.data.user) throw new Error('Archive role fixture unavailable');
     const id = crypto.randomUUID();
     const marker = `RELEASE_GATE_ARCHIVE_BROWSER_${id}`;
@@ -69,7 +70,7 @@ test('authorized patient upload finalizes and downloads through the application'
   test.setTimeout(90_000);
   if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe') throw new Error('QA only');
   const db = createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
-  const auth = await db.auth.signInWithPassword(credentials('general_manager'));
+  const auth = await fixtureLogin(() => db.auth.signInWithPassword(credentials('general_manager')), 'general_manager');
   if (auth.error || !auth.data.user) throw new Error('GM fixture unavailable');
   const marker = `D2_BROWSER_${Date.now()}`;
   const patient = await db.from('patients').insert({patient_number:marker,full_name:marker,status:'active',source:'Other',is_demo:true,created_by:auth.data.user.id}).select('id,slug').single();

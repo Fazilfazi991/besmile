@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const output = 'release-evidence';
 mkdirSync(output, { recursive: true });
+writeFileSync(`${output}/fixture-login-retries.jsonl`, '');
 if (existsSync('.env.release-gate.local')) process.loadEnvFile('.env.release-gate.local');
 
 const releaseConfig = JSON.parse(readFileSync('release-gate.config.json', 'utf8'));
@@ -36,6 +37,7 @@ const steps = [
   ['ESLint', 'npm', ['run', 'lint']],
   ['tests', 'npm', ['test', '--', '--reporter=json', '--outputFile=release-evidence/vitest-results.json']],
   ['production build', 'npm', ['run', 'build']],
+  ['QA connectivity/auth preflight', 'node', ['--import', 'tsx', 'scripts/qa-auth-preflight.ts']],
   ['QA database/RLS probes', 'node', ['scripts/qa-security-probes.mjs']],
 ];
 const results = [{
@@ -45,7 +47,7 @@ const results = [{
 }];
 function runStep([name, command, args]) {
   const run = spawnSync(command, args, { shell: process.platform === 'win32', stdio: 'inherit', env: process.env });
-  const status = run.status === 0 ? 'PASS' : 'FAIL';
+  const status = run.status === 0 ? 'PASS' : name === 'QA connectivity/auth preflight' && run.status === 2 ? 'INFRASTRUCTURE BLOCKED' : 'FAIL';
   results.push({ name, status });
   return status === 'PASS';
 }
@@ -89,20 +91,23 @@ try {
 
 const sha = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
 const readJson = file => { try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; } };
-const e2e = readJson(`${output}/playwright-results.json`)?.stats || null;
-const unit = readJson(`${output}/vitest-results.json`);
-const security = readJson(`${output}/security-results.json`);
+const ran = name => results.some(result => result.name === name);
+const e2e = ran('critical browser flows') ? readJson(`${output}/playwright-results.json`)?.stats || null : null;
+const unit = ran('tests') ? readJson(`${output}/vitest-results.json`) : null;
+const security = ran('QA database/RLS probes') ? readJson(`${output}/security-results.json`) : null;
 const expectedSteps = steps.length + 2;
 const verdict = !authorizedCommitAuthor
   ? 'RELEASE GATE FAIL — UNAUTHORIZED COMMIT AUTHOR'
-  : results.length === expectedSteps && results.every(result => result.status === 'PASS')
+  : results.some(result => result.status === 'INFRASTRUCTURE BLOCKED') ? 'RELEASE GATE INFRASTRUCTURE BLOCKED'
+  : results.length === expectedSteps && results.every(result => result.status === 'PASS') && e2e && e2e.unexpected === 0 && e2e.skipped === 0 && e2e.flaky === 0
     ? 'RELEASE GATE PASS'
     : 'RELEASE GATE FAIL';
 const report = {
   generatedAt: new Date().toISOString(), gitSha: sha, qaProjectRef: qaRef || 'MISSING', requiredViewports: ['390x844', '1366x768'], steps: results,
   unitTests: unit ? { total: unit.numTotalTests, passed: unit.numPassedTests, failed: unit.numFailedTests } : null,
   e2e, security: security ? { total: security.total, passed: security.passed, failed: security.failed } : null, verdict,
+  fixtureLoginRetries: readFileSync(`${output}/fixture-login-retries.jsonl`, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)),
 };
 writeFileSync(`${output}/release-gate-report.json`, JSON.stringify(report, null, 2));
 console.log(`\n${verdict}\nEvidence: ${output}/release-gate-report.json`);
-if (verdict.endsWith('FAIL')) process.exitCode = 1;
+if (verdict !== 'RELEASE GATE PASS') process.exitCode = 1;

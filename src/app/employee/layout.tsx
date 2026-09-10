@@ -8,22 +8,19 @@ import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { grantedPermissions } from '@/lib/granted-permissions';
 import { PageBackButton } from '@/components/page-back-button';
+import { serverAuthorizationRead, serverAuthorizationBoundary } from '@/lib/server-authorization-read';
 import '../workspace-density.css';
 
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
-  const { data: { user } } = await db.auth.getUser();
+  const { data: { user } } = await serverAuthorizationRead(() => db.auth.getUser(), 'employee.session', true);
   if (!user) redirect('/sign-in');
-  const { data: profile, error: profileError } = await db.from('profiles').select('full_name, role, designation, status').eq('id', user.id).maybeSingle();
-  if (profileError) {
-    console.warn('Employee layout profile lookup failed', { route: '/employee', userId: user.id, code: profileError.code });
-    redirect('/unauthorized');
-  }
+  const { data: profile } = await serverAuthorizationRead(signal => db.from('profiles').select('full_name, role, designation, status').eq('id', user.id).abortSignal(signal).maybeSingle(), 'employee.profile');
   if (!profile) redirect('/unauthorized');
   if (profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
   if (profile.role === 'super_admin' || isManagementRole(profile.role)) redirect('/admin');
   const name = profile?.full_name || user.email?.split('@')[0] || 'BSmile User';
-  const allowed = await grantedPermissions(db, navigationPermissionCodes);
+  const allowed = await serverAuthorizationBoundary(() => grantedPermissions(db, navigationPermissionCodes));
   const visibleGroups = filterNavigation(navigationForProfile(profile.role), allowed);
 
   return <MobileNavigationProvider><div className="app-shell employee-shell">

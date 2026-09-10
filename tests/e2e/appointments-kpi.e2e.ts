@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { assertNoRawDatabaseError, credentials, login, navigateAfterLogin } from './helpers';
+import { fixtureLogin } from './fixture-auth';
 
 const required = (name: string) => {
   const value = process.env[name];
@@ -12,7 +13,7 @@ async function generalManagerDb() {
   const url = required('BSMILE_QA_SUPABASE_URL');
   if (!url.includes('enylrvmjgbntkrgpqsfe')) throw new Error('Appointment fixture requires QA Supabase');
   const db = createClient(url, required('BSMILE_QA_SUPABASE_ANON_KEY'), { auth: { persistSession: false, autoRefreshToken: false } });
-  const { error } = await db.auth.signInWithPassword(credentials('general_manager'));
+  const { error } = await fixtureLogin(() => db.auth.signInWithPassword(credentials('general_manager')), 'general_manager');
   if (error) throw error;
   return db;
 }

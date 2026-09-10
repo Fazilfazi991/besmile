@@ -12,6 +12,7 @@ function fixture() {
     goto: vi.fn(), getByLabel: vi.fn(() => ({ fill: vi.fn() })),
     getByRole: vi.fn(() => ({ click: vi.fn() })), locator: vi.fn(),
     waitForLoadState: vi.fn(), waitForTimeout: vi.fn(),
+    on: vi.fn(), off: vi.fn(),
   };
 }
 
@@ -43,6 +44,8 @@ describe('release browser login readiness', () => {
 
   it('does not declare login successful if the authenticated shell never appears', async () => {
     assertions.shell.mockRejectedValueOnce(new Error('no shell')).mockRejectedValueOnce(new Error('no shell'));
-    await expect(login(fixture() as never, 'employee')).rejects.toThrow('no shell');
+    const page=fixture();
+    await expect(login(page as never, 'employee')).rejects.toThrow('no shell');
+    expect(page.goto).toHaveBeenCalledTimes(1);
   });
 });

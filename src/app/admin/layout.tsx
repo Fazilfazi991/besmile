@@ -8,20 +8,17 @@ import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { grantedPermissions } from '@/lib/granted-permissions';
 import { PageBackButton } from '@/components/page-back-button';
+import { serverAuthorizationRead, serverAuthorizationBoundary } from '@/lib/server-authorization-read';
 import '../workspace-density.css';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
-  const { data: { user } } = await db.auth.getUser();
+  const { data: { user } } = await serverAuthorizationRead(() => db.auth.getUser(), 'admin.session', true);
   if (!user) redirect('/sign-in');
-  const { data: profile, error: profileError } = await db.from('profiles').select('full_name,email,role,designation,status').eq('id', user.id).maybeSingle();
-  if (profileError) {
-    console.warn('Admin layout profile lookup failed', { route: '/admin', userId: user.id, code: profileError.code });
-    redirect('/unauthorized');
-  }
+  const { data: profile } = await serverAuthorizationRead(signal => db.from('profiles').select('full_name,email,role,designation,status').eq('id', user.id).abortSignal(signal).maybeSingle(), 'admin.profile');
   if (!profile) redirect('/unauthorized');
   if (profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
-  const allowed = await grantedPermissions(db, navigationPermissionCodes);
+  const allowed = await serverAuthorizationBoundary(() => grantedPermissions(db, navigationPermissionCodes));
   if (profile.role !== 'super_admin' && !isManagementRole(profile.role) && !allowed.has('admin.shell')) redirect('/employee/dashboard');
   const isEmployeeShell = profile.role !== 'super_admin' && !isManagementRole(profile.role);
   const visibleGroups = filterNavigation(navigationForProfile(profile.role), allowed);

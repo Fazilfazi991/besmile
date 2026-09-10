@@ -6,6 +6,7 @@ import { MobileNavigationProvider, MobileNavigationTrigger } from '@/components/
 import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { PageBackButton } from '@/components/page-back-button';
+import { serverAuthorizationRead } from '@/lib/server-authorization-read';
 
 const groups = [
   { title: 'CLINICIAN WORKSPACE', links: [{ label: 'My Schedule', href: '/clinician/schedule' }, { label: 'Notifications', href: '/clinician/notifications' }, { label: 'Profile', href: '/clinician/profile' }] },
@@ -13,11 +14,11 @@ const groups = [
 
 export default async function ClinicianLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
-  const { data: { user } } = await db.auth.getUser();
+  const { data: { user } } = await serverAuthorizationRead(() => db.auth.getUser(), 'clinician.session', true);
   if (!user) redirect('/sign-in');
   const [{ data: profile }, { data: clinicianId }] = await Promise.all([
-    db.from('profiles').select('full_name,designation,status,is_employee').eq('id', user.id).maybeSingle(),
-    db.rpc('current_clinician_id'),
+    serverAuthorizationRead(signal => db.from('profiles').select('full_name,designation,status,is_employee').eq('id', user.id).abortSignal(signal).maybeSingle(), 'clinician.profile'),
+    serverAuthorizationRead(signal => db.rpc('current_clinician_id').abortSignal(signal), 'clinician.identity'),
   ]);
   if (!profile || profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
   if (profile.is_employee !== false || !clinicianId) redirect('/unauthorized');
