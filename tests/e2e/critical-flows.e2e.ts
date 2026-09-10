@@ -19,9 +19,15 @@ for (const role of ['admin', 'general_manager'] as const) {
       await navigateAfterLogin(page, '/admin/crm/leads');
       const all = page.getByRole('tab', {name: /^All \d+$/});
       await expect(all).toBeVisible();
+      // The tab exists with a zero count during initial loading. Wait for the
+      // canonical list to finish before comparing the post-archive population.
+      await expect(page.locator('.module-skeleton-row, .module-mobile-skeleton')).toHaveCount(0);
       const before = Number((await all.innerText()).match(/\d+/)![0]);
+      expect(before).toBeGreaterThan(0);
       await page.getByRole('searchbox', {name: 'Search leads'}).fill(marker);
-      await page.getByRole('row').filter({hasText: marker}).getByRole('link', {name: 'Open', exact: true}).click();
+      // Desktop uses a table/Open link; mobile uses a card/Open lead link.
+      // Both must open this exact fixture through the visible UI control.
+      await page.locator(`a[href="/admin/crm/leads/${id}"]:visible`).click();
       await expect(page.getByRole('heading', {name: marker, exact: true})).toBeVisible();
       // Exercise the failure path without sending a failing mutation to the DB.
       const rpc = '**/rest/v1/rpc/archive_crm_lead';
@@ -39,14 +45,15 @@ for (const role of ['admin', 'general_manager'] as const) {
       await navigateAfterLogin(page, '/admin/crm/leads');
       await expect(page.getByRole('tab', {name: `All ${before - 1}`, exact: true})).toBeVisible();
       await page.getByRole('searchbox', {name: 'Search leads'}).fill(marker);
-      await expect(page.getByRole('row').filter({hasText: marker})).toHaveCount(0);
+      await expect(page.locator(`a[href="/admin/crm/leads/${id}"]`)).toHaveCount(0);
       await assertNoRawDatabaseError(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       await navigateAfterLogin(page, '/admin');
       await expect(page.getByRole('link').filter({hasText: /Active leads/i}).first()).toBeVisible();
       await assertNoRawDatabaseError(page);
     } finally {
-      await page.unroute('**/rest/v1/rpc/archive_crm_lead');
+      // The browser context removes route mocks on teardown. Database fixture
+      // cleanup must still run when a failed test has already closed the page.
       const remaining = await db.from('crm_leads').select('id').eq('id', id);
       if (remaining.error) throw remaining.error;
       if (remaining.data.length) {
