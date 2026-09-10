@@ -1,5 +1,51 @@
 import { expect, test } from '@playwright/test';
 import { assertNoRawDatabaseError, login, navigateAfterLogin, QaRole } from './helpers';
+import { createClient } from '@supabase/supabase-js';
+import { credentials } from './helpers';
+
+test('authorized patient upload finalizes and downloads through the application', async ({ page }) => {
+  test.setTimeout(90_000);
+  if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe') throw new Error('QA only');
+  const db = createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
+  const auth = await db.auth.signInWithPassword(credentials('general_manager'));
+  if (auth.error || !auth.data.user) throw new Error('GM fixture unavailable');
+  const marker = `D2_BROWSER_${Date.now()}`;
+  const patient = await db.from('patients').insert({patient_number:marker,full_name:marker,status:'active',source:'Other',is_demo:true,created_by:auth.data.user.id}).select('id,slug').single();
+  if (patient.error) throw patient.error;
+  let documentId: string | undefined;
+  try {
+    await login(page, 'general_manager');
+    const response = await page.request.post(`/api/patients/${patient.data.id}/documents/upload`, { multipart: {
+      documentName:marker, category:'Other', visibility:'general_staff',
+      file:{name:'qa.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jK1sAAAAASUVORK5CYII=','base64')},
+    }});
+    expect(response.status()).toBe(201);
+    documentId = (await response.json()).id;
+    const stored = await db.from('patient_documents').select('storage_key,uploaded_by,checksum').eq('id',documentId!).single();
+    if (stored.error) throw stored.error;
+    expect(stored.data.storage_key).toContain(`patients/${patient.data.id}/documents/${documentId}/`);
+    expect(stored.data.uploaded_by).toBe(auth.data.user.id);
+    expect(stored.data.checksum).toHaveLength(64);
+    await navigateAfterLogin(page, `/admin/patients/${patient.data.slug}`);
+    await page.getByRole('button',{name:'Documents',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Documents',exact:true})).toBeVisible();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button',{name:'Download document',exact:true}).click();
+    const download = await downloadPromise;
+    expect(await download.failure()).toBeNull();
+    expect(download.suggestedFilename()).toBe('qa.png');
+    await assertNoRawDatabaseError(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  } finally {
+    if (documentId) {
+      const result = await db.from('patient_documents').update({status:'archived',updated_by:auth.data.user.id}).eq('id',documentId);
+      if (result.error) throw result.error;
+    }
+    const cleanup = await db.from('patients').update({deleted_at:new Date().toISOString()}).eq('id',patient.data.id);
+    if (cleanup.error) throw cleanup.error;
+    await db.auth.signOut();
+  }
+});
 
 for (const role of ['general_manager', 'employee'] as const) {
   for (const surface of ['meetings', 'calendar'] as const) {

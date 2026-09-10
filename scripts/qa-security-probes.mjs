@@ -128,6 +128,50 @@ await check('canonical meeting lifecycle and employee/anonymous authorization', 
   if (final.error) throw final.error;
   if (final.data.status !== 'cancelled' || final.data.cancellation_reason !== 'Release gate security verification complete' || final.data.agenda !== 'Updated security probe agenda') throw new Error('Meeting edit/cancellation audit was not retained');
 });
+await check('patient document authenticated grants preserve upload RLS boundaries', async () => {
+  const gm = await signed('GENERAL_MANAGER');
+  const admin = await signed('ADMIN');
+  const employee = await signed('EMPLOYEE');
+  const gmUser = (await gm.auth.getUser()).data.user;
+  const employeeUser = (await employee.auth.getUser()).data.user;
+  if (!gmUser || !employeeUser) throw new Error('QA identities missing');
+  const marker = `RELEASE_GATE_PATIENT_DOCUMENT_${Date.now()}`;
+  const patient = await gm.from('patients').insert({patient_number:marker,full_name:marker,status:'active',source:'Other',is_demo:true,created_by:gmUser.id}).select('id').single();
+  if (patient.error) throw patient.error;
+  const payload = uploader => ({patient_id:patient.data.id,document_name:marker,original_filename:'qa.pdf',category:'Other',visibility:'general_staff',mime_type:'application/pdf',file_extension:'pdf',file_size_bytes:1,uploaded_by:uploader,storage_key:`pending-${crypto.randomUUID()}`});
+  let document;
+  try {
+    const permission = await employee.rpc('has_permission',{permission_code:'patient_documents.upload'});
+    if (permission.error || permission.data !== false) throw new Error('Employee fixture must lack upload permission');
+    const unrelated = await employee.rpc('patient_access',{patient:patient.data.id});
+    if (unrelated.error || unrelated.data !== false) throw new Error('Employee must not access the unrelated QA patient');
+    for (const [db, actor] of [[employee,employeeUser.id],[client(),gmUser.id]]) {
+      const denied = await db.from('patient_documents').insert(payload(actor));
+      if (denied.error?.code !== '42501') throw new Error('Unauthorized document INSERT was not denied by access control');
+    }
+    const forged = await gm.from('patient_documents').insert(payload(employeeUser.id));
+    if (forged.error?.code !== '42501') throw new Error('Forged uploader was not denied by RLS');
+    const created = await gm.from('patient_documents').insert(payload(gmUser.id)).select('id,uploaded_by').single();
+    if (created.error) throw created.error;
+    document = created.data;
+    if (document.uploaded_by !== gmUser.id) throw new Error('Uploader identity mismatch');
+    const finalized = await gm.from('patient_documents').update({storage_key:`patients/${patient.data.id}/documents/${document.id}/v1/qa.pdf`,updated_by:gmUser.id}).eq('id',document.id).select('id').single();
+    if (finalized.error) throw finalized.error;
+    const adminRead = await admin.from('patient_documents').select('id').eq('id',document.id).single();
+    if (adminRead.error) throw adminRead.error;
+    const employeeRead = await employee.from('patient_documents').select('id').eq('id',document.id);
+    if (employeeRead.error || employeeRead.data.length) throw new Error('Unrelated employee gained document visibility');
+    const changed = await employee.from('patient_documents').update({document_name:'Unauthorized'}).eq('id',document.id).select('id');
+    if (!changed.error && changed.data.length) throw new Error('Unrelated employee gained UPDATE access');
+  } finally {
+    if (document) {
+      const archived = await gm.from('patient_documents').update({status:'archived',updated_by:gmUser.id}).eq('id',document.id);
+      if (archived.error) throw archived.error;
+    }
+    const removed = await gm.from('patients').update({deleted_at:new Date().toISOString()}).eq('id',patient.data.id);
+    if (removed.error) throw removed.error;
+  }
+});
 const failed = results.filter(result => result.status === 'FAIL');
 const report = { qaProjectRef: actualRef, total: results.length, passed: results.length - failed.length, failed: failed.length, results };
 mkdirSync('release-evidence', { recursive: true }); writeFileSync('release-evidence/security-results.json', JSON.stringify(report, null, 2)); console.log(JSON.stringify(report, null, 2)); if (failed.length) process.exitCode = 1;
