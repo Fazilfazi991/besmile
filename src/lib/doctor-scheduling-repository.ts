@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { generateAvailableSlots, validateAvailabilityRanges, validateDoctorPayload, type AppointmentStatus, type ConsultationType } from './doctor-scheduling-rules';
+import { generateAvailableSlots, validateAppointmentFee, validateAvailabilityRanges, validateDoctorPayload, type AppointmentStatus, type ConsultationType } from './doctor-scheduling-rules';
 import { grantedPermissions } from './granted-permissions';
 
 const db = () => {
@@ -199,26 +199,32 @@ export const doctorSchedulingRepository = {
     });
   },
 
-  async createAppointment(payload: { patientId: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; remarks?: string }) {
+  async createAppointment(payload: { patientId: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; appointmentFee: number; remarks?: string }) {
+    const feeError = validateAppointmentFee(payload.appointmentFee);
+    if (feeError) throw new Error(feeError);
     const { data, error } = await db().rpc('create_doctor_appointment', {
       target_patient: payload.patientId,
       target_doctor: payload.doctorId,
       appointment_start: payload.startAt,
       appointment_end: payload.endAt,
       appointment_consultation_type: payload.consultationType,
+      appointment_fee: payload.appointmentFee,
       appointment_remarks: payload.remarks || null,
     });
     if (error) throw error;
     return data;
   },
 
-  async updateAppointment(payload: { id: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; status: AppointmentStatus; remarks?: string }) {
+  async updateAppointment(payload: { id: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; status: AppointmentStatus; appointmentFee: number; remarks?: string }) {
+    const feeError = validateAppointmentFee(payload.appointmentFee);
+    if (feeError) throw new Error(feeError);
     const { data, error } = await db().rpc('update_doctor_appointment', {
       target_appointment: payload.id,
       target_doctor: payload.doctorId,
       appointment_start: payload.startAt,
       appointment_end: payload.endAt,
       appointment_consultation_type: payload.consultationType,
+      appointment_fee: payload.appointmentFee,
       next_status: payload.status,
       appointment_remarks: payload.remarks || null,
     });

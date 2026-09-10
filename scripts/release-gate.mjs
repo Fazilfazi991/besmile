@@ -77,7 +77,7 @@ try {
         appServer = spawn('npm', ['start', '--', '-p', port], { shell: process.platform === 'win32', detached: process.platform === 'win32', windowsHide: true, stdio: 'inherit', env: process.env });
         await waitForServer(process.env.BSMILE_QA_BASE_URL);
       }
-      runStep(['critical browser flows', 'npx', ['playwright', 'test', 'tests/e2e/critical-flows.e2e.ts']]);
+      runStep(['critical browser flows', 'npx', ['playwright', 'test', 'tests/e2e/critical-flows.e2e.ts', 'tests/e2e/appointments-kpi.e2e.ts']]);
     }
   }
 } finally {

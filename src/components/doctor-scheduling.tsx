@@ -18,8 +18,8 @@ const dateKey = (value: Date) => {
   return `${part('year')}-${part('month')}-${part('day')}`;
 };
 const addDays = (value: Date, daysToAdd: number) => { const next = new Date(value); next.setDate(next.getDate() + daysToAdd); return next; };
-const fmtDate = (value: string | Date) => new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
-const fmtTime = (value: string | Date) => new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(new Date(value));
+const fmtDate = (value: string | Date) => new Intl.DateTimeFormat('en', { timeZone: BUSINESS_TIME_ZONE, day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
+const fmtTime = (value: string | Date) => new Intl.DateTimeFormat('en', { timeZone: BUSINESS_TIME_ZONE, hour: 'numeric', minute: '2-digit' }).format(new Date(value));
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const can = (permissions: Record<string, boolean>, ...codes: string[]) => codes.some(code => permissions[code]);
 const psychologistFee = (amount: unknown) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(amount));
@@ -28,7 +28,6 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const [profile, setProfile] = useState<any>();
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [doctors, setDoctors] = useState<any[]>([]);
-  const [paymentRates, setPaymentRates] = useState<Record<string, number>>({});
   const [managedPayoutRates, setManagedPayoutRates] = useState<Record<string, number>>({});
   const [patients, setPatients] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -45,7 +44,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const [availability, setAvailability] = useState<Record<number, { start_time: string; end_time: string }[]>>({});
   const [doctorFormErrors, setDoctorFormErrors] = useState<Record<string, string>>({});
   const [blockForm, setBlockForm] = useState({ doctor_id: '', blocked_date: dateKey(new Date()), start_time: '', end_time: '', reason: '' });
-  const [appointmentForm, setAppointmentForm] = useState({ patient_id: initialPatientId || '', doctor_id: '', date: dateKey(new Date()), slot: '', consultation_type: 'in_person', remarks: '' });
+  const [appointmentForm, setAppointmentForm] = useState({ patient_id: initialPatientId || '', doctor_id: '', date: dateKey(new Date()), slot: '', consultation_type: 'in_person', appointment_fee: '', remarks: '' });
   const [slots, setSlots] = useState<any[]>([]);
   const [reschedule, setReschedule] = useState<any>();
   const [notice, setNotice] = useState('');
@@ -67,10 +66,6 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       ]);
       setProfile(me);
       setPermissions(perms);
-      if (can(perms, 'doctor_scheduling.create_appointments', 'appointments.create')) {
-        const rates = await doctorSchedulingRepository.psychologistPaymentRates();
-        setPaymentRates(Object.fromEntries(rates.map((rate: any) => [rate.doctor_id, Number(rate.psychologist_fee)])));
-      } else setPaymentRates({});
       if (perms['psychologist_payout_settings.manage']) {
         const payoutSettings = await doctorSchedulingRepository.managedPsychologistPayoutSettings();
         setManagedPayoutRates(Object.fromEntries(payoutSettings.map((setting: any) => [setting.doctor_id, Number(setting.default_session_payout)])));
@@ -124,7 +119,6 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const filteredAppointments = useMemo(() => appointments.filter(item => (!doctorFilter || item.doctor_id === doctorFilter) && (!patientFilter || item.patient_id === patientFilter) && (!statusFilter || item.status === statusFilter)), [appointments, doctorFilter, patientFilter, statusFilter]);
   const visibleDays = useMemo(() => daysForView(cursor, view), [cursor, view]);
   const currentDoctor = doctors.find(item => item.id === appointmentForm.doctor_id);
-  const currentPsychologistFee = currentDoctor?.clinician_type === 'outsourced' ? paymentRates[currentDoctor.id] : undefined;
 
   const editDoctor = (doctor: any) => {
     setDoctorForm({ id: doctor.id, doctor_name: doctor.doctor_name, specialization: doctor.specialization, qualification: doctor.qualification, phone: doctor.phone, email: doctor.email || '', consultation_duration_minutes: doctor.consultation_duration_minutes, status: doctor.status, notes: doctor.notes || '', clinician_type: doctor.clinician_type || 'outsourced', profile_id: doctor.profile_id || null, psychologist_session_payout: managedPayoutRates[doctor.id] ?? '' });
@@ -239,11 +233,11 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         await doctorSchedulingRepository.rescheduleAppointment(reschedule.id, slot.startAt, slot.endAt, appointmentForm.remarks);
         setNotice('Appointment rescheduled.');
       } else {
-        await doctorSchedulingRepository.createAppointment({ patientId: appointmentForm.patient_id, doctorId: appointmentForm.doctor_id, startAt: slot.startAt, endAt: slot.endAt, consultationType: appointmentForm.consultation_type as any, remarks: appointmentForm.remarks });
+        await doctorSchedulingRepository.createAppointment({ patientId: appointmentForm.patient_id, doctorId: appointmentForm.doctor_id, startAt: slot.startAt, endAt: slot.endAt, consultationType: appointmentForm.consultation_type as any, appointmentFee: Number(appointmentForm.appointment_fee), remarks: appointmentForm.remarks });
         setNotice('Appointment scheduled.');
       }
       setReschedule(null);
-      setAppointmentForm({ patient_id: initialPatientId || '', doctor_id: '', date: dateKey(new Date()), slot: '', consultation_type: 'in_person', remarks: '' });
+      setAppointmentForm({ patient_id: initialPatientId || '', doctor_id: '', date: dateKey(new Date()), slot: '', consultation_type: 'in_person', appointment_fee: '', remarks: '' });
       await load();
     } catch (caught: any) {
       setError(caught.message || 'Unable to save appointment.');
@@ -280,7 +274,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
 
   const startReschedule = (appointment: any) => {
     setReschedule(appointment);
-    setAppointmentForm({ patient_id: appointment.patient_id, doctor_id: appointment.doctor_id, date: dateKey(new Date(appointment.start_at)), slot: '', consultation_type: appointment.consultation_type, remarks: appointment.remarks || '' });
+    setAppointmentForm({ patient_id: appointment.patient_id, doctor_id: appointment.doctor_id, date: dateKey(new Date(appointment.start_at)), slot: '', consultation_type: appointment.consultation_type, appointment_fee: appointment.psychologist_fee_snapshot == null ? '' : String(appointment.psychologist_fee_snapshot), remarks: appointment.remarks || '' });
     setTab('Appointments');
     setSelected(undefined);
   };
@@ -321,7 +315,8 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         {canCreate || reschedule ? <form className="appointment-form" onSubmit={submitAppointment}>
           <select className="input" required value={appointmentForm.patient_id} disabled={!!reschedule} onChange={e => setAppointmentForm({ ...appointmentForm, patient_id: e.target.value })}><option value="">Select client</option>{patients.map(patient => <option value={patient.id} key={patient.id}>{patient.full_name} {patient.patient_number ? `- ${patient.patient_number}` : ''}</option>)}</select>
           <select className="input" required value={appointmentForm.doctor_id} disabled={!!reschedule} onChange={e => setAppointmentForm({ ...appointmentForm, doctor_id: e.target.value, slot: '' })}><option value="">Select psychologist</option>{doctors.filter(doctor => doctor.status === 'active' || doctor.id === appointmentForm.doctor_id).map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.doctor_name} - {doctor.specialization}</option>)}</select>
-          {currentDoctor?.clinician_type === 'outsourced' && <p className="text-sm text-slate-600"><b>Psychologist fee</b> {currentPsychologistFee ? psychologistFee(currentPsychologistFee) : 'Payment rate needs configuration before this appointment can be scheduled.'}</p>}
+          {!reschedule && <label>Appointment Fee (INR)<input className="input" required type="number" min="0" step="0.01" value={appointmentForm.appointment_fee} onChange={e => setAppointmentForm({ ...appointmentForm, appointment_fee: e.target.value })} /></label>}
+          {reschedule && reschedule.psychologist_fee_snapshot != null && <p className="text-sm text-slate-600"><b>Appointment Fee</b> {psychologistFee(reschedule.psychologist_fee_snapshot)}</p>}
           <input className="input" required type="date" value={appointmentForm.date} onChange={e => setAppointmentForm({ ...appointmentForm, date: e.target.value, slot: '' })} />
           <select className="input" value={appointmentForm.consultation_type} onChange={e => setAppointmentForm({ ...appointmentForm, consultation_type: e.target.value })}>{consultationTypes.map(type => <option value={type} key={type}>{label(type)}</option>)}</select>
           <div className="slot-picker">{currentDoctor ? slots.length ? slots.map(slot => <button type="button" className={appointmentForm.slot === slot.startAt ? 'active' : ''} onClick={() => setAppointmentForm({ ...appointmentForm, slot: slot.startAt })} key={slot.startAt}>{slot.label}</button>) : <p>No available slots for this psychologist and date.</p> : <p>Select a psychologist to view slots.</p>}</div>
@@ -342,13 +337,12 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
 export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/admin/doctor-scheduling' }: { patientId: string; scheduleBasePath?: string }) {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
-  const [paymentRates, setPaymentRates] = useState<Record<string, number>>({});
   const [allowed, setAllowed] = useState(false);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [formOpen, setFormOpen] = useState(false);
   const [mode, setMode] = useState<'create' | 'edit' | 'reschedule'>('create');
   const [editing, setEditing] = useState<any>();
-  const [form, setForm] = useState({ doctor_id: '', date: dateKey(new Date()), slot: '', consultation_type: 'in_person', status: 'scheduled', remarks: '' });
+  const [form, setForm] = useState({ doctor_id: '', date: dateKey(new Date()), slot: '', consultation_type: 'in_person', status: 'scheduled', appointment_fee: '', remarks: '' });
   const [slots, setSlots] = useState<any[]>([]);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -368,10 +362,6 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
         ]);
         setAppointments(appointmentRows);
         setDoctors(doctorRows);
-        if (can(nextPermissions, 'doctor_scheduling.create_appointments', 'appointments.create')) {
-          const rates = await doctorSchedulingRepository.psychologistPaymentRates();
-          setPaymentRates(Object.fromEntries(rates.map((rate: any) => [rate.doctor_id, Number(rate.psychologist_fee)])));
-        } else setPaymentRates({});
       }
     } catch (caught: any) {
       setError(caught.message || 'Unable to load appointments.');
@@ -406,6 +396,7 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
       slot: appointment?.start_at ? new Date(appointment.start_at).toISOString() : '',
       consultation_type: appointment?.consultation_type || 'in_person',
       status: appointment?.status || 'scheduled',
+      appointment_fee: appointment?.psychologist_fee_snapshot == null ? '' : String(appointment.psychologist_fee_snapshot),
       remarks: appointment?.remarks || '',
     });
     setError('');
@@ -420,14 +411,14 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
     setSaving('form'); setError(''); setNotice('');
     try {
       if (mode === 'create') {
-        const created = await doctorSchedulingRepository.createAppointment({ patientId, doctorId: form.doctor_id, startAt: slot.startAt, endAt: slot.endAt, consultationType: form.consultation_type as any, remarks: form.remarks });
+        const created = await doctorSchedulingRepository.createAppointment({ patientId, doctorId: form.doctor_id, startAt: slot.startAt, endAt: slot.endAt, consultationType: form.consultation_type as any, appointmentFee: Number(form.appointment_fee), remarks: form.remarks });
         if (form.status !== 'scheduled') await doctorSchedulingRepository.setAppointmentStatus(created, form.status as AppointmentStatus, form.remarks);
         setNotice('Appointment scheduled.');
       } else if (mode === 'reschedule') {
         await doctorSchedulingRepository.rescheduleAppointment(editing.id, slot.startAt, slot.endAt, form.remarks);
         setNotice('Appointment rescheduled.');
       } else {
-        await doctorSchedulingRepository.updateAppointment({ id: editing.id, doctorId: form.doctor_id, startAt: slot.startAt, endAt: slot.endAt, consultationType: form.consultation_type as any, status: form.status as AppointmentStatus, remarks: form.remarks });
+        await doctorSchedulingRepository.updateAppointment({ id: editing.id, doctorId: form.doctor_id, startAt: slot.startAt, endAt: slot.endAt, consultationType: form.consultation_type as any, status: form.status as AppointmentStatus, appointmentFee: Number(form.appointment_fee), remarks: form.remarks });
         setNotice('Appointment updated.');
       }
       setFormOpen(false);
@@ -478,7 +469,6 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
   const upcoming = appointments.filter(item => new Date(item.start_at) >= new Date() && !['cancelled', 'completed', 'no_show'].includes(item.status)).sort((a, b) => new Date(a.start_at).valueOf() - new Date(b.start_at).valueOf());
   const previous = appointments.filter(item => new Date(item.start_at) < new Date() || ['cancelled', 'completed', 'no_show'].includes(item.status)).sort((a, b) => new Date(b.start_at).valueOf() - new Date(a.start_at).valueOf());
   const selectedDoctor = doctors.find(doctor => doctor.id === form.doctor_id);
-  const selectedPsychologistFee = selectedDoctor?.clinician_type === 'outsourced' ? paymentRates[selectedDoctor.id] : undefined;
 
   return <div className="patient-appointments space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">Appointments</h2>{canCreate && <button className="btn btn-primary" type="button" onClick={() => openForm('create')}>Schedule Appointment</button>}</div>
@@ -489,7 +479,8 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
         <header><div><h3>{mode === 'create' ? 'Schedule Appointment' : mode === 'edit' ? 'Edit Appointment' : 'Reschedule Appointment'}</h3><p>Client is preselected from this profile.</p></div><button type="button" onClick={() => setFormOpen(false)}>Close</button></header>
         <label>Client<input className="input" value="Current client" readOnly /></label>
         <label>Psychologist<select className="input" required value={form.doctor_id} onChange={event => setForm({ ...form, doctor_id: event.target.value, slot: '' })}><option value="">Select psychologist</option>{doctors.filter(doctor => doctor.status === 'active' || doctor.id === form.doctor_id).map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.doctor_name} - {doctor.specialization}</option>)}</select></label>
-        {selectedDoctor?.clinician_type === 'outsourced' && <p className="text-sm text-slate-600"><b>Psychologist fee</b> {selectedPsychologistFee ? psychologistFee(selectedPsychologistFee) : 'Payment rate needs configuration before this appointment can be scheduled.'}</p>}
+        {mode !== 'reschedule' && <label>Appointment Fee (INR)<input className="input" required disabled={mode === 'edit' && editing?.status === 'completed'} type="number" min="0" step="0.01" value={form.appointment_fee} onChange={event => setForm({ ...form, appointment_fee: event.target.value })} /></label>}
+        {mode === 'reschedule' && editing?.psychologist_fee_snapshot != null && <p className="text-sm text-slate-600"><b>Appointment Fee</b> {psychologistFee(editing.psychologist_fee_snapshot)}</p>}
         <label>Appointment date<input className="input" required type="date" value={form.date} onChange={event => setForm({ ...form, date: event.target.value, slot: '' })} /></label>
         <label>Consultation type<select className="input" value={form.consultation_type} onChange={event => setForm({ ...form, consultation_type: event.target.value })}>{consultationTypes.map(type => <option value={type} key={type}>{label(type)}</option>)}</select></label>
         <label>Status<select className="input" value={form.status} disabled={mode === 'reschedule'} onChange={event => setForm({ ...form, status: event.target.value })}>{appointmentStatuses.map(status => <option value={status} key={status}>{statusLabels[status]}</option>)}</select></label>
@@ -505,7 +496,7 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
 }
 
 function AppointmentMiniList({ title, rows, actions }: { title: string; rows: any[]; actions?: any }) {
-  return <div className="card divide-y"><h3 className="p-4 text-sm font-bold">{title}</h3>{rows.length ? rows.map(item => <div className="patient-appointment-card p-4 text-sm" key={item.id}><div><b>{fmtDate(item.start_at)}</b><p>{fmtTime(item.start_at)} to {fmtTime(item.end_at)} - {item.doctor?.doctor_name || 'Doctor'}</p><small>{item.doctor?.specialization || 'Specialization'} - {label(item.consultation_type)}</small>{item.remarks && <small>{item.remarks}</small>}</div><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge>{actions && <div className="patient-appointment-actions">{actions.canUpdate && <button type="button" onClick={() => actions.openForm('edit', item)} disabled={actions.saving === item.id}>Edit</button>}{actions.canReschedule && <button type="button" onClick={() => actions.openForm('reschedule', item)} disabled={actions.saving === item.id}>Reschedule</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'confirmed')} disabled={actions.saving === item.id}>Confirm</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'completed')} disabled={actions.saving === item.id}>Complete</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'no_show')} disabled={actions.saving === item.id}>No Show</button>}{actions.canCancel && <button type="button" onClick={() => actions.changeStatus(item, 'cancelled')} disabled={actions.saving === item.id}>Cancel</button>}{actions.canDelete && <button type="button" className="danger" onClick={() => actions.deleteAppointment(item)} disabled={actions.saving === item.id}>Delete</button>}</div>}</div>) : <p className="p-4 text-sm text-slate-500">No appointments.</p>}</div>;
+  return <div className="card divide-y"><h3 className="p-4 text-sm font-bold">{title}</h3>{rows.length ? rows.map(item => <div className="patient-appointment-card p-4 text-sm" key={item.id}><div><b>{fmtDate(item.start_at)}</b><p>{fmtTime(item.start_at)} to {fmtTime(item.end_at)} - {item.doctor?.doctor_name || 'Doctor'}</p><small>{item.doctor?.specialization || 'Specialization'} - {label(item.consultation_type)}</small>{item.psychologist_fee_snapshot != null && <small>Appointment Fee: {psychologistFee(item.psychologist_fee_snapshot)}</small>}{item.remarks && <small>{item.remarks}</small>}</div><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge>{actions && <div className="patient-appointment-actions">{actions.canUpdate && <button type="button" onClick={() => actions.openForm('edit', item)} disabled={actions.saving === item.id}>Edit</button>}{actions.canReschedule && <button type="button" onClick={() => actions.openForm('reschedule', item)} disabled={actions.saving === item.id}>Reschedule</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'confirmed')} disabled={actions.saving === item.id}>Confirm</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'completed')} disabled={actions.saving === item.id}>Complete</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'no_show')} disabled={actions.saving === item.id}>No Show</button>}{actions.canCancel && <button type="button" onClick={() => actions.changeStatus(item, 'cancelled')} disabled={actions.saving === item.id}>Cancel</button>}{actions.canDelete && <button type="button" className="danger" onClick={() => actions.deleteAppointment(item)} disabled={actions.saving === item.id}>Delete</button>}</div>}</div>) : <p className="p-4 text-sm text-slate-500">No appointments.</p>}</div>;
 }
 
 function DoctorFieldError({ errors, name }: { errors: Record<string, string>; name: string }) {
@@ -549,7 +540,7 @@ function DoctorEditor({ form, availability, errors, saving, readOnlyIdentity, ca
       <label>Consultation duration (minutes)<input {...errorProps('consultation_duration_minutes')} disabled={readOnlyIdentity} type="number" min="5" max="240" value={form.consultation_duration_minutes} onChange={event => field('consultation_duration_minutes', Number(event.target.value))} /><DoctorFieldError errors={errors} name="consultation_duration_minutes" /></label>
       <label>Status<select {...errorProps('status')} disabled={readOnlyIdentity} value={form.status} onChange={event => field('status', event.target.value)}><option value="active">Active</option><option value="unavailable">Unavailable</option></select><DoctorFieldError errors={errors} name="status" /></label>
       <label>Short notes<textarea {...errorProps('notes')} disabled={readOnlyIdentity} value={form.notes || ''} onChange={event => field('notes', event.target.value)} /><DoctorFieldError errors={errors} name="notes" /></label>
-      {canManagePayoutSettings && form.clinician_type === 'outsourced' && <label>Psychologist Session Payout<input {...errorProps('psychologist_session_payout')} type="number" min="0.01" step="0.01" value={form.psychologist_session_payout ?? ''} onChange={event => field('psychologist_session_payout', event.target.value)} /><small>INR per completed session. This rate is snapshotted on new appointments.</small><DoctorFieldError errors={errors} name="psychologist_session_payout" /></label>}
+      {canManagePayoutSettings && form.clinician_type === 'outsourced' && <label>Psychologist Session Payout<input {...errorProps('psychologist_session_payout')} type="number" min="0.01" step="0.01" value={form.psychologist_session_payout ?? ''} onChange={event => field('psychologist_session_payout', event.target.value)} /><small>Default INR payout reference. The scheduler enters each appointment fee separately.</small><DoctorFieldError errors={errors} name="psychologist_session_payout" /></label>}
       {canManageAvailability && <section className={`availability-editor${errors?.availability ? ' availability-error' : ''}`} aria-describedby={errors?.availability ? 'doctor-availability-error' : undefined}>
         <h3>Weekly availability</h3>{errors?.availability && <small className="field-error" id="doctor-availability-error">{errors.availability}</small>}
         {days.map((day, index) => <div key={day}><b>{day}</b><span>{(availability[index] || []).map((range: any, rangeIndex: number) => {
@@ -579,7 +570,7 @@ function AppointmentGroups({ appointments, onOpen }: { appointments: any[]; onOp
 }
 
 function AppointmentPanel({ appointment, canUpdate, canCancel, canSubmitRecord, saving, onClose, onStatus, onSubmitRecord, onReschedule }: { appointment: any; canUpdate: boolean; canCancel: boolean; canSubmitRecord: boolean; saving: boolean; onClose: () => void; onStatus: (status: AppointmentStatus) => void; onSubmitRecord: () => void; onReschedule: () => void }) {
-  return <div className="doctor-panel-backdrop"><aside className="doctor-panel"><header><div><h2>{appointment.patient?.full_name || 'Client'}</h2><p>{appointment.doctor?.doctor_name || 'Psychologist'} - {fmtDate(appointment.start_at)}</p></div><button type="button" onClick={onClose}>Close</button></header><dl><div><dt>Time</dt><dd>{fmtTime(appointment.start_at)} to {fmtTime(appointment.end_at)}</dd></div><div><dt>Consultation</dt><dd>{label(appointment.consultation_type)}</dd></div><div><dt>Status</dt><dd><EmployeeStatusBadge tone={statusTones[appointment.status as AppointmentStatus]}>{statusLabels[appointment.status as AppointmentStatus]}</EmployeeStatusBadge></dd></div><div><dt>Remarks</dt><dd>{appointment.remarks || '-'}</dd></div></dl><div className="panel-actions">{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('confirmed')}>Confirm</button>}{canUpdate && <button disabled={saving} type="button" onClick={onReschedule}>Reschedule</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('completed')}>Completed</button>}{canSubmitRecord && <button disabled={saving} type="button" onClick={onSubmitRecord}>Submit session record</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('no_show')}>No Show</button>}{canCancel && <button disabled={saving} type="button" className="danger" onClick={() => onStatus('cancelled')}>Cancel</button>}</div></aside></div>;
+  return <div className="doctor-panel-backdrop"><aside className="doctor-panel"><header><div><h2>{appointment.patient?.full_name || 'Client'}</h2><p>{appointment.doctor?.doctor_name || 'Psychologist'} - {fmtDate(appointment.start_at)}</p></div><button type="button" onClick={onClose}>Close</button></header><dl><div><dt>Time</dt><dd>{fmtTime(appointment.start_at)} to {fmtTime(appointment.end_at)}</dd></div><div><dt>Consultation</dt><dd>{label(appointment.consultation_type)}</dd></div><div><dt>Appointment Fee</dt><dd>{appointment.psychologist_fee_snapshot == null ? '-' : psychologistFee(appointment.psychologist_fee_snapshot)}</dd></div><div><dt>Status</dt><dd><EmployeeStatusBadge tone={statusTones[appointment.status as AppointmentStatus]}>{statusLabels[appointment.status as AppointmentStatus]}</EmployeeStatusBadge></dd></div><div><dt>Remarks</dt><dd>{appointment.remarks || '-'}</dd></div></dl><div className="panel-actions">{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('confirmed')}>Confirm</button>}{canUpdate && <button disabled={saving} type="button" onClick={onReschedule}>Reschedule</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('completed')}>Completed</button>}{canSubmitRecord && <button disabled={saving} type="button" onClick={onSubmitRecord}>Submit session record</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('no_show')}>No Show</button>}{canCancel && <button disabled={saving} type="button" className="danger" onClick={() => onStatus('cancelled')}>Cancel</button>}</div></aside></div>;
 }
 
 function daysForView(cursor: string, view: 'day' | 'week' | 'month') {

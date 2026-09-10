@@ -6,11 +6,10 @@ const scheduling = readFileSync(new URL('../../src/components/doctor-scheduling.
 const payments = readFileSync(new URL('../../src/components/psychologist-session-payables.tsx', import.meta.url), 'utf8');
 
 describe('appointment psychologist payable lifecycle', () => {
-  it('snapshots the configured outsourced fee when booking and exposes it in both appointment forms', () => {
+  it('snapshots the scheduler-entered appointment fee and exposes it in appointment forms and details', () => {
     expect(migration).toContain('psychologist_fee_snapshot numeric(14,2)');
-    expect(migration).toContain('configured_fee');
     expect(migration).toContain('appointment_psychologist_payment_rates()');
-    expect(scheduling.match(/Psychologist fee/g)?.length).toBe(2);
+    expect(scheduling.match(/Appointment Fee/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
   it('creates no payable on booking and creates one only after an outsourced appointment completes', () => {

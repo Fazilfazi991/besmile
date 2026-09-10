@@ -1,3 +1,5 @@
+import { BUSINESS_TIME_ZONE } from './business-time';
+
 export const appointmentStatuses = ['scheduled', 'confirmed', 'completed', 'cancelled', 'rescheduled', 'no_show'] as const;
 export type AppointmentStatus = typeof appointmentStatuses[number];
 export const consultationTypes = ['in_person', 'online'] as const;
@@ -50,10 +52,18 @@ export function dateKey(value: Date) {
   return value.toISOString().slice(0, 10);
 }
 
-function localDateTime(date: string, minutes: number) {
-  const hour = String(Math.floor(minutes / 60)).padStart(2, '0');
-  const minute = String(minutes % 60).padStart(2, '0');
-  return new Date(`${date}T${hour}:${minute}:00`);
+function businessLocalDateTime(date: string, minutes: number) {
+  const [year, month, day] = date.split('-').map(Number);
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  const guess = Date.UTC(year, month - 1, day, hour, minute);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(guess));
+  const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(item => item.type === type)?.value || 0);
+  const representedAsUtc = Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second'));
+  return new Date(guess - (representedAsUtc - guess));
 }
 
 function overlaps(start: Date, end: Date, otherStart: Date, otherEnd: Date) {
@@ -63,31 +73,41 @@ function overlaps(start: Date, end: Date, otherStart: Date, otherEnd: Date) {
 export function generateAvailableSlots(input: {
   date: string;
   durationMinutes: number;
+  cadenceMinutes?: number;
   availability: AvailabilityRange[];
   blockedPeriods: BlockedPeriod[];
   appointments: AppointmentWindow[];
   now?: Date;
   ignoreAppointmentId?: string;
 }) {
-  const day = new Date(`${input.date}T00:00:00`).getDay();
+  const day = new Date(`${input.date}T00:00:00Z`).getUTCDay();
   const now = input.now || new Date();
+  const cadenceMinutes = input.cadenceMinutes ?? 60;
   const blocked = input.blockedPeriods.filter(period => period.blocked_date === input.date);
   if (blocked.some(period => !period.start_time || !period.end_time)) return [];
   const booked = input.appointments.filter(item => item.id !== input.ignoreAppointmentId && item.status !== 'cancelled');
   const slots: { startAt: string; endAt: string; label: string }[] = [];
 
   for (const range of input.availability.filter(item => item.day_of_week === day)) {
-    for (let minute = minutesOfDay(range.start_time); minute + input.durationMinutes <= minutesOfDay(range.end_time); minute += input.durationMinutes) {
-      const start = localDateTime(input.date, minute);
-      const end = localDateTime(input.date, minute + input.durationMinutes);
+    for (let minute = minutesOfDay(range.start_time); minute + input.durationMinutes <= minutesOfDay(range.end_time); minute += cadenceMinutes) {
+      const start = businessLocalDateTime(input.date, minute);
+      const end = businessLocalDateTime(input.date, minute + input.durationMinutes);
       if (start <= now) continue;
-      if (blocked.some(period => overlaps(start, end, localDateTime(input.date, minutesOfDay(period.start_time || '00:00')), localDateTime(input.date, minutesOfDay(period.end_time || '23:59'))))) continue;
+      if (blocked.some(period => overlaps(start, end, businessLocalDateTime(input.date, minutesOfDay(period.start_time || '00:00')), businessLocalDateTime(input.date, minutesOfDay(period.end_time || '23:59'))))) continue;
       if (booked.some(appointment => overlaps(start, end, new Date(appointment.start_at), new Date(appointment.end_at)))) continue;
-      slots.push({ startAt: start.toISOString(), endAt: end.toISOString(), label: start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) });
+      slots.push({ startAt: start.toISOString(), endAt: end.toISOString(), label: start.toLocaleTimeString('en-IN', { timeZone: BUSINESS_TIME_ZONE, hour: 'numeric', minute: '2-digit' }) });
     }
   }
 
   return slots;
+}
+
+export function validateAppointmentFee(value: unknown) {
+  if (value === '' || value === null || value === undefined) return 'Appointment fee is required.';
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) return 'Appointment fee must be a valid non-negative amount.';
+  if (Math.round(amount * 100) !== amount * 100) return 'Appointment fee can have at most two decimal places.';
+  return null;
 }
 
 export function validateDoctorPayload(payload: { doctor_name: string; specialization: string; qualification: string; phone: string; email?: string | null; consultation_duration_minutes: number; notes?: string | null }) {

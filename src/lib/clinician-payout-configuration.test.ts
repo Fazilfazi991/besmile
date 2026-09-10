@@ -34,11 +34,12 @@ describe('clinician payout configuration', () => {
     expect(migration).toContain('set_psychologist_payout_setting');
   });
 
-  it('shows the authorized Clinicians editor and keeps booking fees derived by the appointment RPC', () => {
+  it('shows the authorized Clinicians editor while keeping per-appointment fee entry separate', () => {
     expect(repository).toContain("'psychologist_payout_settings.manage'");
     expect(repository).toContain("rpc('set_psychologist_payout_setting'");
     expect(scheduling).toContain('Psychologist Session Payout');
-    expect(scheduling).toContain('This rate is snapshotted on new appointments.');
-    expect(scheduling).toContain('psychologistPaymentRates()');
+    expect(scheduling).toContain('The scheduler enters each appointment fee separately.');
+    expect(scheduling).toContain('Appointment Fee (INR)');
+    expect(scheduling).not.toContain('doctorSchedulingRepository.psychologistPaymentRates()');
   });
 });

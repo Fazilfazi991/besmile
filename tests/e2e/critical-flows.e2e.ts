@@ -107,7 +107,18 @@ for (const [route, heading] of [['/admin/leaves', /leave/i], ['/admin/attendance
 }
 test('management loads Teams', async ({ page }) => { await login(page, 'general_manager'); await page.goto('/admin/chat'); await expect(page.getByRole('textbox', { name: /type a message/i })).toBeVisible({ timeout: 30_000 }); await expect(page.getByRole('button', { name: /record voice message/i })).toBeVisible(); await assertNoRawDatabaseError(page); });
 
-test('employee critical workspace surfaces', async ({ page }) => { await login(page, 'employee'); for (const route of ['/employee/leaves', '/employee/attendance', '/employee/daily-work', '/employee/chat', '/employee/profile']) { await page.goto(route); await expect(page.locator('main:visible, section:visible').first()).toBeVisible(); await assertNoRawDatabaseError(page); } await page.goto('/employee/chat'); await expect(page.getByRole('button', { name: /voice|record/i }).first()).toBeVisible(); });
+test('employee critical workspace surfaces', async ({ page }) => {
+  await login(page, 'employee');
+  for (const route of ['/employee/leaves', '/employee/attendance', '/employee/daily-work', '/employee/chat', '/employee/profile']) {
+    await navigateAfterLogin(page, route);
+    await expect(page).toHaveURL(new RegExp(`${route.replaceAll('/', '\\/')}(?:[/?#]|$)`));
+    await expect(page.locator('main:visible, section:visible').first()).toBeVisible();
+    await assertNoRawDatabaseError(page);
+  }
+  await navigateAfterLogin(page, '/employee/chat');
+  await expect(page).toHaveURL(/\/employee\/chat(?:[/?#]|$)/);
+  await expect(page.getByRole('button', { name: /voice|record/i }).first()).toBeVisible();
+});
 test('employee denied management modules', async ({ page }) => { await login(page, 'employee'); for (const route of ['/admin/tasks', '/admin/reports']) { await page.goto(route); await expect(page).toHaveURL(/unauthorized|employee/); } });
 
 test('employee submits Daily Work and manager can review it', async ({ page, browser }) => {
@@ -119,7 +130,7 @@ test('employee submits Daily Work and manager can review it', async ({ page, bro
 
 test('attendance Excel export downloads a workbook', async ({ page }) => { await login(page, 'general_manager'); await page.goto('/admin/attendance'); const download = page.waitForEvent('download'); await page.getByRole('button', { name: /export excel/i }).click(); expect((await download).suggestedFilename()).toMatch(/\.xlsx$/i); });
 
-test('employee can submit leave and cannot review leave', async ({ page }) => { await login(page, 'employee'); await page.goto('/employee/leaves'); await expect(page.getByRole('button', { name: /submit request/i })).toBeVisible(); await expect(page.getByRole('button', { name: /approve|reject/i })).toHaveCount(0); });
+test('employee can submit leave and cannot review leave', async ({ page }) => { await login(page, 'employee'); await navigateAfterLogin(page, '/employee/leaves'); await expect(page.getByRole('button', { name: /submit request/i })).toBeVisible({ timeout: 30_000 }); await expect(page.getByRole('button', { name: /approve|reject/i })).toHaveCount(0); });
 test('authorized manager has leave review controls when a pending request exists', async ({ page }) => { await login(page, 'general_manager'); await navigateAfterLogin(page, '/admin/leaves'); const pending = page.getByText('Pending').first(); await expect(pending).toBeVisible(); if (await page.getByRole('button', { name: /approve/i }).count()) { await expect(page.getByRole('button', { name: /reject/i }).first()).toBeVisible(); } });
 
 test('Teams supports messages, images, voice surface and safe group authorization', async ({ page }) => { await login(page, 'employee'); await page.goto('/employee/chat'); const composer = page.getByRole('textbox', { name: /type a message/i }); await expect(composer).toBeVisible(); await composer.fill(`Release gate message ${Date.now()}`); await composer.locator('xpath=..').getByRole('button').last().click(); await expect(page.getByRole('button', { name: /voice|record/i }).first()).toBeVisible(); await expect(page.getByRole('menuitem', { name: /delete group/i })).toHaveCount(0); await assertNoRawDatabaseError(page); });

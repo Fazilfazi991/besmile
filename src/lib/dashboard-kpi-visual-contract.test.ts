@@ -5,6 +5,7 @@ const operational = readFileSync(new URL('../app/admin/page.tsx', import.meta.ur
 const director = readFileSync(new URL('../components/director-executive-dashboard.tsx', import.meta.url), 'utf8');
 const repository = readFileSync(new URL('./admin-repository.ts', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+const density = readFileSync(new URL('../app/workspace-density.css', import.meta.url), 'utf8');
 
 describe('dashboard KPI visual contract', () => {
   it('renders a chart inside every operational and Director KPI mapping', () => {
@@ -35,5 +36,11 @@ describe('dashboard KPI visual contract', () => {
     expect(styles).toContain('@media(max-width:700px)');
     expect(styles).toContain('.director-kpis{display:flex;gap:10px;margin-right:0;overflow-x:auto');
     expect(styles).not.toContain('.director-kpis{display:flex;gap:10px;margin-right:-16px');
+  });
+
+  it('keeps the mobile Total employees chart and full legend inside its KPI card', () => {
+    expect(styles).toContain('.executive-kpi{height:auto;min-height:184px;align-items:flex-start;overflow:visible}');
+    expect(styles).toContain('.executive-kpi .kpi-chart-segments .kpi-chart-legend span{min-width:0}');
+    expect(density).toContain('.executive-kpi{height:auto;min-height:184px;align-items:flex-start;overflow:visible;padding:11px}');
   });
 });
