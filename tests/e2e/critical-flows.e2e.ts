@@ -130,7 +130,20 @@ test('employee submits Daily Work and manager can review it', async ({ page, bro
 
 test('attendance Excel export downloads a workbook', async ({ page }) => { await login(page, 'general_manager'); await page.goto('/admin/attendance'); const download = page.waitForEvent('download'); await page.getByRole('button', { name: /export excel/i }).click(); expect((await download).suggestedFilename()).toMatch(/\.xlsx$/i); });
 
-test('employee can submit leave and cannot review leave', async ({ page }) => { await login(page, 'employee'); await navigateAfterLogin(page, '/employee/leaves'); await expect(page.getByRole('button', { name: /submit request/i })).toBeVisible({ timeout: 30_000 }); await expect(page.getByRole('button', { name: /approve|reject/i })).toHaveCount(0); });
+test('employee can submit leave and cannot review leave', async ({ page }) => {
+  await login(page, 'employee');
+  const leaveLink = page.getByRole('link', { name: 'Apply for leave', exact: true });
+  await expect(leaveLink).toHaveAttribute('href', '/employee/leaves');
+  await leaveLink.click();
+  await expect(page).toHaveURL(/\/employee\/leaves$/);
+  await expect(page.getByRole('button', { name: /submit request/i })).toBeVisible({ timeout: 30_000 });
+  // Also prove the cookie-backed session survives a real document navigation.
+  await page.reload();
+  await expect(page).toHaveURL(/\/employee\/leaves$/);
+  await expect(page.getByRole('button', { name: /submit request/i })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: /approve|reject/i })).toHaveCount(0);
+  await assertNoRawDatabaseError(page);
+});
 test('authorized manager has leave review controls when a pending request exists', async ({ page }) => { await login(page, 'general_manager'); await navigateAfterLogin(page, '/admin/leaves'); const pending = page.getByText('Pending').first(); await expect(pending).toBeVisible(); if (await page.getByRole('button', { name: /approve/i }).count()) { await expect(page.getByRole('button', { name: /reject/i }).first()).toBeVisible(); } });
 
 test('Teams supports messages, images, voice surface and safe group authorization', async ({ page }) => { await login(page, 'employee'); await page.goto('/employee/chat'); const composer = page.getByRole('textbox', { name: /type a message/i }); await expect(composer).toBeVisible(); await composer.fill(`Release gate message ${Date.now()}`); await composer.locator('xpath=..').getByRole('button').last().click(); await expect(page.getByRole('button', { name: /voice|record/i }).first()).toBeVisible(); await expect(page.getByRole('menuitem', { name: /delete group/i })).toHaveCount(0); await assertNoRawDatabaseError(page); });
