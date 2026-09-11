@@ -78,7 +78,10 @@ test('long patient names wrap across tabs in both themes without hiding actions'
   const auth = await fixtureLogin(() => db.auth.signInWithPassword(credentials('general_manager')), 'general_manager');
   if (auth.error || !auth.data.user) throw new Error('GM fixture unavailable');
   const name = 'Muhammad Abdul Rahman Alexander-Joseph ' + 'Chandrashekharan'.repeat(8);
-  const patient = await db.from('patients').insert({ full_name: name, patient_number: `POLISH-${Date.now()}`, is_demo: true, source: 'Other', status: 'active', created_by: auth.data.user.id }).select('id,slug').single();
+  // Soft-deleted fixtures remain in the unique slug index but are hidden by RLS.
+  // Keep the realistic display name constant; isolate each run's URL identity.
+  const fixtureKey = crypto.randomUUID();
+  const patient = await db.from('patients').insert({ full_name: name, slug: `qa-polish-${fixtureKey}`, patient_number: `POLISH-${fixtureKey}`, is_demo: true, source: 'Other', status: 'active', created_by: auth.data.user.id }).select('id,slug').single();
   if (patient.error) throw patient.error;
   try {
     await login(page, 'general_manager');
