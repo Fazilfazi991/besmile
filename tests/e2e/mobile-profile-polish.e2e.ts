@@ -94,11 +94,11 @@ test('long patient names wrap across tabs in both themes without hiding actions'
       await expect(page.getByRole('button', { name: 'Edit Client', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'More actions', exact: true })).toBeVisible();
       for (const tab of ['Overview', 'Appointments', 'Sessions', 'Documents', 'Notes', 'Activity']) {
-        await page.getByRole('button', { name: tab, exact: true }).click();
+        await page.locator('.patient-workspace').getByRole('button', { name: tab, exact: true }).click();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
         await assertNoRawDatabaseError(page);
       }
-      await page.getByRole('button', { name: 'Overview', exact: true }).click();
+      await page.locator('.patient-workspace').getByRole('button', { name: 'Overview', exact: true }).click();
       await test.info().attach(`long-name-${theme}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
     }
   } finally {
