@@ -232,3 +232,22 @@ html[data-theme="colorful"] .module-tabs button.active,html[data-theme="colorful
 @media(max-width:360px){.mobile-bottom-nav>a,.mobile-bottom-nav>button{font-size:8px}.mobile-module-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.mobile-launcher-sheet{animation:none}}
 @media(prefers-reduced-motion:reduce){.module-flyout{animation:none}.module-flyout-link,.nav-section-chevron{transition:none}}
+
+/* Keep patient content shrinkable without hiding actions or clipping long names. */
+.patient-workspace :where(.card,.card>div,label){min-width:0;max-width:100%}
+.patient-workspace :where(h1,h2,p,b,small){overflow-wrap:anywhere}
+.patient-workspace :where(input,select,textarea){min-width:0;max-width:100%}
+.mobile-account-controls{display:grid;gap:12px;padding-bottom:16px;border-bottom:1px solid #d5e4e1;margin-bottom:16px}
+.mobile-account-controls h3{margin:0;font-size:14px;font-weight:700;color:#254b45}
+.mobile-account-controls .theme-mode-switcher{display:flex;width:100%;height:auto}
+.mobile-account-controls .theme-mode-switcher button{flex:1;min-height:44px;font-size:12px}
+.mobile-account-controls .theme-mode-switcher button span{display:inline}
+.mobile-account-controls .sidebar-signout{min-height:44px;font-size:14px}
+html[data-theme="colorful"] .mobile-account-controls{border-color:#465477}
+html[data-theme="colorful"] .mobile-account-controls h3{color:#e9edff}
+html[data-theme="colorful"] .mobile-account-controls .theme-mode-switcher button.is-active{background:#394a87;color:#fff}
+html[data-theme="colorful"] .mobile-launcher-sheet{background:#151b38;color:#e9edff}
+html[data-theme="colorful"] .mobile-launcher-header{background:#111936;border-color:#465477}
+html[data-theme="colorful"] .mobile-launcher-header h2,
+html[data-theme="colorful"] .mobile-launcher-content h3{color:#e9edff}
+html[data-theme="colorful"] .mobile-launcher-header p{color:#b9c5e6}

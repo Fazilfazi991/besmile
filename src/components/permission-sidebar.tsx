@@ -12,6 +12,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { SignOutButton } from "@/components/sign-out-button";
+import { ThemeModeSwitcher } from "@/components/theme-mode-switcher";
 import { ModuleIcon } from "@/components/module-icon";
 import { useMobileNavigation } from "@/components/mobile-navigation";
 import {
@@ -544,6 +545,11 @@ export function PermissionSidebar({
             </header>
 
             <div className="mobile-launcher-content">
+              <section className="mobile-account-controls" aria-label="Account and appearance">
+                <h3>Account and appearance</h3>
+                <ThemeModeSwitcher />
+                <SignOutButton />
+              </section>
               {launcherView.kind === "modules" && (
                 <>
                   {recentLinks.length > 0 && (

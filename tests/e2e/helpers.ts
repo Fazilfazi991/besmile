@@ -1,6 +1,6 @@
 import { expect, Page, Request, Response } from '@playwright/test';
 import { recordFixtureLoginRetry } from './fixture-auth';
-export type QaRole = 'admin' | 'general_manager' | 'manager' | 'employee';
+export type QaRole = 'admin' | 'general_manager' | 'manager' | 'employee' | 'assistant_manager';
 export function credentials(role: QaRole) { const prefix = `BSMILE_QA_${role.toUpperCase()}`; const email = process.env[`${prefix}_EMAIL`]; const password = process.env[`${prefix}_PASSWORD`]; if (!email || !password) throw new Error(`${prefix}_EMAIL and ${prefix}_PASSWORD are required`); return { email, password }; }
 export async function login(page: Page, role: QaRole) {
   const account = credentials(role);
