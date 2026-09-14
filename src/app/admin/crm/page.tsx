@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { inr } from "@/components/finance-ui";
@@ -331,9 +332,9 @@ export default function CrmDashboard() {
         </section>
       </div>
 
-      {customOpen && (
-        <div className="fixed inset-0 z-[70] grid place-items-end bg-slate-950/40 p-0 sm:place-items-center sm:p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) closeCustom(); }}>
-          <div ref={customDialog} className="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl sm:p-6" role="dialog" aria-modal="true" aria-labelledby="custom-range-title" aria-describedby="custom-range-description">
+      {customOpen && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[120] grid place-items-end bg-slate-950/40 p-0 sm:place-items-center sm:p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) closeCustom(); }}>
+          <div ref={customDialog} className="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl sm:p-6" role="dialog" aria-modal="true" aria-labelledby="custom-range-title" aria-describedby="custom-range-description" onKeyDownCapture={event => { if (event.key === "Escape") { event.preventDefault(); closeCustom(); } }}>
             <div className="flex items-start justify-between gap-4"><div><h2 id="custom-range-title" className="text-xl font-bold text-slate-950">Custom CRM period</h2><p id="custom-range-description" className="mt-1 text-sm text-slate-600">Choose inclusive business dates. Future dates are unavailable.</p></div><button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-xl text-slate-600 hover:bg-slate-100" aria-label="Close custom date range" onClick={closeCustom}>×</button></div>
             <form className="mt-5" onSubmit={applyCustom} noValidate>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -345,7 +346,7 @@ export default function CrmDashboard() {
             </form>
           </div>
         </div>
-      )}
+      , document.body)}
     </section>
   );
 }

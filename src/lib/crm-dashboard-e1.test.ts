@@ -56,6 +56,7 @@ describe('CRM dashboard E1 date model', () => {
     expect(sameCrmDateRange(today, crmDashboardPeriodRange('month', '2026-09-14'))).toBe(false);
     expect(page).toContain('if (sameCrmDateRange(range, nextRange)) return;');
     expect(page).toContain('if (!sameCrmDateRange(range, draftRange))');
+    expect(page).toContain('fixed inset-0 z-[120]');
   });
 
   it('validates missing, impossible, reversed and future custom ranges', () => {

@@ -44,6 +44,7 @@ for (const role of ['admin', 'general_manager', 'director'] as QaRole[]) {
     expect(summaryRequests).toHaveLength(callsBeforeCancel);
 
     await custom.click();
+    await expect(page.getByRole('dialog', { name: 'Custom CRM period' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Custom CRM period' })).toHaveCount(0);
     await expect(custom).toBeFocused();
@@ -52,13 +53,14 @@ for (const role of ['admin', 'general_manager', 'director'] as QaRole[]) {
     const start = shiftCrmDateKey(today, -6);
     const beforeInvalid = summaryRequests.length;
     await custom.click();
+    const customDialog = page.getByRole('dialog', { name: 'Custom CRM period' });
     await page.getByLabel('Start date').fill('');
     await page.getByRole('button', { name: 'Apply date range' }).click();
-    await expect(page.getByRole('alert')).toContainText(/both a start date and an end date/i);
+    await expect(customDialog.getByRole('alert')).toContainText(/both a start date and an end date/i);
     await page.getByLabel('Start date').fill(today);
     await page.getByLabel('End date').fill(shiftCrmDateKey(today, -1));
     await page.getByRole('button', { name: 'Apply date range' }).click();
-    await expect(page.getByRole('alert')).toContainText(/start date must be on or before/i);
+    await expect(customDialog.getByRole('alert')).toContainText(/start date must be on or before/i);
     await page.waitForTimeout(250);
     expect(summaryRequests).toHaveLength(beforeInvalid);
 
