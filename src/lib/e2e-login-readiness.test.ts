@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-const assertions = vi.hoisted(() => ({ url: vi.fn(), shell: vi.fn() }));
+const assertions = vi.hoisted(() => ({ url: vi.fn(), shell: vi.fn(), retry: vi.fn() }));
 vi.mock('@playwright/test', () => ({ expect: () => ({ toHaveURL: assertions.url, toBeVisible: assertions.shell }) }));
+vi.mock('../../tests/e2e/fixture-auth', () => ({ recordFixtureLoginRetry: assertions.retry }));
 import { login } from '../../tests/e2e/helpers';
 
-afterEach(() => { vi.clearAllMocks(); vi.unstubAllEnvs(); });
+afterEach(() => {
+  assertions.url.mockReset();
+  assertions.shell.mockReset();
+  assertions.retry.mockReset();
+  vi.unstubAllEnvs();
+});
 
 function fixture() {
   vi.stubEnv('BSMILE_QA_EMPLOYEE_EMAIL', 'fixture@example.invalid');
@@ -12,7 +18,7 @@ function fixture() {
     goto: vi.fn(), getByLabel: vi.fn(() => ({ fill: vi.fn() })),
     getByRole: vi.fn(() => ({ click: vi.fn() })), locator: vi.fn(),
     waitForLoadState: vi.fn(), waitForTimeout: vi.fn(),
-    on: vi.fn(), off: vi.fn(),
+    on: vi.fn(), off: vi.fn(), url: vi.fn(() => 'http://localhost:3000/sign-in'),
   };
 }
 
@@ -47,5 +53,24 @@ describe('release browser login readiness', () => {
     const page=fixture();
     await expect(login(page as never, 'employee')).rejects.toThrow('no shell');
     expect(page.goto).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries one successful-token sign-in bounce before requiring the authenticated shell', async () => {
+    let responseListener: ((response: { url: () => string; status: () => number }) => void) | undefined;
+    const page = fixture();
+    page.on.mockImplementation((event: string, listener: typeof responseListener) => {
+      if (event === 'response') responseListener = listener;
+    });
+    page.getByRole.mockImplementation(() => ({ click: vi.fn(async () => {
+      responseListener?.({ url: () => 'https://qa.invalid/auth/v1/token', status: () => 200 });
+    }) }));
+    assertions.url.mockRejectedValueOnce(new Error('bootstrap returned to sign-in'));
+
+    await login(page as never, 'employee');
+
+    expect(page.goto).toHaveBeenCalledTimes(2);
+    expect(page.waitForTimeout).toHaveBeenCalledWith(150);
+    expect(assertions.retry).toHaveBeenCalledWith('employee', 'post-auth-bootstrap');
+    expect(assertions.shell).toHaveBeenCalledTimes(1);
   });
 });
