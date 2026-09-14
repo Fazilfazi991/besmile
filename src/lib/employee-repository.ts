@@ -16,6 +16,63 @@ const required = () => {
   if (!db) throw new Error("Supabase is not configured.");
   return db;
 };
+
+async function signedProfilePhotoMap(client: any, paths: Array<string | null | undefined>) {
+  const uniquePaths = [...new Set(paths.filter((path): path is string => Boolean(path)))];
+  const signed = new Map<string, string>();
+  if (!uniquePaths.length) return signed;
+
+  const batch = await client.storage.from("profile-photos").createSignedUrls(uniquePaths, 300);
+  if (!batch.error) {
+    for (const photo of batch.data || [])
+      if (photo.path && photo.signedUrl) signed.set(photo.path, photo.signedUrl);
+    return signed;
+  }
+
+  // A mixed-authorization batch can fail when the viewer may see only some
+  // private photos. Resolve each path independently and silently retain the
+  // normal demo/initial fallback for paths the viewer cannot access.
+  await Promise.all(
+    uniquePaths.map(async (path) => {
+      const result = await client.storage.from("profile-photos").createSignedUrl(path, 300);
+      if (!result.error && result.data?.signedUrl) signed.set(path, result.data.signedUrl);
+    }),
+  );
+  return signed;
+}
+
+async function withSignedConversationPhotos(client: any, rows: any[]) {
+  const profiles = rows.flatMap((row) =>
+    (row.chat_conversations?.chat_members || []).map((member: any) => member.profiles).filter(Boolean),
+  );
+  const signed = await signedProfilePhotoMap(client, profiles.map((profile: any) => profile.avatar_url));
+  return rows.map((row) => ({
+    ...row,
+    chat_conversations: {
+      ...row.chat_conversations,
+      chat_members: (row.chat_conversations?.chat_members || []).map((member: any) => ({
+        ...member,
+        profiles: member.profiles
+          ? { ...member.profiles, photo_url: signed.get(member.profiles.avatar_url) || null }
+          : member.profiles,
+      })),
+    },
+  }));
+}
+
+async function withSignedMessagePhotos(client: any, rows: any[]) {
+  const senders = rows.flatMap((message) => [message.sender, message.reply_to?.sender]).filter(Boolean);
+  const signed = await signedProfilePhotoMap(client, senders.map((sender: any) => sender.avatar_url));
+  const enrich = (sender: any) => sender
+    ? { ...sender, photo_url: signed.get(sender.avatar_url) || null }
+    : sender;
+  return rows.map((message) => ({
+    ...message,
+    sender: enrich(message.sender),
+    reply_to: message.reply_to ? { ...message.reply_to, sender: enrich(message.reply_to.sender) } : message.reply_to,
+  }));
+}
+
 export const employeeRepository = {
   async hasPermission(permissionCode: string) {
     const { data, error } = await required().rpc("has_permission", {
@@ -816,7 +873,7 @@ export const employeeRepository = {
     )
       throw ensured.error;
     const summary = await r.rpc("chat_conversation_summaries");
-    if (!summary.error) return summary.data || [];
+    if (!summary.error) return withSignedConversationPhotos(r, summary.data || []);
     if (
       summary.error.code !== "PGRST202" &&
       !/chat_conversation_summaries|schema cache|could not find/i.test(
@@ -854,7 +911,7 @@ export const employeeRepository = {
       .select("conversation_id,message:chat_messages(created_at,deleted_at,expires_at,expired_at)")
       .eq("profile_id", userId);
     if (mentionError) throw mentionError;
-    return (data || [])
+    const rows = (data || [])
       .map((item: any) => {
         const latest = (messages.data || []).find(
           (message: any) => message.conversation_id === item.conversation_id && isChatMessageActive(message),
@@ -887,6 +944,7 @@ export const employeeRepository = {
           new Date(b.latest_message?.created_at || 0).getTime() -
             new Date(a.latest_message?.created_at || 0).getTime(),
       );
+    return withSignedConversationPhotos(r, rows);
   },
   async chatMessages(conversationId: string) {
     const { data, error } = await required()
@@ -901,7 +959,7 @@ export const employeeRepository = {
     let request = required()
       .from("chat_messages")
       .select(
-        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name)),receipts:chat_message_reads(profile_id,delivered_at,read_at)",
+        "id,conversation_id,sender_id,body,message_type,attachment_path,attachment_name,attachment_type,attachment_size,voice_duration_seconds,client_message_id,created_at,reply_to_message_id,edited_at,deleted_at,deleted_by,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name,avatar_url),reactions:chat_message_reactions(profile_id,emoji),mentions:chat_message_mentions(profile_id,profiles(full_name,avatar_url)),receipts:chat_message_reads(profile_id,delivered_at,read_at)",
       )
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
@@ -912,15 +970,15 @@ export const employeeRepository = {
     if (error) throw error;
     const rows = (data || []).reverse();
     const parentIds = [...new Set(rows.map((message: any) => message.reply_to_message_id).filter(Boolean))];
-    if (!parentIds.length) return { data: rows, hasMore: rows.length === size };
+    if (!parentIds.length) return { data: await withSignedMessagePhotos(required(), rows), hasMore: rows.length === size };
     const { data: parents, error: parentError } = await required()
       .from("chat_messages")
-      .select("id,body,message_type,attachment_name,deleted_at,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name)")
+      .select("id,body,message_type,attachment_name,deleted_at,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name,avatar_url)")
       .in("id", parentIds);
     if (parentError) return { data: rows, hasMore: rows.length === size };
     const parentsById = new Map((parents || []).map((parent: any) => [parent.id, parent]));
     return {
-      data: rows.map((message: any) => ({ ...message, reply_to: parentsById.get(message.reply_to_message_id) || null })),
+      data: await withSignedMessagePhotos(required(), rows.map((message: any) => ({ ...message, reply_to: parentsById.get(message.reply_to_message_id) || null }))),
       hasMore: rows.length === size,
     };
   },
@@ -1021,9 +1079,12 @@ export const employeeRepository = {
     if (error) throw error;
   },
   async chatPeople(query = "") {
-    const { data, error } = await required().rpc('chat_recipient_search', { search_text: query.trim() });
+    const r = required();
+    const { data, error } = await r.rpc('chat_recipient_search', { search_text: query.trim() });
     if (error) throw error;
-    return (data || []).map((person: any) => ({ ...person, department: person.department_name ? { name: person.department_name } : null }));
+    const people = (data || []).map((person: any) => ({ ...person, department: person.department_name ? { name: person.department_name } : null }));
+    const signed = await signedProfilePhotoMap(r, people.map((person: any) => person.avatar_url));
+    return people.map((person: any) => ({ ...person, photo_url: signed.get(person.avatar_url) || null }));
   },
   async toggleChatReaction(messageId: string, emoji: string) {
     const db = required();

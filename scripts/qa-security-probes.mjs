@@ -63,6 +63,67 @@ await check('employee managed-task creation denied', async () => { const db = aw
 await check('completion ownership boundary', async () => { const db = await signed('EMPLOYEE'); const { data: { user } } = await db.auth.getUser(); const foreign = await db.from('task_assignments').select('id').neq('profile_id', user?.id).limit(1).maybeSingle(); if (foreign.error) throw foreign.error; if (foreign.data) mustFail((await db.rpc('complete_task_with_update', { target_assignment: foreign.data.id, completion_body: 'boundary probe' })).error, 'foreign task completion'); });
 await check('Daily Work owner boundary', async () => { const db = await signed('EMPLOYEE'); const { data: { user } } = await db.auth.getUser(); const result = await db.from('daily_work_updates').select('profile_id').neq('profile_id', user?.id).limit(1); if (result.error) throw result.error; if (result.data?.length) throw new Error('cross-profile daily work visible'); const date = new Date(Date.UTC(2200, 0, 1) + (Date.now() % 30_000) * 86_400_000).toISOString().slice(0, 10); const own = await db.from('daily_work_updates').insert({ profile_id: user?.id, work_date: date, summary: 'RELEASE_GATE disposable QA probe' }).select('id').single(); if (own.error) throw own.error; try { if (!own.data) throw new Error('own Daily Work insert was not returned'); } finally { if (own.data?.id) await db.from('daily_work_updates').delete().eq('id', own.data.id); } });
 await check('Teams archive denied to employee', async () => { const db = await signed('EMPLOYEE'); mustFail((await db.rpc('archive_group_chat', { target_conversation: crypto.randomUUID() })).error, 'employee archive'); });
+await check('Teams anonymous read and group creation denied', async () => {
+  const anonymous = client();
+  mustFail((await anonymous.rpc('chat_conversation_summaries')).error, 'anonymous Teams summaries');
+  mustFail((await anonymous.rpc('create_group_chat', { chat_title: 'Denied group', chat_description: '', chat_type: 'general', member_ids: [] })).error, 'anonymous group creation');
+});
+await check('Teams group lifecycle preserves creator admin and archive boundaries', async () => {
+  const gm = await signed('GENERAL_MANAGER');
+  const employee = await signed('EMPLOYEE');
+  const manager = await signed('MANAGER');
+  const gmUser = (await gm.auth.getUser()).data.user;
+  const employeeUser = (await employee.auth.getUser()).data.user;
+  const managerUser = (await manager.auth.getUser()).data.user;
+  if (!gmUser || !employeeUser || !managerUser) throw new Error('Teams QA identities missing');
+  const invalidName = await gm.rpc('create_group_chat', { chat_title: ' ', chat_description: '', chat_type: 'general', member_ids: [employeeUser.id, managerUser.id] });
+  mustFail(invalidName.error, 'blank group name');
+  const created = await gm.rpc('create_group_chat', { chat_title: `RELEASE_GATE_TEAMS_${Date.now()}`, chat_description: 'Disposable security probe', chat_type: 'project', member_ids: [employeeUser.id, managerUser.id] });
+  if (created.error || !created.data) throw created.error || new Error('group id missing');
+  try {
+    const conversation = await gm.from('chat_conversations').select('id,group_admin_id,is_system_group,archived_at').eq('id', created.data).single();
+    if (conversation.error) throw conversation.error;
+    if (conversation.data.group_admin_id !== gmUser.id || conversation.data.is_system_group || conversation.data.archived_at) throw new Error('creator/admin group contract mismatch');
+    const members = await gm.from('chat_members').select('profile_id').eq('conversation_id', created.data);
+    if (members.error || new Set((members.data || []).map(row => row.profile_id)).size !== 3) throw members.error || new Error('group members did not persist');
+    mustFail((await employee.rpc('archive_group_chat', { target_conversation: created.data })).error, 'non-admin group archive');
+  } finally {
+    const archived = await gm.rpc('archive_group_chat', { target_conversation: created.data });
+    if (archived.error) throw archived.error;
+  }
+  const system = await gm.from('chat_conversations').select('id').eq('is_system_group', true).limit(1).maybeSingle();
+  if (system.error) throw system.error;
+  if (system.data) mustFail((await gm.rpc('archive_group_chat', { target_conversation: system.data.id })).error, 'system group archive');
+});
+await check('Teams membership visibility remains participant-scoped', async () => {
+  const employee = await signed('EMPLOYEE');
+  const user = (await employee.auth.getUser()).data.user;
+  if (!user) throw new Error('Employee fixture missing');
+  const rows = await employee.from('chat_members').select('conversation_id,profile_id');
+  if (rows.error) throw rows.error;
+  const conversationIds = [...new Set((rows.data || []).map(row => row.conversation_id))];
+  for (const conversationId of conversationIds) {
+    if (!(rows.data || []).some(row => row.conversation_id === conversationId && row.profile_id === user.id)) throw new Error('non-member conversation became visible');
+  }
+});
+await check('Teams profile-photo URLs remain signed and private', async () => {
+  const gm = await signed('GENERAL_MANAGER');
+  const employee = await signed('EMPLOYEE');
+  const gmUser = (await gm.auth.getUser()).data.user;
+  if (!gmUser) throw new Error('General Manager fixture missing');
+  const path = `${gmUser.id}/release-gate-${crypto.randomUUID()}.png`;
+  const uploaded = await gm.storage.from('profile-photos').upload(path, new Uint8Array([137,80,78,71,13,10,26,10]), { contentType: 'image/png' });
+  if (uploaded.error) throw uploaded.error;
+  try {
+    const ownerSigned = await gm.storage.from('profile-photos').createSignedUrl(path, 60);
+    if (ownerSigned.error || !ownerSigned.data?.signedUrl) throw ownerSigned.error || new Error('authorized signed URL missing');
+    mustFail((await employee.storage.from('profile-photos').createSignedUrl(path, 60)).error, 'unrelated employee profile photo signing');
+    mustFail((await client().storage.from('profile-photos').createSignedUrl(path, 60)).error, 'anonymous profile photo signing');
+  } finally {
+    const removed = await gm.storage.from('profile-photos').remove([path]);
+    if (removed.error) throw removed.error;
+  }
+});
 await check('operational report boundary', async () => { const db = await signed('EMPLOYEE'); const result = await db.from('employee_activity_logs').select('id').limit(1); if (!result.error && result.data?.length) throw new Error('management report activity visible'); });
 await check('anonymous attendance regularization access denied', async () => mustFail((await client().from('attendance_regularization_requests').select('id').limit(1)).error, 'anonymous regularization read'));
 await check('General Manager can review attendance regularizations through RLS', async () => { const db = await signed('GENERAL_MANAGER'); const result = await db.from('attendance_regularization_requests').select('id,profile_id,status').limit(1); if (result.error) throw result.error; });

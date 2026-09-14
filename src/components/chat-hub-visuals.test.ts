@@ -47,7 +47,7 @@ describe('chat visual density', () => {
   it('keeps the drawer data-driven while giving summary, members, and retention dedicated layouts', () => {
     expect(component).toContain('className="chat-detail-summary"');
     expect(component).toContain('<DetailConversationAvatar item={active} userId={profile.id} />');
-    expect(component).toContain('imageUrl={person.avatar_url}');
+    expect(component).toContain('imageUrl={person.photo_url}');
     expect(component).toContain('className="chat-retention-card"');
     expect(component).toContain('onClick={() => setDetails(false)}');
     expect(styles).toContain('grid-template-columns:48px minmax(0,1fr) auto');

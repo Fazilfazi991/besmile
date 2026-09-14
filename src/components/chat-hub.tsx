@@ -18,6 +18,7 @@ import { isChatMessageActive, isChatMessageLogicallyExpired, upsertChatMessage }
 import { chatEmojiGroups, insertEmojiAtCursor } from "@/lib/chat-composer";
 import { isChatImageAttachment } from "@/lib/chat-media";
 import { resolveMessageReceipt } from "@/lib/chat-receipt";
+import { employeeAvatarInitials, resolveEmployeeAvatar } from "@/lib/employee-avatar";
 import { MessageReceipt } from "./message-receipt";
 import { ChevronLeft } from "lucide-react";
 import "./chat-hub-fixes.css";
@@ -77,6 +78,8 @@ export function ChatHub() {
   const [error, setError] = useState("");
   const [details, setDetails] = useState(false);
   const [newChat, setNewChat] = useState(false);
+  const [newChatError, setNewChatError] = useState("");
+  const [creatingChat, setCreatingChat] = useState(false);
   const [mode, setMode] = useState<"chooser" | "direct" | "group">("chooser");
   const [selectedPerson, setSelectedPerson] = useState<any>();
   const [people, setPeople] = useState<any[]>([]);
@@ -98,6 +101,7 @@ export function ChatHub() {
     type: "general",
     members: [] as string[],
   });
+  const [groupMemberProfiles, setGroupMemberProfiles] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -113,6 +117,22 @@ export function ChatHub() {
   const lastReadAckRef = useRef("");
   const profileRef = useRef<any>(undefined);
   const activeRef = useRef<any>(undefined);
+  const newChatModalRef = useRef<HTMLElement>(null);
+
+  const closeNewConversation = useCallback(() => {
+    setNewChat(false);
+    setNewChatError("");
+    setPeopleQuery("");
+    setSelectedPerson(undefined);
+    setGroup({ title: "", description: "", type: "general", members: [] });
+    setGroupMemberProfiles([]);
+  }, []);
+  const openNewConversation = useCallback((nextMode: "chooser" | "direct" | "group" = "chooser") => {
+    setMode(nextMode);
+    setSelectedPerson(undefined);
+    setNewChatError("");
+    setNewChat(true);
+  }, []);
 
   const load = useCallback(async (selectedId?: string) => {
     try {
@@ -196,7 +216,10 @@ export function ChatHub() {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (event: any) => {
-          setMessages((rows) => upsertChatMessage(rows, event.new as any));
+          const sender = activeRef.current?.chat_conversations?.chat_members?.find(
+            (member: any) => member.profile_id === event.new.sender_id,
+          )?.profiles;
+          setMessages((rows) => upsertChatMessage(rows, { ...event.new, sender } as any));
           if (event.new.sender_id !== profileId)
             void employeeRepository.markConversationDelivered(conversationId, event.new.id);
         },
@@ -265,10 +288,47 @@ export function ChatHub() {
         .then((rows) =>
           setPeople(rows.filter((person: any) => person.id !== profileId)),
         )
-        .catch((cause) => setError(cause.message));
+        .catch(() => setNewChatError("The Teams directory could not be loaded. Please try again."));
     }, 180);
     return () => clearTimeout(timer);
   }, [newChat, peopleQuery, profile?.id]);
+  useEffect(() => {
+    if (!newChat) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const modal = newChatModalRef.current;
+    const focusable = () => Array.from(
+      modal?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || [],
+    );
+    requestAnimationFrame(() => {
+      const first = focusable()[0];
+      if (first) first.focus();
+      else modal?.focus();
+    });
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeNewConversation();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = focusable();
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [newChat, closeNewConversation]);
   useEffect(
     () => () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
@@ -573,24 +633,51 @@ export function ChatHub() {
     }
   };
   const create = async (person?: any) => {
+    if (creatingChat) return;
+    const title = group.title.trim();
+    if (mode === "group" && !title) {
+      setNewChatError("Enter a group name.");
+      return;
+    }
+    if (mode === "group" && group.members.length < 2) {
+      setNewChatError("Select at least two active employees.");
+      return;
+    }
+    if (mode === "direct" && !person?.id) {
+      setNewChatError("Choose an active employee.");
+      return;
+    }
+    setCreatingChat(true);
+    setNewChatError("");
     try {
       const id =
         mode === "direct"
           ? await employeeRepository.createPersonalChat(profile.id, person.id)
           : await employeeRepository.createGroupChat(
               profile.id,
-              group.title,
+              title,
               group.members,
               group.description,
               group.type,
             );
-      setNewChat(false);
+      closeNewConversation();
       setSelectedPerson(undefined);
       setGroup({ title: "", description: "", type: "general", members: [] });
       await load(id);
     } catch (cause: any) {
-      setError("Teams could not be opened. Please try again shortly.");
+      const reason = String(cause?.message || "");
+      setNewChatError(
+        /group name|required/i.test(reason)
+          ? "Enter a group name."
+          : /two additional|at least two/i.test(reason)
+            ? "Select at least two active employees."
+            : /active chat-enabled|permission/i.test(reason)
+              ? "One or more selected employees are not available for Teams."
+              : "Teams could not create this conversation. Please try again.",
+      );
       console.error(cause);
+    } finally {
+      setCreatingChat(false);
     }
   };
   const switchConversation = (item: any) => {
@@ -694,9 +781,7 @@ export function ChatHub() {
             <button
               className="chat-new-conversation"
               onClick={() => {
-                setMode("chooser");
-                setSelectedPerson(undefined);
-                setNewChat(true);
+                openNewConversation("chooser");
               }}
               aria-label="New conversation"
               title="New conversation"
@@ -788,14 +873,25 @@ export function ChatHub() {
                 </button>
                 {active.chat_conversations.is_system_group ? (
                   <GroupAvatar />
-                ) : (
+                ) : isGroup ? (
                   <Avatar name={chatName(active, profile.id)} />
+                ) : (
+                  <Avatar name={chatName(active, profile.id)} imageUrl={other(active, profile.id)?.photo_url} />
                 )}
                 <div className="chat-header-copy">
                   <h2 title={chatName(active, profile.id)}>{chatName(active, profile.id)}</h2>
                   <small>{conversationMeta(active, profile.id)}</small>
                 </div>
                 <div className="chat-header-actions">
+                  <button
+                    className="chat-header-action chat-create-group-action"
+                    aria-label="Create group"
+                    title="Create group"
+                    onClick={() => openNewConversation("group")}
+                  >
+                    <SectionIcon group />
+                    <span>Create group</span>
+                  </button>
                   <button
                     className="chat-header-action chat-header-search-action"
                     aria-label="Search messages"
@@ -994,8 +1090,8 @@ export function ChatHub() {
                     {mentionMatch && mentionCandidates.length > 0 && (
                       <div className="chat-mention-picker" role="listbox" aria-label="Mention a participant">
                         {mentionCandidates.map((member: any) => (
-                          <button type="button" role="option" key={member.profile_id} onClick={() => chooseMention(member)}>
-                            <Avatar name={member.profiles?.full_name} />
+                          <button type="button" role="option" aria-selected="false" key={member.profile_id} onClick={() => chooseMention(member)}>
+                            <Avatar name={member.profiles?.full_name} imageUrl={member.profiles?.photo_url} />
                             <span><b>{member.profiles?.full_name}</b><small>{member.profiles?.designation || "Participant"}</small></span>
                           </button>
                         ))}
@@ -1027,7 +1123,7 @@ export function ChatHub() {
                     >
                       <MicrophoneIcon />
                     </button>
-                    <button className="btn btn-primary" disabled={sending || !active.chat_conversations?.channel_id || (!text.trim() && !file)}>
+                    <button className="btn btn-primary" aria-label="Send" disabled={sending || !active.chat_conversations?.channel_id || (!text.trim() && !file)}>
                       <SendIcon /> <span className="chat-send-label">{sending ? "Sending..." : "Send"}</span>
                     </button>
                   </div>
@@ -1078,8 +1174,9 @@ export function ChatHub() {
                       admin={isAdmin}
                       own={member.profile_id === profile.id}
                       conversationId={active.conversation_id}
-                      refresh={() => load(active.conversation_id)}
-                      report={setError}
+                          refresh={() => load(active.conversation_id)}
+                          report={setError}
+                          groupAdminId={active.chat_conversations.group_admin_id}
                     />
                   ))}
                 </div>
@@ -1104,7 +1201,7 @@ export function ChatHub() {
             ) : (
               <div className="chat-detail-section">
                 <div className="chat-detail-section-heading"><b>Member</b><span className="chat-detail-count"><SectionIcon group />{members.length} {members.length === 1 ? "member" : "members"}</span></div>
-                <Member member={{ profiles: other(active, profile.id), profile_id: other(active, profile.id)?.id }} admin={false} own={false} conversationId={active.conversation_id} refresh={() => undefined} report={setError} />
+                <Member member={{ profiles: other(active, profile.id), profile_id: other(active, profile.id)?.id }} admin={false} own={false} conversationId={active.conversation_id} refresh={() => undefined} report={setError} groupAdminId={active.chat_conversations.group_admin_id} />
               </div>
             )}
             <div className="chat-detail-section">
@@ -1129,24 +1226,32 @@ export function ChatHub() {
         )}
       </div>
       {newChat && (
-        <div className="chat-modal-backdrop">
-          <section className="chat-modal">
+        <div className="chat-modal-backdrop" role="presentation">
+          <section
+            className="chat-modal"
+            ref={newChatModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-conversation-title"
+            aria-describedby="new-conversation-description"
+            tabIndex={-1}
+          >
             {mode === "chooser" ? (
               <>
                 <header>
                   <div>
-                    <h2>Start a conversation</h2>
-                    <p>Choose how you would like to communicate.</p>
+                    <h2 id="new-conversation-title">Start a conversation</h2>
+                    <p id="new-conversation-description">Choose how you would like to communicate.</p>
                   </div>
-                  <button onClick={() => setNewChat(false)}>Close</button>
+                  <button type="button" aria-label="Close new conversation" onClick={closeNewConversation}>Close</button>
                 </header>
                 <div className="chat-choice-grid">
-                  <button onClick={() => setMode("direct")}>
+                  <button type="button" onClick={() => { setMode("direct"); setNewChatError(""); }}>
                     <span>DM</span>
                     <b>Direct message</b>
                     <small>Message one employee privately in Teams</small>
                   </button>
-                  <button onClick={() => setMode("group")}>
+                  <button type="button" onClick={() => { setMode("group"); setNewChatError(""); }}>
                     <span>GR</span>
                     <b>New group</b>
                     <small>Create a team or department conversation</small>
@@ -1157,57 +1262,91 @@ export function ChatHub() {
               <>
                 <header>
                   <div>
-                    <h2>
+                    <h2 id="new-conversation-title">
                       {mode === "direct" ? "New direct message" : "New group"}
                     </h2>
-                    <p>
+                    <p id="new-conversation-description">
                       {mode === "direct"
                         ? "Choose an active employee to start a private conversation."
                         : "Add at least two active employees to your group."}
                     </p>
                   </div>
-                  <button onClick={() => setNewChat(false)}>Close</button>
+                  <button type="button" aria-label="Close new conversation" onClick={closeNewConversation}>Close</button>
                 </header>
+                {newChatError && <p className="chat-modal-error" role="alert">{newChatError}</p>}
                 {mode === "group" && (
                   <div className="chat-group-fields">
-                    <input
-                      className="input"
-                      placeholder="Group name *"
-                      value={group.title}
-                      onChange={(event) =>
-                        setGroup({ ...group, title: event.target.value })
-                      }
-                    />
-                    <input
-                      className="input"
-                      placeholder="Description (optional)"
-                      value={group.description}
-                      onChange={(event) =>
-                        setGroup({ ...group, description: event.target.value })
-                      }
-                    />
-                    <select
-                      className="input"
-                      value={group.type}
-                      onChange={(event) =>
-                        setGroup({ ...group, type: event.target.value })
-                      }
-                    >
-                      <option value="general">General</option>
-                      <option value="department">Department</option>
-                      <option value="team">Team</option>
-                      <option value="management">Management</option>
-                      <option value="project">Project</option>
-                    </select>
+                    <label className="chat-group-name">
+                      <span>Group name</span>
+                      <input
+                        className="input"
+                        autoFocus
+                        required
+                        maxLength={80}
+                        placeholder="e.g. Client follow-up"
+                        value={group.title}
+                        onChange={(event) => setGroup({ ...group, title: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      <span>Description <em>Optional</em></span>
+                      <input
+                        className="input"
+                        maxLength={240}
+                        placeholder="What this group is for"
+                        value={group.description}
+                        onChange={(event) => setGroup({ ...group, description: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      <span>Group type</span>
+                      <select
+                        className="input"
+                        value={group.type}
+                        onChange={(event) => setGroup({ ...group, type: event.target.value })}
+                      >
+                        <option value="general">General</option>
+                        <option value="department">Department</option>
+                        <option value="team">Team</option>
+                        <option value="management">Management</option>
+                        <option value="project">Project</option>
+                      </select>
+                    </label>
                   </div>
                 )}
-                <input
-                  className="input"
-                  placeholder="Search active employees"
-                  value={peopleQuery}
-                  onChange={(event) => setPeopleQuery(event.target.value)}
-                />
-                <div className="chat-people-list">
+                {mode === "group" && groupMemberProfiles.length > 0 && (
+                  <div className="chat-selected-members" aria-label="Selected members">
+                    {groupMemberProfiles.map((person) => (
+                      <button
+                        type="button"
+                        key={person.id}
+                        aria-label={`Remove ${person.full_name}`}
+                        onClick={() => {
+                          setGroup((current) => ({ ...current, members: current.members.filter((id) => id !== person.id) }));
+                          setGroupMemberProfiles((current) => current.filter((member) => member.id !== person.id));
+                        }}
+                      >
+                        <Avatar name={person.full_name} imageUrl={person.photo_url} />
+                        <span>{person.full_name}</span>
+                        <i aria-hidden="true">×</i>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <label className="chat-people-search">
+                  <span>{mode === "group" ? `Members (${group.members.length} selected)` : "Employee"}</span>
+                  <span className="chat-people-search-control">
+                    <SearchIcon />
+                    <input
+                      className="input"
+                      type="search"
+                      placeholder="Search active employees"
+                      value={peopleQuery}
+                      onChange={(event) => setPeopleQuery(event.target.value)}
+                    />
+                  </span>
+                </label>
+                <div className="chat-people-list" role="listbox" aria-label="Active employees" aria-multiselectable={mode === "group"}>
                   {people.map((person) => {
                     const existing = conversations.some(
                       (item) =>
@@ -1223,22 +1362,28 @@ export function ChatHub() {
                         : group.members.includes(person.id);
                     return (
                       <button
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
                         key={person.id}
                         className={selected ? "selected" : ""}
                         onClick={() =>
                           mode === "direct"
                             ? setSelectedPerson(person)
-                            : setGroup((current) => ({
-                                ...current,
-                                members: current.members.includes(person.id)
-                                  ? current.members.filter(
-                                      (id) => id !== person.id,
-                                    )
-                                  : [...current.members, person.id],
-                              }))
+                            : (() => {
+                                setGroup((current) => ({
+                                  ...current,
+                                  members: current.members.includes(person.id)
+                                    ? current.members.filter((id) => id !== person.id)
+                                    : [...current.members, person.id],
+                                }));
+                                setGroupMemberProfiles((current) => current.some((member) => member.id === person.id)
+                                  ? current.filter((member) => member.id !== person.id)
+                                  : [...current, person]);
+                              })()
                         }
                       >
-                        <Avatar name={person.full_name} />
+                        <Avatar name={person.full_name} imageUrl={person.photo_url} />
                         <span>
                           <b>{person.full_name}</b>
                           <small>
@@ -1260,29 +1405,34 @@ export function ChatHub() {
                       </button>
                     );
                   })}
+                  {!people.length && <p className="chat-people-empty">No active Teams employees match this search.</p>}
                 </div>
                 <footer>
                   <button
                     className="button button-secondary"
-                    onClick={() => setMode("chooser")}
+                    type="button"
+                    disabled={creatingChat}
+                    onClick={() => { setMode("chooser"); setNewChatError(""); }}
                   >
                     Back
                   </button>
                   {mode === "direct" ? (
                     <button
                       className="btn btn-primary"
-                      disabled={!selectedPerson}
+                      type="button"
+                      disabled={!selectedPerson || creatingChat}
                       onClick={() => void create(selectedPerson)}
                     >
-                      Start conversation
+                      {creatingChat ? "Starting…" : "Start conversation"}
                     </button>
                   ) : (
                     <button
                       className="btn btn-primary"
-                      disabled={!group.title || group.members.length < 2}
+                      type="button"
+                      disabled={!group.title.trim() || group.members.length < 2 || creatingChat}
                       onClick={() => void create()}
                     >
-                      Create group
+                      {creatingChat ? "Creating…" : "Create group"}
                     </button>
                   )}
                 </footer>
@@ -1335,7 +1485,7 @@ function ConversationAvatar({ item, userId }: { item: any; userId: string }) {
       ? <GroupAvatar className="chat-sidebar-group-avatar" />
       : <Avatar name={chatName(item, userId)} className="chat-sidebar-group-initial" />;
   const person = other(item, userId);
-  return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.avatar_url} />;
+  return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.photo_url} />;
 }
 function DetailConversationAvatar({ item, userId }: { item: any; userId: string }) {
   const conversation = item.chat_conversations || item;
@@ -1344,7 +1494,7 @@ function DetailConversationAvatar({ item, userId }: { item: any; userId: string 
       ? <GroupAvatar className="chat-detail-summary-avatar chat-detail-system-avatar" />
       : <Avatar name={chatName(item, userId)} className="chat-detail-summary-avatar" />;
   const person = other(item, userId);
-  return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.avatar_url} className="chat-detail-summary-avatar" />;
+  return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.photo_url} className="chat-detail-summary-avatar" />;
 }
 function MessageIcon() {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5.5h14v10H11l-4.5 3v-3H5z" /></svg>;
@@ -1400,13 +1550,21 @@ function other(item: any, userId: string) {
   )?.profiles;
 }
 function Avatar({ name, large = false, imageUrl, className = "" }: { name?: string; large?: boolean; imageUrl?: string | null; className?: string }) {
+  const uploaded = imageUrl && /^(?:https?:|blob:|data:)/i.test(imageUrl) ? imageUrl : null;
+  const demo = resolveEmployeeAvatar(name);
+  const sources = [uploaded, demo].filter((source, index, all): source is string => Boolean(source) && all.indexOf(source) === index);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  useEffect(() => setSourceIndex(0), [uploaded, demo]);
+  const source = sources[sourceIndex] || null;
+  const initials = employeeAvatarInitials(name);
   return (
-    <span className={`chat-avatar ${large ? "large" : ""} ${className}`}>
-      {imageUrl?.startsWith("http") ? (
-        // Profile photo URLs are supplied by the existing conversation data.
+    <span className={`chat-avatar ${large ? "large" : ""} ${className}`} data-avatar-source={source ? (source === uploaded ? "profile" : "demo") : "initials"}>
+      {source ? (
+        // Private profile photos arrive as short-lived signed URLs. A broken
+        // upload falls through to the existing demo avatar, then initials.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={imageUrl} alt="" />
-      ) : (name || "?").trim().slice(0, 1).toUpperCase()}
+        <img src={source} alt={`${name || "Member"} profile photo`} onError={() => setSourceIndex((index) => index + 1)} />
+      ) : <span aria-label={`${name || "Member"} initials`}>{initials}</span>}
     </span>
   );
 }
@@ -1453,7 +1611,7 @@ function Message({
   const replyExpired = isChatMessageLogicallyExpired(message.reply_to || {}, now);
   return (
     <article id={`chat-message-${message.id}`} className={`chat-message ${own ? "own" : ""} ${actionOpen ? "action-open" : ""} ${unavailable ? "deleted" : ""}`}>
-      {sender && <b className="chat-sender">{message.sender?.full_name || "Member"}</b>}
+      {sender && <div className="chat-sender-identity"><Avatar name={message.sender?.full_name} imageUrl={message.sender?.photo_url} /><b className="chat-sender">{message.sender?.full_name || "Member"}</b></div>}
       <div
         tabIndex={!unavailable && message.message_type !== "system" ? 0 : undefined}
         onKeyDown={(event) => {
@@ -1566,15 +1724,15 @@ function MessageFile({ message, compact = false }: { message: any; compact?: boo
     </a>
   );
 }
-function Member({ member, admin, own, conversationId, refresh, report }: any) {
+function Member({ member, admin, own, conversationId, refresh, report, groupAdminId }: any) {
   const person = member.profiles || member;
   return (
     <div className="chat-member">
-      <Avatar name={person.full_name} imageUrl={person.avatar_url} />
+      <Avatar name={person.full_name} imageUrl={person.photo_url} />
       <span>
         <b>
           {person.full_name || "Member"}
-          {member.profile_id === member.group_admin_id ? " Admin" : ""}
+          {member.profile_id === groupAdminId ? " Admin" : ""}
         </b>
         <small>
           {person.designation || person.department?.name || "Employee"}
