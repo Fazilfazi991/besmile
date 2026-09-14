@@ -16,7 +16,7 @@ function fixture() {
   vi.stubEnv('BSMILE_QA_EMPLOYEE_PASSWORD', 'test-only');
   return {
     goto: vi.fn(), getByLabel: vi.fn(() => ({ fill: vi.fn() })),
-    getByRole: vi.fn(() => ({ click: vi.fn() })), locator: vi.fn(),
+    getByRole: vi.fn(() => ({ click: vi.fn(), isDisabled: vi.fn(async () => false) })), locator: vi.fn(),
     waitForLoadState: vi.fn(), waitForTimeout: vi.fn(),
     on: vi.fn(), off: vi.fn(), url: vi.fn(() => 'http://localhost:3000/sign-in'),
   };
@@ -61,9 +61,12 @@ describe('release browser login readiness', () => {
     page.on.mockImplementation((event: string, listener: typeof responseListener) => {
       if (event === 'response') responseListener = listener;
     });
-    page.getByRole.mockImplementation(() => ({ click: vi.fn(async () => {
-      responseListener?.({ url: () => 'https://qa.invalid/auth/v1/token', status: () => 200 });
-    }) }));
+    page.getByRole.mockImplementation(() => ({
+      click: vi.fn(async () => {
+        responseListener?.({ url: () => 'https://qa.invalid/auth/v1/token', status: () => 200 });
+      }),
+      isDisabled: vi.fn(async () => false),
+    }));
     assertions.url.mockRejectedValueOnce(new Error('bootstrap returned to sign-in'));
 
     await login(page as never, 'employee');
@@ -71,6 +74,22 @@ describe('release browser login readiness', () => {
     expect(page.goto).toHaveBeenCalledTimes(2);
     expect(page.waitForTimeout).toHaveBeenCalledWith(150);
     expect(assertions.retry).toHaveBeenCalledWith('employee', 'post-auth-bootstrap');
+    expect(assertions.shell).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries one token request that stalls without an HTTP or browser failure', async () => {
+    const page = fixture();
+    page.getByRole.mockImplementation(() => ({
+      click: vi.fn(),
+      isDisabled: vi.fn(async () => true),
+    }));
+    assertions.url.mockRejectedValueOnce(new Error('token request stalled'));
+
+    await login(page as never, 'employee');
+
+    expect(page.goto).toHaveBeenCalledTimes(2);
+    expect(page.waitForTimeout).toHaveBeenCalledWith(150);
+    expect(assertions.retry).toHaveBeenCalledWith('employee', 'transient-transport');
     expect(assertions.shell).toHaveBeenCalledTimes(1);
   });
 });
