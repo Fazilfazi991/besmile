@@ -51,6 +51,10 @@ export function currentCrmBusinessDate(date = new Date()) {
   return businessDateParts(date, CRM_BUSINESS_TIME_ZONE).key;
 }
 
+export function sameCrmDateRange(left: CrmDateRange, right: CrmDateRange) {
+  return left.start === right.start && left.end === right.end;
+}
+
 export function crmDashboardPeriodRange(
   period: Exclude<CrmDashboardPeriod, 'custom'>,
   today = currentCrmBusinessDate(),

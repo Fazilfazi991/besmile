@@ -6,6 +6,7 @@ import {
   currentCrmBusinessDate,
   lastThirtyCrmDateRange,
   normalizeCrmDashboardSummary,
+  sameCrmDateRange,
   shiftCrmDateKey,
   thirtyDayLeadSeries,
   validateCustomCrmRange,
@@ -46,6 +47,15 @@ describe('CRM dashboard E1 date model', () => {
     expect(crmDashboardPeriodRange('week', '2026-09-16')).toEqual({ start: '2026-09-14', end: '2026-09-16' });
     expect(crmDashboardPeriodRange('month', '2026-09-16')).toEqual({ start: '2026-09-01', end: '2026-09-16' });
     expect(crmDashboardPeriodRange('week', '2026-09-14')).toEqual({ start: '2026-09-14', end: '2026-09-14' });
+  });
+
+  it('recognizes equivalent date ranges so Monday preset changes do not enter a stale loading state', () => {
+    const today = crmDashboardPeriodRange('today', '2026-09-14');
+    const week = crmDashboardPeriodRange('week', '2026-09-14');
+    expect(sameCrmDateRange(today, week)).toBe(true);
+    expect(sameCrmDateRange(today, crmDashboardPeriodRange('month', '2026-09-14'))).toBe(false);
+    expect(page).toContain('if (sameCrmDateRange(range, nextRange)) return;');
+    expect(page).toContain('if (!sameCrmDateRange(range, draftRange))');
   });
 
   it('validates missing, impossible, reversed and future custom ranges', () => {

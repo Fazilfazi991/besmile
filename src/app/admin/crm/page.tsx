@@ -15,6 +15,7 @@ import {
   formatCrmRangeLabel,
   lastThirtyCrmDateRange,
   normalizeCrmDashboardSummary,
+  sameCrmDateRange,
   thirtyDayLeadSeries,
   validateCustomCrmRange,
 } from "@/lib/crm-dashboard-e1";
@@ -153,11 +154,13 @@ export default function CrmDashboard() {
   }, [closeCustom, customOpen]);
 
   function choosePreset(nextPeriod: Exclude<CrmDashboardPeriod, "custom">) {
+    const nextRange = crmDashboardPeriodRange(nextPeriod, today);
     setPeriod(nextPeriod);
+    if (sameCrmDateRange(range, nextRange)) return;
     setSummary(null);
     setSummaryLoading(true);
     setSummaryError("");
-    setRange(crmDashboardPeriodRange(nextPeriod, today));
+    setRange(nextRange);
   }
 
   function openCustom() {
@@ -171,10 +174,12 @@ export default function CrmDashboard() {
     const validation = validateCustomCrmRange(draftRange, today);
     if (validation) { setDraftError(validation); return; }
     setPeriod("custom");
-    setSummary(null);
-    setSummaryLoading(true);
-    setSummaryError("");
-    setRange(draftRange);
+    if (!sameCrmDateRange(range, draftRange)) {
+      setSummary(null);
+      setSummaryLoading(true);
+      setSummaryError("");
+      setRange(draftRange);
+    }
     closeCustom();
   }
 
