@@ -146,7 +146,7 @@ export default function LeavesPage() {
 
   if (loading) {
     return (
-      <section className="mx-auto max-w-[1220px]">
+      <section className="leave-self-service mx-auto max-w-[1220px]">
         <h1 className="text-2xl font-bold">Leave</h1>
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -162,7 +162,7 @@ export default function LeavesPage() {
 
   if (error && !profile) {
     return (
-      <section className="mx-auto max-w-[1220px]">
+      <section className="leave-self-service mx-auto max-w-[1220px]">
         <h1 className="text-2xl font-bold">Leave</h1>
         <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800">
           <p>{error}</p>
@@ -175,7 +175,7 @@ export default function LeavesPage() {
   }
 
   return (
-    <section className="mx-auto max-w-[1220px] space-y-4">
+    <section className="leave-self-service mx-auto max-w-[1220px] space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Leave</h1>
         <p className="mt-1 text-sm text-slate-600">

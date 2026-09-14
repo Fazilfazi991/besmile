@@ -155,7 +155,7 @@ export default function AdminTasksPage() {
     finally { setSaving(false); }
   };
 
-  if (loading) return <section className="space-y-5"><div className="h-16 w-80 animate-pulse rounded-xl bg-slate-100" /><div className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]"><div className="h-24 animate-pulse rounded-xl bg-slate-100" /><div className="h-64 animate-pulse rounded-xl bg-slate-100" /></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map(item => <div className="h-64 animate-pulse rounded-xl bg-slate-100" key={item} />)}</div></section>;
+  if (loading) return <section className="task-management-workspace space-y-5"><div className="h-16 w-80 animate-pulse rounded-xl bg-slate-100" /><div className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]"><div className="h-24 animate-pulse rounded-xl bg-slate-100" /><div className="h-64 animate-pulse rounded-xl bg-slate-100" /></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map(item => <div className="h-64 animate-pulse rounded-xl bg-slate-100" key={item} />)}</div></section>;
   if (error && !profile) return <section><p className="text-rose-700">{error}</p><button className="btn btn-primary mt-3" onClick={() => void load()}>Try again</button></section>;
 
   const today = new Date().toISOString().slice(0, 10);
@@ -174,7 +174,7 @@ export default function AdminTasksPage() {
   ];
   const emptyTitle = filter.status === 'overdue' ? 'No overdue tasks' : filter.status === 'due_today' ? 'No tasks due today' : filter.status === 'completed' ? 'No completed tasks' : filter.priority ? `No ${filter.priority[0].toUpperCase()}${filter.priority.slice(1)} priority tasks` : tasks.length ? 'No tasks match these filters' : 'No tasks yet';
 
-  return <section className="mx-auto max-w-[1600px] space-y-5 pb-8">
+  return <section className="task-management-workspace mx-auto max-w-[1600px] space-y-5 pb-8">
     <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-bold tracking-tight text-slate-950">Task Management</h1><p className="mt-1 text-sm text-slate-500">Create, assign, reassign, and review staff work.</p></div></header>
     {notice && <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{notice}</p>}
     {error && <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-800"><p>{error}</p><button className="mt-2 font-semibold underline" onClick={() => void loadTasks()}>Retry task list</button></div>}

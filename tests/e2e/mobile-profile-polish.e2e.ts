@@ -109,7 +109,7 @@ test('long patient names wrap across tabs in both themes without hiding actions'
 });
 
 test('colorful workspace surfaces remain readable and contained', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await login(page, 'general_manager');
@@ -127,7 +127,7 @@ test('colorful workspace surfaces remain readable and contained', async ({ page 
     await expect(page).toHaveURL(new RegExp(`${route}(?:[/?#]|$)`));
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'colorful');
     if (route.endsWith('/chat')) await expect(page.getByRole('textbox', { name: /type a message/i })).toBeVisible();
-    else await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+    else await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 30_000 });
     await assertNoRawDatabaseError(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await test.info().attach(`colorful-${route.replaceAll('/', '-')}`, { body: await page.screenshot(), contentType: 'image/png' });

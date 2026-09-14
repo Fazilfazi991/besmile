@@ -7,6 +7,7 @@ import { adminRepository } from '@/lib/admin-repository';
 import { employeeRepository } from '@/lib/employee-repository';
 import { currentProfile } from '@/lib/auth';
 import { filterLeaveRequests, paginateRecords, type LeaveStatusFilter } from '@/lib/leave-workspace';
+import { isActiveLeaveType } from '@/lib/leave-rules';
 
 const displayDate = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`)) : '—';
 const displayDateTime = (value?: string) => value ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) : '—';
@@ -56,7 +57,7 @@ export default function LeaveApprovalsPage() {
   }, [selected]);
 
   const counts = useMemo(() => Object.fromEntries(statusValues.map(value => [value, value === 'all' ? requests.length : requests.filter(request => request.status === value).length])), [requests]);
-  const leaveTypes = useMemo(() => Array.from(new Set(requests.map(request => request.leave_types?.name || request.leave_type).filter(Boolean))).sort() as string[], [requests]);
+  const leaveTypes = useMemo(() => Array.from(new Set(requests.filter(request => isActiveLeaveType(request.leave_types || { code: request.leave_type })).map(request => request.leave_types?.name || request.leave_type).filter(Boolean))).sort() as string[], [requests]);
   const filtered = useMemo(() => filterLeaveRequests(requests, { status, query, leaveType }), [requests, status, query, leaveType]);
   const pagination = useMemo(() => paginateRecords(filtered, page, pageSize), [filtered, page, pageSize]);
   const linkedRequestMissing = requestId && !loading && requests.length > 0 && !requests.some(request => request.id === requestId);

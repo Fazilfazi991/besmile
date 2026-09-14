@@ -108,7 +108,7 @@ export default function TasksPage() {
   };
   if (loading)
     return (
-      <section className="mx-auto max-w-[1260px] space-y-4">
+      <section className="task-management-workspace mx-auto max-w-[1260px] space-y-4">
         <div>
           <h1 className="text-2xl font-bold">My Tasks</h1>
           <p className="text-slate-600">
@@ -129,7 +129,7 @@ export default function TasksPage() {
     );
   if (profileError && !profile)
     return (
-      <section>
+      <section className="task-management-workspace">
         <h1 className="text-2xl font-bold">My Tasks</h1>
         <p className="mt-3 text-rose-700">{profileError}</p>
         <button onClick={() => void load()} className="btn btn-primary mt-3">
@@ -184,7 +184,7 @@ export default function TasksPage() {
     setDueDate("");
   };
   return (
-    <section className="mx-auto max-w-[1260px] space-y-4">
+    <section className="task-management-workspace mx-auto max-w-[1260px] space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">My Tasks</h1>

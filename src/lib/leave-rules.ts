@@ -21,3 +21,14 @@ export function hasLeaveOverlap(candidate:LeaveRequestPeriod,existing:LeaveReque
 export function canCancelLeave(status:string,startsOn:string,today:string){return status==='pending'||(status==='approved'&&startsOn>today)}
 export function hasSufficientBalance(allocated:number,used:number,requested:number){return allocated-used>=requested}
 export function isRlsError(error:{code?:string;message?:string}){return error.code==='42501'||/row-level security|permission denied/i.test(error.message??'')}
+
+export type ConfiguredLeaveType = { code?: string | null; name?: string | null; is_active?: boolean | null };
+export const retiredLeaveTypeCodes = new Set(['annual']);
+export function isActiveLeaveType(type: ConfiguredLeaveType) {
+  const code = String(type.code || '').trim().toLocaleLowerCase();
+  const name = String(type.name || '').trim().toLocaleLowerCase();
+  return type.is_active !== false && !retiredLeaveTypeCodes.has(code) && name !== 'annual leave';
+}
+export function activeLeaveTypes<T>(types: T[]) {
+  return types.filter((type) => isActiveLeaveType(type as ConfiguredLeaveType));
+}

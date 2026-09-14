@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { dateKey } from "./attendance-rules";
 import {
+  activeLeaveTypes,
   hasLeaveOverlap,
   hasSufficientBalance,
   leaveDays,
@@ -1165,7 +1166,7 @@ export const employeeRepository = {
       .eq("is_active", true)
       .order("name");
     if (error) throw error;
-    return data;
+    return activeLeaveTypes<any>(data || []);
   },
   async leaveBalances(userId: string, year = new Date().getFullYear()) {
     const { data, error } = await required()

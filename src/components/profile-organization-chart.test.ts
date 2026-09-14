@@ -28,29 +28,28 @@ describe("profile organization chart integration", () => {
     expect(clinicianProfile).not.toContain("ProfileOrganizationChart");
   });
 
-  it("uses explicit mobile rows that fit without local scrolling", () => {
+  it("uses the recursive hierarchy on mobile without local scrolling", () => {
     expect(styles).toContain("@media(max-width:700px)");
     expect(styles).toContain(".organization-chart-viewport{display:block;width:100%;max-width:100%;overflow:hidden");
-    expect(styles).toContain(".organization-chart-mobile{display:grid;width:100%;max-width:336px;margin-inline:auto");
-    expect(styles).toContain(".organization-chart-mobile-row-two{grid-template-columns:112px 112px;justify-content:space-between}");
-    expect(styles).toContain(".organization-chart-mobile-row-three{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}");
-    expect(component).toContain("organization-chart-mobile-row-two");
-    expect(component).toContain("organization-chart-mobile-row-three");
+    expect(styles).toContain(".organization-chart-mobile,.organization-chart-mobile ul{position:relative;display:grid;width:100%");
+    expect(styles).toContain(".organization-chart-mobile{max-width:340px;margin-inline:auto");
+    expect(component).toContain("<OrganizationBranch key={root.key}");
+    expect(component).not.toContain("mobileCard");
   });
 
-  it("keeps mobile connector geometry owned by each reporting row", () => {
-    expect(styles).toContain(".organization-chart-mobile-branch-two::after{right:56px;left:56px}");
-    expect(styles).toContain(".organization-chart-mobile-branch-three{--mobile-report-column:calc((100% - 16px)/3)}");
-    expect(styles).toContain(".organization-chart-mobile-report::before");
+  it("derives mobile connector geometry from the recursive reporting tree", () => {
+    expect(styles).toContain(".organization-chart-mobile ul::before");
+    expect(styles).toContain(".organization-chart-mobile li+li::before");
+    expect(styles).toContain(".organization-chart-mobile li li>.organization-chart-card::before");
     expect(styles).not.toContain("width:200%");
     expect(styles).not.toContain("translateX(-50%)}.organization-chart-node-assistant-manager>ul");
   });
 
-  it("keeps every bottom card readable instead of constraining it to 88px", () => {
-    expect(styles).toContain(".organization-chart-mobile-row-three .organization-chart-card{width:100%}");
-    expect(styles).toContain(".organization-chart-mobile .organization-chart-card{height:auto;min-height:106px");
+  it("keeps every mobile card readable instead of constraining it to 88px", () => {
+    expect(styles).toContain(".organization-chart-mobile .organization-chart-card{width:min(224px,calc(100% - 20px));height:auto;min-height:108px");
     expect(styles).not.toContain("organization-chart-card{width:88px");
-    expect(styles).toContain("overflow-wrap:normal;word-break:normal;white-space:normal;font-size:13px");
+    expect(styles).toContain(".organization-chart-mobile .organization-chart-identity{width:100%;min-width:0}");
+    expect(styles).toContain(".organization-chart-mobile .organization-chart-identity strong{font-size:13px}");
     expect(styles).not.toMatch(/text-overflow:ellipsis/);
   });
 
