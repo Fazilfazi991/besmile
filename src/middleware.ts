@@ -10,6 +10,10 @@ function redirectWithCookies(request: NextRequest, response: NextResponse, path:
 }
 
 export async function middleware(request: NextRequest) {
+  // Vercel's Preview toolbar probes protected routes with same-origin OPTIONS
+  // requests. Answer the preflight without resolving a session or rendering any
+  // protected content so the probe cannot surface as a browser console error.
+  if (request.method === 'OPTIONS') return new NextResponse(null, { status: 204, headers: { Allow: 'GET, HEAD, OPTIONS' } });
   const response = NextResponse.next();
   try { return await authorizeRequest(request, response); }
   catch (error) {

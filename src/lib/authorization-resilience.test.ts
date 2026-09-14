@@ -24,6 +24,15 @@ async function request() {
   return result;
 }
 describe('authorization resilience remains fail closed', () => {
+  it('answers protected-route preflight without reading authorization or content', async () => {
+    const response = await middleware(new NextRequest('http://localhost/admin', { method: 'OPTIONS' }));
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe('');
+    expect(response.headers.get('allow')).toBe('GET, HEAD, OPTIONS');
+    expect(mock.auth).not.toHaveBeenCalled();
+    expect(mock.profile).not.toHaveBeenCalled();
+    expect(mock.permission).not.toHaveBeenCalled();
+  });
   it('real denied permission redirects to unauthorized without retry', async () => {
     const response=await request();expect(response.headers.get('location')).toBe('http://localhost/unauthorized');expect(mock.permission).toHaveBeenCalledTimes(4);
   });
