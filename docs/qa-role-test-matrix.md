@@ -1,6 +1,6 @@
 # BSmile role QA matrix
 
-Run `npm run seed:qa-users` only against a non-production Supabase project. Apply migrations through `0030_task_assignment_policy_reset.sql` first. The seed only writes `@qa.bsmile.local` users. Set `QA_SEED_PASSWORD` in the shell; never commit passwords or secrets.
+Run `pnpm run seed:qa-users` only against a non-production Supabase project. Apply migrations through `0030_task_assignment_policy_reset.sql` first. The seed only writes `@qa.bsmile.local` users. Set `QA_SEED_PASSWORD` in the shell; never commit passwords or secrets.
 
 | Account | Role / status | Landing route | Expected access |
 | --- | --- | --- | --- |

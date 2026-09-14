@@ -23,7 +23,7 @@ const qaProfiles = await admin.from('profiles').select('id,email').like('email',
 if (qaProfiles.error) throw qaProfiles.error;
 const ids = Object.fromEntries(qaProfiles.data.map(profile => [profile.email, profile.id]));
 const staffId = ids[email('staff')], gmId = ids[email('general-manager')], chairmanId = ids[email('chairman')];
-if (!staffId || !gmId || !chairmanId) throw new Error('QA profiles are missing. Run npm run seed:qa-users first.');
+if (!staffId || !gmId || !chairmanId) throw new Error('QA profiles are missing. Run pnpm run seed:qa-users first.');
 
 const tasks = await admin.from('tasks').select('id,title').in('title', ['QA-GM-TREE-TASK', 'QA-GM-UNRELATED-TASK']);
 if (tasks.error) throw tasks.error;

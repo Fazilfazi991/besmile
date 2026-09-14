@@ -9,7 +9,7 @@ This checklist deliberately does not deploy the application. Complete each item,
 - [ ] Set `SUPABASE_SERVICE_ROLE_KEY` only for server-side scripts/jobs that genuinely need it. It must never be exposed through `NEXT_PUBLIC_`, client components, browser bundles, or logs.
 - [ ] Do not set `QA_SEED_PASSWORD`, `SEED_USER_TEMP_PASSWORD`, or `ALLOW_QA_SEED` in Production. QA scripts reject `NODE_ENV=production`, `VERCEL_ENV=production`, or `ALLOW_QA_SEED=false`.
 - [ ] Search the production build and source for `localhost`, service-role keys, and debug credentials. Replace hard-coded URLs with `NEXT_PUBLIC_APP_URL` where an absolute URL is needed.
-- [ ] Run `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` using production-like public variables. Do not print secrets in CI output.
+- [ ] Run `pnpm install --frozen-lockfile`, `pnpm run lint`, `pnpm run typecheck`, `pnpm test`, and `pnpm run build` using production-like public variables. Do not print secrets in CI output.
 
 Current repository finding: the browser client and middleware use only Supabase URL/anonymous key. The service-role key is used by local operational scripts only. Keep it that way.
 
@@ -81,7 +81,7 @@ where email = 'REPLACE_WITH_REAL_ADMIN_EMAIL';
 ## 5. Vercel and authentication configuration
 
 - [ ] Import the repository with root directory set to this Next.js project.
-- [ ] Framework preset: Next.js. Install command: `npm ci`. Build command: `npm run build`. Node: use the version pinned by the deployment platform or add an approved `.nvmrc` before release.
+- [ ] Framework preset: Next.js. Install command: `pnpm install --frozen-lockfile`. Build command: `pnpm run build`. Node: use the version pinned by the deployment platform or add an approved `.nvmrc` before release.
 - [ ] Configure Production environment variables separately from Preview and Development.
 - [ ] Set the production custom domain and set `NEXT_PUBLIC_APP_URL` to its HTTPS canonical URL.
 - [ ] In Supabase Auth: set Site URL to the canonical production URL; add that URL and only intentional Vercel preview URLs to Redirect URLs. Keep `http://localhost:3000` limited to development.

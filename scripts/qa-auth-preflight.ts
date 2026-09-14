@@ -18,7 +18,7 @@ async function main() {
   const safe = process.env.BSMILE_QA_PROJECT_REF === expected && new URL(url).hostname === `${expected}.supabase.co`;
   if (!safe) throw new Error('QA project identity mismatch');
   results.push({name:'QA project identity',status:'PASS'});
-  for (const role of ['ADMIN','GENERAL_MANAGER','MANAGER','EMPLOYEE']) {
+  for (const role of ['ADMIN','GENERAL_MANAGER','DIRECTOR','MANAGER','EMPLOYEE']) {
     const db = createClient(url, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, {
       auth: {persistSession:false,autoRefreshToken:false},
       global: {fetch: (input, init) => fetch(input, {...init, signal:AbortSignal.timeout(5000)})},

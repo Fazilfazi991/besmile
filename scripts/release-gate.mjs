@@ -17,6 +17,7 @@ const requiredEnvironment = [
   'BSMILE_QA_BASE_URL', 'BSMILE_QA_SUPABASE_URL', 'BSMILE_QA_SUPABASE_ANON_KEY', 'BSMILE_QA_PROJECT_REF',
   'BSMILE_QA_ADMIN_EMAIL', 'BSMILE_QA_ADMIN_PASSWORD',
   'BSMILE_QA_GENERAL_MANAGER_EMAIL', 'BSMILE_QA_GENERAL_MANAGER_PASSWORD',
+  'BSMILE_QA_DIRECTOR_EMAIL', 'BSMILE_QA_DIRECTOR_PASSWORD',
   'BSMILE_QA_MANAGER_EMAIL', 'BSMILE_QA_MANAGER_PASSWORD',
   'BSMILE_QA_EMPLOYEE_EMAIL', 'BSMILE_QA_EMPLOYEE_PASSWORD',
 ];
@@ -32,11 +33,11 @@ if (!missingEnvironment.length && !unsafeQaEnvironment) {
 }
 
 const steps = [
-  ['clean install', 'npm', ['ci']],
-  ['TypeScript', 'npm', ['run', 'typecheck']],
-  ['ESLint', 'npm', ['run', 'lint']],
-  ['tests', 'npm', ['test', '--', '--reporter=json', '--outputFile=release-evidence/vitest-results.json']],
-  ['production build', 'npm', ['run', 'build']],
+  ['clean install', 'pnpm', ['install', '--frozen-lockfile']],
+  ['TypeScript', 'pnpm', ['run', 'typecheck']],
+  ['ESLint', 'pnpm', ['run', 'lint']],
+  ['tests', 'pnpm', ['exec', 'vitest', 'run', '--reporter=json', '--outputFile=release-evidence/vitest-results.json']],
+  ['production build', 'pnpm', ['run', 'build']],
   ['QA connectivity/auth preflight', 'node', ['--import', 'tsx', 'scripts/qa-auth-preflight.ts']],
   ['QA database/RLS probes', 'node', ['scripts/qa-security-probes.mjs']],
 ];
@@ -76,10 +77,10 @@ try {
       const localQa = ['127.0.0.1', 'localhost'].includes(baseUrl.hostname);
       if (localQa) {
         const port = baseUrl.port || (baseUrl.protocol === 'https:' ? '443' : '80');
-        appServer = spawn('npm', ['start', '--', '-p', port], { shell: process.platform === 'win32', detached: process.platform === 'win32', windowsHide: true, stdio: 'inherit', env: process.env });
+        appServer = spawn('pnpm', ['start', '--', '-p', port], { shell: process.platform === 'win32', detached: process.platform === 'win32', windowsHide: true, stdio: 'inherit', env: process.env });
         await waitForServer(process.env.BSMILE_QA_BASE_URL);
       }
-      runStep(['critical browser flows', 'npx', ['playwright', 'test', 'tests/e2e/critical-flows.e2e.ts', 'tests/e2e/appointments-kpi.e2e.ts', 'tests/e2e/mobile-profile-polish.e2e.ts']]);
+      runStep(['critical browser flows', 'pnpm', ['exec', 'playwright', 'test', 'tests/e2e/critical-flows.e2e.ts', 'tests/e2e/appointments-kpi.e2e.ts', 'tests/e2e/mobile-profile-polish.e2e.ts', 'tests/e2e/crm-dashboard-e1.e2e.ts']]);
     }
   }
 } finally {

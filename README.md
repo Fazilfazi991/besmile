@@ -6,16 +6,17 @@ CRM, Finance, payroll, role-based access, and audit-ready workflows.
 ## Local development
 
 1. Copy `.env.example` to `.env.local` and add development Supabase values.
-2. Install dependencies with `npm ci`.
-3. Run `npm run dev`.
+2. Enable the pinned package manager with `corepack enable`.
+3. Install dependencies with `pnpm install --frozen-lockfile`.
+4. Run `pnpm run dev`.
 
 Validate changes with:
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
-npm run build
+pnpm run lint
+pnpm run typecheck
+pnpm test
+pnpm run build
 ```
 
 ## Deployment
