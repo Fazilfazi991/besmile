@@ -77,7 +77,7 @@ try {
       const localQa = ['127.0.0.1', 'localhost'].includes(baseUrl.hostname);
       if (localQa) {
         const port = baseUrl.port || (baseUrl.protocol === 'https:' ? '443' : '80');
-        appServer = spawn('pnpm', ['start', '--', '-p', port], { shell: process.platform === 'win32', detached: process.platform === 'win32', windowsHide: true, stdio: 'inherit', env: process.env });
+        appServer = spawn('pnpm', ['start', '-p', port], { shell: process.platform === 'win32', detached: process.platform === 'win32', windowsHide: true, stdio: 'inherit', env: process.env });
         await waitForServer(process.env.BSMILE_QA_BASE_URL);
       }
       runStep(['critical browser flows', 'pnpm', ['exec', 'playwright', 'test', 'tests/e2e/critical-flows.e2e.ts', 'tests/e2e/appointments-kpi.e2e.ts', 'tests/e2e/mobile-profile-polish.e2e.ts', 'tests/e2e/crm-dashboard-e1.e2e.ts']]);
