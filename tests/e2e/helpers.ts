@@ -7,11 +7,13 @@ export async function login(page: Page, role: QaRole) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let transportFailure = false;
     let tokenAccepted = false;
+    let tokenResponseSeen = false;
     const failed = (request: Request) => {
       if (request.url().includes('/auth/v1/token') && /ERR_CONNECTION_RESET|ERR_TIMED_OUT/.test(request.failure()?.errorText || '')) transportFailure = true;
     };
     const response = (result: Response) => {
       if (!result.url().includes('/auth/v1/token')) return;
+      tokenResponseSeen = true;
       if (result.status() >= 200 && result.status() < 300) tokenAccepted = true;
       if ([502,503,504].includes(result.status())) transportFailure = true;
     };
@@ -32,8 +34,13 @@ export async function login(page: Page, role: QaRole) {
       // A successful token exchange can occasionally be followed by an aborted
       // first document bootstrap. Retry that exact sign-in bounce once; invalid
       // credentials, unauthorized landings, and missing shells remain failures.
+      // A token request that never produces either a response or a browser-level
+      // failure is also transport infrastructure, not an authorization result.
       const postAuthBootstrapFailure = tokenAccepted && /\/sign-in(?:[?#].*)?$/.test(page.url());
-      if (attempt === 1 || (!transportFailure && !postAuthBootstrapFailure)) throw error;
+      const stalledTokenRequest = !tokenResponseSeen
+        && /\/sign-in(?:[?#].*)?$/.test(page.url())
+        && await page.getByRole('button', { name: 'Signing in...' }).isDisabled().catch(() => false);
+      if (attempt === 1 || (!transportFailure && !postAuthBootstrapFailure && !stalledTokenRequest)) throw error;
       recordFixtureLoginRetry(role, postAuthBootstrapFailure ? 'post-auth-bootstrap' : 'transient-transport');
       await page.waitForTimeout(150);
     } finally {
