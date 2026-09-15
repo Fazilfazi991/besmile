@@ -11,6 +11,7 @@ const targets: Array<{ pattern: RegExp; target: ContextualBackTarget }> = [
   { pattern: /^\/admin\/finance\/invoices\/(?:new|[^/]+)$/, target: { href: '/admin/finance/invoices', label: 'Back to invoices' } },
   { pattern: /^\/admin\/finance\/payroll\/[^/]+$/, target: { href: '/admin/finance/payroll', label: 'Back to payroll' } },
   { pattern: /^\/admin\/documents\/generate$/, target: { href: '/admin/documents', label: 'Back to documents' } },
+  { pattern: /^\/employee\/documents\/generate$/, target: { href: '/employee/documents', label: 'Back to documents' } },
   { pattern: /^\/admin\/daily-work$/, target: { href: '/admin/attendance', label: 'Back to attendance' } },
   { pattern: /^\/admin\/ideas\/new$/, target: { href: '/admin/ideas', label: 'Back to Innovation Hub' } },
   { pattern: /^\/admin\/ideas\/categories$/, target: { href: '/admin/ideas', label: 'Back to Innovation Hub' } },

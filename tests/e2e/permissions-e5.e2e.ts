@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { assertNoRawDatabaseError, credentials, login, navigateAfterLogin } from './helpers';
 
 let fixtureAdmin: SupabaseClient;
 let assistantId: string;
 let psychologistId: string;
+let psychologistName: string;
 let leadId: string;
 let patientId: string;
 let patientSlug: string;
@@ -14,6 +16,8 @@ let officialDocumentId: string;
 let restrictedDocumentId: string;
 let officialPath: string;
 let restrictedPath: string;
+let generatedOfferId: string;
+let generatedOfferPath: string;
 const createdPatientDocuments: string[] = [];
 const createdPatientPaths: string[] = [];
 
@@ -37,7 +41,8 @@ test.beforeAll(async () => {
   const department = await fixtureAdmin.from('departments').select('id').eq('name', 'Administration').single();
   if (department.error) throw department.error;
   const assistant = await createUser('assistant', { full_name: 'QA E5 Assistant Manager', role: 'staff', designation: 'Assistant Manager', department_id: department.data.id });
-  const psychologist = await createUser('psychologist', { full_name: 'QA E5 Psychologist', role: 'psychologist', designation: 'Psychologist' });
+  psychologistName = `QA E5 Psychologist ${crypto.randomUUID().slice(0, 8)}`;
+  const psychologist = await createUser('psychologist', { full_name: psychologistName, role: 'psychologist', designation: 'Psychologist' });
   assistantId = assistant.id; psychologistId = psychologist.id;
   process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = assistant.email;
   process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = assistant.password;
@@ -110,6 +115,8 @@ test.afterAll(async () => {
     await fixtureAdmin.from('documents').delete().in('id', [officialDocumentId, restrictedDocumentId].filter(Boolean));
   }
   if (officialPath || restrictedPath) await fixtureAdmin.storage.from('employee-documents').remove([officialPath, restrictedPath].filter(Boolean));
+  if (generatedOfferId) await fixtureAdmin.from('documents').delete().eq('id', generatedOfferId);
+  if (generatedOfferPath) await fixtureAdmin.storage.from('employee-documents').remove([generatedOfferPath]);
   if (leadId) {
     await fixtureAdmin.from('crm_sales').delete().eq('lead_id', leadId);
     await fixtureAdmin.from('crm_lead_followups').delete().eq('lead_id', leadId);
@@ -143,6 +150,111 @@ test('Assistant Manager converts Lead to Sale with a persistent amount and sees 
   await expect(page.getByText('QA E5 Shared Official Policy')).toBeVisible();
   await expect(page.getByText('QA E5 Restricted Management File')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await assertNoRawDatabaseError(page);
+});
+
+test('Assistant Manager creates, previews, saves, and reopens a UUID-linked Offer Letter without private-document access', async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await login(page, 'assistant_manager');
+  await navigateAfterLogin(page, '/employee/documents');
+  await expect(page.getByRole('link', { name: 'Create Document' })).toBeVisible();
+  await page.getByRole('link', { name: 'Create Document' }).click();
+  await expect(page.getByRole('heading', { name: 'Official Document Generator' })).toBeVisible();
+  const documentType = page.getByRole('combobox', { name: 'Document type' });
+  await expect(documentType).toHaveValue('offer_letter');
+  const availableTypes = await documentType.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
+  expect(availableTypes).toEqual(['offer_letter', 'appointment_letter', 'experience_letter', 'general_report', 'sales_report', 'custom_official_document']);
+  for (const restricted of ['salary_slip', 'payment_statement', 'invoice', 'performance_report', 'policy']) expect(availableTypes).not.toContain(restricted);
+  const restrictedStatus = await page.evaluate(async () => {
+    const response = await fetch('/api/documents/official/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentType: 'salary_slip', issueDate: '2026-09-15', title: 'Denied', body: 'Denied', mode: 'preview' }),
+    });
+    return response.status;
+  });
+  expect(restrictedStatus).toBe(403);
+
+  const search = page.getByRole('combobox', { name: 'Select employee' });
+  await search.fill(psychologistName);
+  const employee = page.getByRole('option', { name: psychologistName });
+  await expect(employee).toBeVisible();
+  await employee.click();
+  await expect(page.getByRole('textbox', { name: 'Employee / candidate' })).toHaveValue(psychologistName);
+  await expect(page.getByRole('textbox', { name: 'Position / designation' })).toHaveValue('Psychologist');
+  await page.getByLabel('Joining date', { exact: true }).fill('2026-10-01');
+  await expect(page.getByRole('textbox', { name: 'Official content' })).toHaveValue(/2026-10-01/);
+  const previewResponse = page.waitForResponse(response => response.url().endsWith('/api/documents/official/generate') && response.request().postDataJSON()?.mode === 'preview');
+  await page.getByRole('button', { name: 'Preview PDF' }).click();
+  const preview = await previewResponse;
+  expect(preview.status()).toBe(200);
+  expect(preview.headers()['content-type']).toContain('application/pdf');
+  await expect(page.getByTitle('Official document PDF preview')).toBeVisible();
+  await expect(page.getByText('Preview ready. This is the same PDF that will be downloaded.')).toBeVisible();
+  const previewUrl = await page.getByTitle('Official document PDF preview').getAttribute('src');
+  expect(previewUrl).toMatch(/^blob:/);
+  const previewPdf = await page.evaluate(async (url) => {
+    const bytes = new Uint8Array(await (await fetch(url!)).arrayBuffer());
+    return { magic: new TextDecoder().decode(bytes.subarray(0, 4)), size: bytes.length };
+  }, previewUrl);
+  expect(previewPdf.magic).toBe('%PDF');
+  expect(previewPdf.size).toBeGreaterThan(1_000);
+
+  const generatedResponse = page.waitForResponse(response => response.url().endsWith('/api/documents/official/generate') && response.request().postDataJSON()?.mode === 'generate');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Generate & download' }).click();
+  const generated = await generatedResponse;
+  expect(generated.status()).toBe(200);
+  expect(generated.headers()['content-type']).toContain('application/pdf');
+  const downloaded = await download;
+  expect(downloaded.suggestedFilename()).toMatch(/^BSmile_Offer_Letter_QA_E5_Psychologist_.*\.pdf$/);
+  const downloadedPdf = await readFile(await downloaded.path());
+  expect(downloadedPdf.subarray(0, 4).toString()).toBe('%PDF');
+  expect(downloadedPdf.length).toBeGreaterThan(1_000);
+  generatedOfferId = generated.headers()['x-document-id'];
+  expect(generatedOfferId).toBeTruthy();
+  const saved = await fixtureAdmin.from('documents').select('id,source_type,document_type,related_profile_id,uploaded_by,storage_path,official_status').eq('id', generatedOfferId).single();
+  if (saved.error) throw saved.error;
+  generatedOfferPath = saved.data.storage_path;
+  expect(saved.data).toMatchObject({ source_type: 'official_generated', document_type: 'offer_letter', related_profile_id: psychologistId, uploaded_by: assistantId, official_status: 'available' });
+  expect(generatedOfferPath).toContain(`company/${assistantId}/official/`);
+
+  await page.reload();
+  await expect(page.getByText(`Offer Letter - ${psychologistName}`)).toBeVisible();
+  await expect(page.getByText('QA E5 Restricted Management File')).toHaveCount(0);
+  const offer = page.getByRole('button', { name: `Offer Letter - ${psychologistName}` });
+  await expect(offer).toBeVisible();
+  const signedResponse = page.waitForResponse(response => response.url().includes('/storage/v1/object/sign/employee-documents/') && response.request().method() === 'POST');
+  const popup = page.waitForEvent('popup');
+  await offer.click();
+  const signed = await signedResponse;
+  expect(signed.status()).toBe(200);
+  const signedPayload = await signed.json() as { signedURL?: string; signedUrl?: string };
+  const signedPath = signedPayload.signedURL || signedPayload.signedUrl;
+  expect(signedPath).toBeTruthy();
+  await popup;
+  const signedEndpoint = signedPath!.startsWith('http') ? signedPath! : signedPath!.startsWith('/storage/v1') ? signedPath! : `/storage/v1${signedPath}`;
+  const savedPdfResponse = await request.get(new URL(signedEndpoint, process.env.BSMILE_QA_SUPABASE_URL).toString());
+  expect(savedPdfResponse.status()).toBe(200);
+  expect(savedPdfResponse.headers()['content-type']).toContain('application/pdf');
+  expect((await savedPdfResponse.body()).subarray(0, 4).toString()).toBe('%PDF');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await assertNoRawDatabaseError(page);
+});
+
+test('unauthorized employee cannot reach the official creator or generate restricted PDFs', async ({ page }) => {
+  await login(page, 'employee');
+  await navigateAfterLogin(page, '/employee/documents');
+  await expect(page.getByRole('link', { name: 'Create Document' })).toHaveCount(0);
+  await page.goto('/employee/documents/generate');
+  await expect(page).toHaveURL(/\/unauthorized/);
+  const response = await page.evaluate(async () => {
+    const request = await fetch('/api/documents/official/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentType: 'salary_slip', issueDate: '2026-09-15', title: 'Denied', body: 'Denied', mode: 'generate' }),
+    });
+    return request.status;
+  });
+  expect(response).toBe(403);
   await assertNoRawDatabaseError(page);
 });
 

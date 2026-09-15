@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { serverSupabase } from '@/lib/supabase-server';
-import { canGenerateOfficialDocuments } from '@/lib/official-document-access';
+import { officialDocumentAccess } from '@/lib/official-document-access';
 
 export async function GET() {
   const db = await serverSupabase();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!await canGenerateOfficialDocuments(db)) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const access = await officialDocumentAccess(db);
+  if (!access.allowedTypes.length) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+
+  let historyQuery = db.from('documents').select('id,title,category,file_name,created_at,storage_path')
+    .like('category', 'Official:%');
+  if (!access.manager) historyQuery = historyQuery.eq('uploaded_by', user.id).eq('source_type', 'official_generated').eq('official_status', 'available');
 
   const [profile, history] = await Promise.all([
     db.from('profiles').select('id,full_name,designation,role').eq('id', user.id).single(),
-    db.from('documents').select('id,title,category,file_name,created_at,storage_path').like('category', 'Official:%').order('created_at', { ascending: false }).limit(20),
+    historyQuery.order('created_at', { ascending: false }).limit(20),
   ]);
   const error = profile.error || history.error;
   if (error) {
@@ -20,5 +25,5 @@ export async function GET() {
     });
     return NextResponse.json({ error: 'Unable to load document generator data.' }, { status: 500 });
   }
-  return NextResponse.json({ profile: profile.data, history: history.data || [] });
+  return NextResponse.json({ profile: profile.data, history: history.data || [], allowedTypes: access.allowedTypes });
 }

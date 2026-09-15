@@ -44,7 +44,7 @@ describe('follow-up Batch B document and policy requirements', () => {
   }, 30_000);
 
   it('uses server-side scoped employee search and stores the selected canonical id', () => {
-    const page = source('src/app/admin/documents/generate/page.tsx');
+    const page = source('src/components/official-document-generator.tsx');
     const endpoint = source('src/app/api/documents/official/employees/route.ts');
     const context = source('src/app/api/documents/official/context/route.ts');
     expect(page).toContain('role="combobox"');
@@ -52,7 +52,8 @@ describe('follow-up Batch B document and policy requirements', () => {
     expect(page).toContain("event.key === 'ArrowDown'");
     expect(endpoint).toContain(".ilike('full_name'");
     expect(endpoint).toContain(".limit(20)");
-    expect(endpoint).toContain("canGenerateOfficialDocuments(db)");
+    expect(endpoint).toContain("officialDocumentAccess(db)");
+    expect(endpoint).toContain("search_official_document_employees");
     expect(context).not.toContain("limit(250)");
   });
 

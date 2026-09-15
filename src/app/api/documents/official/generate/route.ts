@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { serverSupabase } from '@/lib/supabase-server';
-import { canGenerateOfficialDocuments } from '@/lib/official-document-access';
+import { officialDocumentAccess } from '@/lib/official-document-access';
 import { generateOfficialDocument } from '@/lib/official-document-engine';
 import { officialDocumentFilename, validateOfficialDocumentInput } from '@/lib/official-document-types';
 
@@ -10,15 +10,22 @@ export async function POST(request: Request) {
   const db = await serverSupabase();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!await canGenerateOfficialDocuments(db)) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const access = await officialDocumentAccess(db);
+  if (!access.allowedTypes.length) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
 
   try {
     const payload = await request.json();
     const mode = payload?.mode === 'generate' ? 'generate' : 'preview';
     const input = validateOfficialDocumentInput(payload);
+    if (!access.allowedTypes.includes(input.documentType)) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     if (input.relatedProfileId) {
-      const related = await db.from('profiles').select('id').eq('id', input.relatedProfileId).maybeSingle();
-      if (related.error || !related.data) return NextResponse.json({ error: 'The selected employee is unavailable.' }, { status: 400 });
+      if (access.manager) {
+        const related = await db.from('profiles').select('id').eq('id', input.relatedProfileId).maybeSingle();
+        if (related.error || !related.data) return NextResponse.json({ error: 'The selected employee is unavailable.' }, { status: 400 });
+      } else {
+        const related = await db.rpc('official_document_employee_is_selectable', { target_profile: input.relatedProfileId });
+        if (related.error || related.data !== true) return NextResponse.json({ error: 'The selected employee is unavailable.' }, { status: 400 });
+      }
     }
     const { buffer, pageCount } = await generateOfficialDocument(input);
     const filename = officialDocumentFilename(input);

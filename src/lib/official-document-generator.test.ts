@@ -47,7 +47,7 @@ describe('official document generator', () => {
     const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260813195922_official_document_generator.sql'), 'utf8');
     for (const route of [generateRoute, contextRoute]) {
       expect(route).toContain('db.auth.getUser()');
-      expect(route).toContain('canGenerateOfficialDocuments(db)');
+      expect(route).toContain('officialDocumentAccess(db)');
       expect(route).toContain("status: 403");
     }
     expect(generateRoute).toContain("storage.from('employee-documents')");

@@ -30,6 +30,7 @@ async function createFixture(label, profile) {
 
 let assistant;
 let psychologist;
+let psychologistName;
 let participantB;
 let employee;
 let gm;
@@ -37,7 +38,8 @@ try {
   const department = await fixtureAdmin.from('departments').select('id').eq('name', 'Administration').single();
   if (department.error) throw department.error;
   assistant = await createFixture('assistant', { full_name: 'QA E5 Assistant Manager', role: 'staff', designation: 'Assistant Manager', department_id: department.data.id });
-  psychologist = await createFixture('psychologist', { full_name: 'QA E5 Psychologist', role: 'psychologist', designation: 'Psychologist' });
+  psychologistName = `QA E5 Psychologist ${crypto.randomUUID().slice(0, 8)}`;
+  psychologist = await createFixture('psychologist', { full_name: psychologistName, role: 'psychologist', designation: 'Psychologist' });
   participantB = await createFixture('participant-b', { full_name: 'QA E5 Participant B', role: 'staff', designation: 'Employee', department_id: department.data.id });
   employee = await signIn({ email: required('BSMILE_QA_EMPLOYEE_EMAIL'), password: required('BSMILE_QA_EMPLOYEE_PASSWORD') });
   gm = await signIn({ email: required('BSMILE_QA_GENERAL_MANAGER_EMAIL'), password: required('BSMILE_QA_GENERAL_MANAGER_PASSWORD') });
@@ -46,14 +48,42 @@ try {
   const participantBSession = await signIn(participantB);
 
   await check('Assistant Manager receives the canonical operational CRM bundle without security administration', async () => {
-    for (const code of ['admin.shell', 'crm.manage_all', 'crm.import', 'leads.create', 'leads.edit', 'leads.assign', 'leads.manage_status', 'sales.view', 'sales.edit', 'documents.employee.view']) {
+    for (const code of ['admin.shell', 'crm.manage_all', 'crm.import', 'leads.create', 'leads.edit', 'leads.assign', 'leads.manage_status', 'sales.view', 'sales.edit', 'documents.employee.view', 'documents.official.generate']) {
       const permission = await assistantSession.db.rpc('has_permission', { permission_code: code });
       if (permission.error || permission.data !== true) throw new Error(`Missing Assistant Manager permission: ${code}`);
     }
-    for (const code of ['roles.manage', 'permissions.manage', 'settings.manage', 'crm.delete']) {
+    for (const code of ['roles.manage', 'permissions.manage', 'settings.manage', 'crm.delete', 'documents.manage', 'documents.employee.manage']) {
       const permission = await assistantSession.db.rpc('has_permission', { permission_code: code });
       if (permission.error || permission.data !== false) throw new Error(`Protected permission exposed: ${code}`);
     }
+  });
+
+  await check('Assistant Manager official employee search returns only bounded operational fields, not private profiles', async () => {
+    const direct = await assistantSession.db.from('profiles').select('id').eq('id', psychologist.id);
+    if (direct.error || direct.data?.length) throw direct.error || new Error('Broad employee profiles SELECT was exposed');
+    const searched = await assistantSession.db.rpc('search_official_document_employees', { search_text: psychologistName });
+    if (searched.error || searched.data?.length !== 1 || searched.data[0].id !== psychologist.id) throw searched.error || new Error('Scoped official employee search failed');
+    const selectable = await assistantSession.db.rpc('official_document_employee_is_selectable', { target_profile: psychologist.id });
+    if (selectable.error || selectable.data !== true) throw selectable.error || new Error('Canonical employee relation unavailable');
+    const wildcards = await assistantSession.db.rpc('search_official_document_employees', { search_text: '__' });
+    if (wildcards.error || wildcards.data?.length) throw wildcards.error || new Error('Wildcard search exposed employee directory');
+    const unauthorized = await employee.db.rpc('search_official_document_employees', { search_text: 'QA E5' });
+    if (unauthorized.error || unauthorized.data?.length) throw unauthorized.error || new Error('Unauthorized employee searched workforce');
+  });
+
+  await check('Assistant Manager cannot create restricted official metadata or upload outside their own official PDF path', async () => {
+    const forbidden = await assistantSession.db.from('documents').insert({
+      title: 'QA denied salary slip', category: 'Official:Salary Slip', source_type: 'official_generated',
+      document_type: 'salary_slip', official_status: 'available',
+      storage_path: `company/${assistant.id}/official/${crypto.randomUUID()}.pdf`,
+      file_name: 'denied.pdf', mime_type: 'application/pdf', file_size: 8,
+      uploaded_by: assistant.id,
+    });
+    mustFail(forbidden, 'restricted salary slip');
+    const bytes = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52]);
+    mustFail(await assistantSession.db.storage.from('employee-documents').upload(`company/${assistant.id}/private/${crypto.randomUUID()}.pdf`, bytes, { contentType: 'application/pdf' }), 'non-official company upload');
+    mustFail(await assistantSession.db.storage.from('employee-documents').upload(`company/${gm.user.id}/official/${crypto.randomUUID()}.pdf`, bytes, { contentType: 'application/pdf' }), 'another owner official upload');
+    mustFail(await employee.db.storage.from('employee-documents').upload(`company/${employee.user.id}/official/${crypto.randomUUID()}.pdf`, bytes, { contentType: 'application/pdf' }), 'unauthorized employee official upload');
   });
 
   await check('Assistant Manager Lead to Sale conversion is atomic, amount-preserving and idempotent', async () => {

@@ -9,7 +9,7 @@ export const permissionCatalogue = [
   'patient_notes.view','patient_notes.create','patient_notes.edit','patient_notes.delete',
   'clinical_notes.view','clinical_notes.create','clinical_notes.edit','clinical_notes.delete','patient_activity.view',
   'patient_sessions.create','patient_sessions.edit','patient_sessions.cancel','patient_activity.view',
-  'documents.employee.view','documents.employee.manage','documents.administration.manage','documents.operational_client.manage',
+  'documents.employee.view','documents.employee.manage','documents.official.generate','documents.administration.manage','documents.operational_client.manage',
   'ideas.view','ideas.create','ideas.edit_own','ideas.comment','ideas.support',
   'customer_feedback.view',
   'doctor_scheduling.view','doctor_scheduling.manage_doctors','doctor_scheduling.create_appointments','doctor_scheduling.update_appointments','doctor_scheduling.cancel_appointments',

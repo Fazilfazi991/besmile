@@ -214,6 +214,8 @@ export function adminRouteRequirement(path: string): PermissionRequirement {
     return anyOf("customer_feedback.view");
   if (path.startsWith("/admin/doctor-scheduling"))
     return anyOf("doctor_scheduling.view");
+  if (path === "/admin/documents/generate")
+    return anyOf("documents.manage", "documents.employee.manage", "documents.official.generate");
   if (path.startsWith("/admin/documents"))
     return anyOf("documents.manage", "documents.employee.manage");
   if (path.startsWith("/admin/announcements"))
@@ -295,6 +297,8 @@ export function employeeRouteRequirement(
   if (path.startsWith("/employee/ideas")) return anyOf("ideas.view");
   if (path.startsWith("/employee/doctor-scheduling"))
     return anyOf("doctor_scheduling.view");
+  if (path === "/employee/documents/generate")
+    return anyOf("documents.manage", "documents.employee.manage", "documents.official.generate");
   if (path.startsWith("/employee/documents"))
     return anyOf(
       "documents.view",
