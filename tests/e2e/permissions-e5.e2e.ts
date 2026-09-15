@@ -93,6 +93,9 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // QA Storage/Auth cleanup can take longer than Playwright's default hook
+  // window during a transient transport reset; keep the cleanup mandatory.
+  test.setTimeout(180_000);
   if (createdPatientPaths.length) await fixtureAdmin.storage.from('patient-documents').remove(createdPatientPaths);
   if (createdPatientDocuments.length) await fixtureAdmin.from('patient_documents').delete().in('id', createdPatientDocuments);
   if (patientId) await fixtureAdmin.from('patients').delete().eq('id', patientId);
