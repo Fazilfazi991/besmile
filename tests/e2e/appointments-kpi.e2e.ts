@@ -23,7 +23,9 @@ test('scheduler creates and edits an appointment with an hourly slot and saved m
   const db = await generalManagerDb();
   const { data: { user } } = await db.auth.getUser();
   if (!user) throw new Error('General Manager fixture missing');
-  const marker = `RELEASE_GATE_APPOINTMENT_${Date.now()}`;
+  // The scheduler loads a bounded, alphabetically sorted client selector.
+  // Keep this disposable fixture within that window even when QA has history.
+  const marker = `AAA_RELEASE_GATE_APPOINTMENT_${Date.now()}`;
   const patientNumber = `RG-${Date.now()}`;
   const createdPatient = await db.from('patients').insert({
     patient_number: patientNumber, full_name: marker, status: 'active', source: 'Other',
