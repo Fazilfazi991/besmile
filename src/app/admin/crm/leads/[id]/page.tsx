@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
 import { clientSafeError } from "@/lib/client-error";
+import { isValidCrmLeadDate } from "@/lib/crm-lead-date";
 
 const dateInput = (value?: string | null) =>
   value ? String(value).slice(0, 10) : "";
@@ -55,9 +56,14 @@ export default function LeadDetail() {
     setError("");
     try {
       const form = new FormData(event.currentTarget);
+      const leadDate = String(form.get("lead_date") || "");
+      if (!isValidCrmLeadDate(leadDate)) {
+        throw new Error("Choose a valid Lead Date.");
+      }
       await adminRepository.updateLead(id, {
         full_name: form.get("full_name"),
         phone: form.get("phone"),
+        lead_date: leadDate,
         source_id: form.get("source_id"),
         status_id: form.get("status_id"),
         temperature: form.get("temperature"),
@@ -214,7 +220,7 @@ export default function LeadDetail() {
         <p className="rounded bg-emerald-50 p-3 text-emerald-800">{message}</p>
       )}
       {convertedPatient && <div className="rounded border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><b>Converted to Client</b><p className="mt-1 text-sm">Client ID: {convertedPatient.patient_number}</p></div>}
-      <form onSubmit={saveLead} className="card grid gap-3 p-5 md:grid-cols-2">
+      <form key={`${lead.id}-${lead.updated_at}`} onSubmit={saveLead} className="card grid min-w-0 gap-3 p-5 md:grid-cols-2">
         <h2 className="font-bold md:col-span-2">Lead details</h2>
         <input
           className="input"
@@ -228,6 +234,16 @@ export default function LeadDetail() {
           defaultValue={lead.phone}
           required
         />
+        <label className="min-w-0 text-sm font-medium">
+          Lead Date
+          <input
+            className="input mt-1 w-full min-w-0"
+            type="date"
+            name="lead_date"
+            defaultValue={dateInput(lead.lead_date)}
+            required
+          />
+        </label>
         <select
           className="input"
           name="source_id"

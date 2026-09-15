@@ -7,6 +7,7 @@ import { currentProfile } from "@/lib/auth";
 import { CompactEmptyState, CompactPageHeader, DataTableShell, ModuleTabs, ModuleToolbar, Pagination, StatusBadge } from "@/components/compact-module";
 import { crmFollowupState, filterCrmLeads } from "@/lib/crm-lead-workspace";
 import { paginateRecords } from "@/lib/leave-workspace";
+import { defaultCrmLeadDate, isValidCrmLeadDate } from "@/lib/crm-lead-date";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyFilters = { query: "", status: "", source: "", assignee: "", from: "", to: "", followup: "", unassigned: false };
@@ -28,6 +29,7 @@ export default function LeadManagement() {
   const [form, setForm] = useState<any>({
     full_name: "",
     phone: "",
+    lead_date: defaultCrmLeadDate(),
     source_id: "",
     status_id: "",
     temperature: "cold",
@@ -99,6 +101,10 @@ export default function LeadManagement() {
       setError("Enter a lead name and a phone number with at least 7 digits.");
       return;
     }
+    if (!isValidCrmLeadDate(form.lead_date)) {
+      setError("Choose a valid Lead Date.");
+      return;
+    }
     setSubmitting(true);
     try {
       if (!profile) throw new Error("Please sign in again.");
@@ -129,6 +135,7 @@ export default function LeadManagement() {
         ...current,
         full_name: "",
         phone: "",
+        lead_date: defaultCrmLeadDate(),
         reason_for_enquiry: "",
         location: "",
         remarks: "",
@@ -146,7 +153,7 @@ export default function LeadManagement() {
   };
   return (
     <section className="compact-module crm-leads-workspace">
-      <CompactPageHeader title="CRM / Leads" description="Find enquiries, prioritize follow-ups, and open the next lead workspace." action={<><Link className="btn border" href="/admin/crm/import">Import</Link><Link className="btn border" href="/admin/crm/sales">Sales</Link><button className="btn btn-primary" onClick={() => setAddOpen(true)}>Add lead</button></>} />
+      <CompactPageHeader title="CRM / Leads" description="Find enquiries, prioritize follow-ups, and open the next lead workspace." action={<><Link className="btn border" href="/admin/crm/import">Import</Link><Link className="btn border" href="/admin/crm/sales">Sales</Link><button className="btn btn-primary" onClick={() => { setForm((current: any) => ({ ...current, lead_date: defaultCrmLeadDate() })); setAddOpen(true); }}>Add lead</button></>} />
       <div className="module-summary-strip" aria-label="Lead summary"><div><span>Total</span><b>{leads.length}</b></div><div><span>Due today</span><b>{dueToday}</b></div><div><span>Overdue</span><b>{overdue}</b></div><div><span>Converted</span><b>{converted}</b></div></div>
       {error ? <p role="alert" className="module-alert module-alert-error">{error}</p> : null}
       {notice ? <p role="status" className="module-alert module-alert-success">{notice}</p> : null}
@@ -162,7 +169,7 @@ export default function LeadManagement() {
       <DataTableShell label="Lead records">
         <table className="module-table crm-leads-table"><thead><tr><th>Lead</th><th>Contact</th><th>Stage</th><th>Assigned to</th><th>Source</th><th>Next follow-up</th><th><span className="sr-only">Action</span></th></tr></thead><tbody>
           {loading ? Array.from({ length: 8 }, (_, index) => <tr className="module-skeleton-row" key={index}><td colSpan={7}><span /></td></tr>) : null}
-          {!loading && paginated.records.map(lead => { const state = crmFollowupState(lead, today()); return <tr key={lead.id}><td data-private><b>{lead.full_name}</b><small>Added {String(lead.lead_date || lead.created_at || "").slice(0, 10) || "—"}</small></td><td data-private><b>{lead.phone || "—"}</b><small>{lead.email || "No email"}</small></td><td><StatusBadge status={lead.status?.name || "Unclassified"} /></td><td data-private>{lead.assignee?.full_name || <span className="crm-unassigned-copy">Unassigned</span>}</td><td>{lead.source?.name || "—"}</td><td><b className={followupTone(state.label)}>{state.label}</b><small>{state.date ? new Date(state.date).toLocaleDateString() : "No date scheduled"}</small></td><td><Link className="module-view" href={`/admin/crm/leads/${lead.id}`}>Open</Link></td></tr>; })}
+          {!loading && paginated.records.map(lead => { const state = crmFollowupState(lead, today()); return <tr key={lead.id}><td data-private><b>{lead.full_name}</b><small>Lead Date {String(lead.lead_date || lead.created_at || "").slice(0, 10) || "—"}</small></td><td data-private><b>{lead.phone || "—"}</b><small>{lead.email || "No email"}</small></td><td><StatusBadge status={lead.status?.name || "Unclassified"} /></td><td data-private>{lead.assignee?.full_name || <span className="crm-unassigned-copy">Unassigned</span>}</td><td>{lead.source?.name || "—"}</td><td><b className={followupTone(state.label)}>{state.label}</b><small>{state.date ? new Date(state.date).toLocaleDateString() : "No date scheduled"}</small></td><td><Link className="module-view" href={`/admin/crm/leads/${lead.id}`}>Open</Link></td></tr>; })}
           {!loading && shown.length === 0 ? <tr><td colSpan={7}><CompactEmptyState title="No leads found" description="Adjust the filters or choose another stage to see more leads." /></td></tr> : null}
         </tbody></table>
         <div className="module-mobile-records crm-mobile-records">
@@ -212,6 +219,9 @@ export default function LeadManagement() {
                     setForm({ ...form, phone: event.target.value })
                   }
                 />
+              </Field>
+              <Field label="Lead Date" required>
+                <input className="input" type="date" required value={form.lead_date} onChange={(event) => setForm({ ...form, lead_date: event.target.value })} />
               </Field>
               <Field label="Lead source">
                 <select

@@ -3,6 +3,62 @@ import { assertNoRawDatabaseError, login, navigateAfterLogin, QaRole } from './h
 import { createClient } from '@supabase/supabase-js';
 import { credentials } from './helpers';
 import { fixtureLogin } from './fixture-auth';
+import { defaultCrmLeadDate } from '../../src/lib/crm-lead-date';
+
+for (const customDate of [false, true]) {
+  test(`admin ${customDate ? 'chooses' : 'defaults'} Lead Date on create and edits it without changing creation time`, async ({ page }) => {
+    test.setTimeout(90_000);
+    if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe'
+      || new URL(process.env.BSMILE_QA_SUPABASE_URL!).hostname !== 'enylrvmjgbntkrgpqsfe.supabase.co') throw new Error('Lead Date fixtures require QA');
+    const db = createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    const auth = await fixtureLogin(() => db.auth.signInWithPassword(credentials('admin')), 'admin');
+    if (auth.error || !auth.data.user) throw new Error('Lead Date role fixture unavailable');
+    const marker = `QA_LEAD_DATE_${crypto.randomUUID()}`;
+    const phone = String(Math.floor(1_000_000_000 + Math.random() * 9_000_000_000));
+    let leadId: string | undefined;
+    try {
+      await login(page, 'admin');
+      await navigateAfterLogin(page, '/admin/crm/leads');
+      await expect(page.locator('.module-skeleton-row, .module-mobile-skeleton')).toHaveCount(0);
+      await page.getByRole('button', { name: 'Add lead', exact: true }).click();
+      const createForm = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Add lead' }) });
+      await expect(createForm).toBeVisible();
+      const date = createForm.getByLabel('Lead Date');
+      await expect(date).toHaveValue(defaultCrmLeadDate());
+      const chosenDate = customDate ? '2026-08-21' : defaultCrmLeadDate();
+      if (customDate) await date.fill(chosenDate);
+      await createForm.getByLabel('Full name').fill(marker);
+      await createForm.getByLabel('Phone number').fill(phone);
+      await createForm.getByRole('button', { name: 'Add lead', exact: true }).click();
+      await expect(createForm).toHaveCount(0);
+      const stored = await db.from('crm_leads').select('id,lead_date,created_at').eq('full_name', marker).single();
+      if (stored.error) throw stored.error;
+      leadId = stored.data.id;
+      expect(stored.data.lead_date).toBe(chosenDate);
+      const createdAt = stored.data.created_at;
+      await navigateAfterLogin(page, `/admin/crm/leads/${leadId}`);
+      const editDate = page.locator('input[name="lead_date"]');
+      await expect(editDate).toHaveValue(chosenDate);
+      await editDate.fill('2026-08-20');
+      await page.getByRole('button', { name: 'Save lead' }).click();
+      await expect(page.getByText('Lead details saved.')).toBeVisible();
+      await page.reload();
+      await expect(page.locator('input[name="lead_date"]')).toHaveValue('2026-08-20');
+      const edited = await db.from('crm_leads').select('lead_date,created_at').eq('id', leadId).single();
+      if (edited.error) throw edited.error;
+      expect(edited.data.lead_date).toBe('2026-08-20');
+      expect(edited.data.created_at).toBe(createdAt);
+      await assertNoRawDatabaseError(page);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    } finally {
+      if (leadId) {
+        const cleanup = await db.rpc('archive_crm_lead', { target_lead: leadId });
+        if (cleanup.error) throw cleanup.error;
+      }
+      await db.auth.signOut();
+    }
+  });
+}
 
 for (const role of ['admin', 'general_manager'] as const) {
   test(`${role} archives a lead through the UI without exposing database errors`, async ({ page }) => {
