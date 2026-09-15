@@ -188,7 +188,7 @@ export default function LeadDetail() {
   };
 
   if (!lead) return <p>Loading lead...</p>;
-  const existingSale = lead.crm_sales?.[0];
+  const existingSale = Array.isArray(lead.crm_sales) ? lead.crm_sales[0] : lead.crm_sales;
   const convertedPatient = lead.converted_patient;
   return (
     <section className="space-y-5">
@@ -371,6 +371,7 @@ export default function LeadDetail() {
                 type="number"
                 min="0"
                 step="0.01"
+                aria-label="Sale value"
                 placeholder="Sale value"
                 value={sale.sale_value}
                 onChange={(event) =>

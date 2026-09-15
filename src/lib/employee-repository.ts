@@ -202,11 +202,10 @@ export const employeeRepository = {
     if (error) throw error;
     return data;
   },
-  async myCrmSales(userId: string) {
+  async myCrmSales(_userId: string) {
     const { data, error } = await required()
       .from("crm_sales")
       .select("*,crm_leads!inner(id,full_name,phone,assigned_to)")
-      .eq("crm_leads.assigned_to", userId)
       .order("closing_date", { ascending: false });
     if (error) throw error;
     return data;
@@ -286,22 +285,20 @@ export const employeeRepository = {
     if (error) throw error;
     return data;
   },
-  async convertMyCrmLead(userId: string, payload: any) {
-    const r = required();
-    const lead = await this.myCrmLead(userId, payload.lead_id);
-    if (!lead) throw new Error("Lead not found.");
-    const { data, error } = await r
-      .from("crm_sales")
-      .insert(payload)
-      .select()
-      .single();
+  async convertMyCrmLead(_userId: string, payload: any) {
+    const { data, error } = await required().rpc("convert_crm_lead_to_sale", {
+      target_lead: payload.lead_id,
+      sale_amount: payload.sale_value,
+      sale_currency: payload.currency || "INR",
+      sale_closing_date:
+        payload.closing_date || new Date().toISOString().slice(0, 10),
+      sale_service_details: payload.service_details || null,
+      sale_first_session_date: payload.first_session_date || null,
+      sale_second_session_date: payload.second_session_date || null,
+      sale_third_session_date: payload.third_session_date || null,
+      sale_notes: payload.notes || null,
+    });
     if (error) throw error;
-    const update = await r
-      .from("crm_leads")
-      .update({ converted_at: new Date().toISOString() })
-      .eq("id", payload.lead_id)
-      .eq("assigned_to", userId);
-    if (update.error) throw update.error;
     return data;
   },
   async clockIn(

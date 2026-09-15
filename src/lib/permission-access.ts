@@ -640,7 +640,7 @@ export const employeeNavigation: readonly NavigationGroup[] = [
         requirement: anyOf("patients.view_assigned"),
       },
       {
-        label: "Documents",
+        label: "Official Documents",
         href: "/employee/documents",
         requirement: anyOf(
           "documents.view",

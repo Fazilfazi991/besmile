@@ -40,6 +40,7 @@ const steps = [
   ['production build', 'pnpm', ['run', 'build']],
   ['QA connectivity/auth preflight', 'node', ['--import', 'tsx', 'scripts/qa-auth-preflight.ts']],
   ['QA database/RLS probes', 'node', ['scripts/qa-security-probes.mjs']],
+  ['QA E5 authorization probes', 'node', ['scripts/qa-e5-security-probes.mjs']],
 ];
 const results = [{
   name: 'commit author authorization',
@@ -80,7 +81,7 @@ try {
         appServer = spawn('pnpm', ['start', '-p', port], { shell: process.platform === 'win32', detached: process.platform === 'win32', windowsHide: true, stdio: 'inherit', env: process.env });
         await waitForServer(process.env.BSMILE_QA_BASE_URL);
       }
-      runStep(['critical browser flows', 'pnpm', ['exec', 'playwright', 'test', 'tests/e2e/critical-flows.e2e.ts', 'tests/e2e/appointments-kpi.e2e.ts', 'tests/e2e/mobile-profile-polish.e2e.ts', 'tests/e2e/crm-dashboard-e1.e2e.ts', 'tests/e2e/teams-e2.e2e.ts', 'tests/e2e/ui-reports-e3.e2e.ts']]);
+      runStep(['critical browser flows', 'pnpm', ['exec', 'playwright', 'test', 'tests/e2e/critical-flows.e2e.ts', 'tests/e2e/appointments-kpi.e2e.ts', 'tests/e2e/mobile-profile-polish.e2e.ts', 'tests/e2e/crm-dashboard-e1.e2e.ts', 'tests/e2e/teams-e2.e2e.ts', 'tests/e2e/ui-reports-e3.e2e.ts', 'tests/e2e/permissions-e5.e2e.ts']]);
     }
   }
 } finally {
@@ -96,6 +97,7 @@ const ran = name => results.some(result => result.name === name);
 const e2e = ran('critical browser flows') ? readJson(`${output}/playwright-results.json`)?.stats || null : null;
 const unit = ran('tests') ? readJson(`${output}/vitest-results.json`) : null;
 const security = ran('QA database/RLS probes') ? readJson(`${output}/security-results.json`) : null;
+const securityE5 = ran('QA E5 authorization probes') ? readJson(`${output}/security-e5-results.json`) : null;
 const expectedSteps = steps.length + 2;
 const verdict = !authorizedCommitAuthor
   ? 'RELEASE GATE FAIL — UNAUTHORIZED COMMIT AUTHOR'
@@ -106,7 +108,7 @@ const verdict = !authorizedCommitAuthor
 const report = {
   generatedAt: new Date().toISOString(), gitSha: sha, qaProjectRef: qaRef || 'MISSING', requiredViewports: ['390x844', '1366x768'], steps: results,
   unitTests: unit ? { total: unit.numTotalTests, passed: unit.numPassedTests, failed: unit.numFailedTests } : null,
-  e2e, security: security ? { total: security.total, passed: security.passed, failed: security.failed } : null, verdict,
+  e2e, security: security && securityE5 ? { total: security.total + securityE5.total, passed: security.passed + securityE5.passed, failed: security.failed + securityE5.failed } : null, verdict,
   fixtureLoginRetries: readFileSync(`${output}/fixture-login-retries.jsonl`, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)),
 };
 writeFileSync(`${output}/release-gate-report.json`, JSON.stringify(report, null, 2));

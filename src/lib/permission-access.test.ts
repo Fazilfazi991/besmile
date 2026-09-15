@@ -142,7 +142,7 @@ describe('permission compatibility', () => {
   it('shows interns only assigned-patient and universal employee links', () => {
     const groups = filterNavigation(employeeNavigation, new Set(['patients.view_assigned', 'patient_documents.view']));
     const labels = groups.flatMap((group) => group.links.map((link) => link.label));
-    expect(labels).toEqual(expect.arrayContaining(['Assigned Clients', 'Documents', 'Notifications', 'Profile']));
+    expect(labels).toEqual(expect.arrayContaining(['Assigned Clients', 'Official Documents', 'Notifications', 'Profile']));
     expect(labels).not.toContain('Clients');
     expect(labels).not.toContain('Dashboard');
     expect(permissionAllows(new Set(['patients.view_assigned']), employeeRouteRequirement('/employee/patients'))).toBe(false);

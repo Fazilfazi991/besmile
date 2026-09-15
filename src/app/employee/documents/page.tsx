@@ -43,8 +43,8 @@ export default function DocumentsPage() {
     }
   };
 
-  if (loading) return <section><EmployeePageHeader title="Documents" subtitle="Company resources and requested documents." /><EmployeeLoading cards={2} /></section>;
-  if (error && !profile) return <section><EmployeePageHeader title="Documents" subtitle="Company resources and requested documents." /><EmployeeBanner>{error}</EmployeeBanner><button className="btn btn-primary" onClick={load}>Try again</button></section>;
+  if (loading) return <section><EmployeePageHeader title="Official Documents" subtitle="Company resources, policies and requested documents." /><EmployeeLoading cards={2} /></section>;
+  if (error && !profile) return <section><EmployeePageHeader title="Official Documents" subtitle="Company resources, policies and requested documents." /><EmployeeBanner>{error}</EmployeeBanner><button className="btn btn-primary" onClick={load}>Try again</button></section>;
   const requested = requests.filter(item => item.status === 'requested').length;
   const submitted = requests.filter(item => item.status === 'submitted').length;
   const policies = documents.filter(item => String(item.category || '').toLowerCase().includes('policy'));
@@ -52,7 +52,7 @@ export default function DocumentsPage() {
   const renderDocuments = (items: any[]) => items.length ? <div className="divide-y divide-slate-100">{items.map(document => <article className="flex items-center justify-between gap-3 p-4" key={document.id}><div className="min-w-0"><b className="block truncate">{document.title}</b><p className="mt-1 text-sm text-slate-500">{document.category || 'Document'}</p></div>{document.storage_path && <button className="btn border shrink-0 px-3 py-1.5 text-xs" onClick={() => void open(document.storage_path)}>View</button>}</article>)}</div> : null;
 
   return <section className="space-y-4">
-    <EmployeePageHeader title="Documents" subtitle="Company resources and requested documents." />
+    <EmployeePageHeader title="Official Documents" subtitle="Company resources, policies and requested documents." />
     <EmployeeMetricGrid columns={3}><EmployeeMetric label="Policies" value={policies.length} /><EmployeeMetric label="Requested from you" value={requested} tone="pending" /><EmployeeMetric label="In review" value={submitted} tone="info" /></EmployeeMetricGrid>
     {notice && <EmployeeBanner tone="success">{notice}</EmployeeBanner>}{error && <EmployeeBanner>{error}</EmployeeBanner>}
     <div className="grid items-start gap-4 lg:grid-cols-2">
