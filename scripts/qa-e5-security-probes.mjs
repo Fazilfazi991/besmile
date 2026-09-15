@@ -30,6 +30,7 @@ async function createFixture(label, profile) {
 
 let assistant;
 let psychologist;
+let participantB;
 let employee;
 let gm;
 try {
@@ -37,10 +38,12 @@ try {
   if (department.error) throw department.error;
   assistant = await createFixture('assistant', { full_name: 'QA E5 Assistant Manager', role: 'staff', designation: 'Assistant Manager', department_id: department.data.id });
   psychologist = await createFixture('psychologist', { full_name: 'QA E5 Psychologist', role: 'psychologist', designation: 'Psychologist' });
+  participantB = await createFixture('participant-b', { full_name: 'QA E5 Participant B', role: 'staff', designation: 'Employee', department_id: department.data.id });
   employee = await signIn({ email: required('BSMILE_QA_EMPLOYEE_EMAIL'), password: required('BSMILE_QA_EMPLOYEE_PASSWORD') });
   gm = await signIn({ email: required('BSMILE_QA_GENERAL_MANAGER_EMAIL'), password: required('BSMILE_QA_GENERAL_MANAGER_PASSWORD') });
   const assistantSession = await signIn(assistant);
   const psychologistSession = await signIn(psychologist);
+  const participantBSession = await signIn(participantB);
 
   await check('Assistant Manager receives the canonical operational CRM bundle without security administration', async () => {
     for (const code of ['admin.shell', 'crm.manage_all', 'crm.import', 'leads.create', 'leads.edit', 'leads.assign', 'leads.manage_status', 'sales.view', 'sales.edit', 'documents.employee.view']) {
@@ -106,13 +109,25 @@ try {
     const hosts = await gm.db.rpc('meeting_hosts');
     if (hosts.error || !hosts.data?.length) throw hosts.error || new Error('No meeting host available');
     const start = new Date(Date.now() + 70 * 86400_000);
-    const meeting = await gm.db.rpc('save_meeting', { target_meeting: null, host_profile_id: hosts.data[0].id, meeting_title: 'QA E5 Notes', meeting_agenda: 'Verify shared attributed notes', meeting_start: start.toISOString(), meeting_end: new Date(+start + 3600000).toISOString(), meeting_type_value: 'office', meeting_venue: '', meeting_url_value: '', meeting_description: '', participant_ids: [employee.user.id] });
+    const meeting = await gm.db.rpc('save_meeting', { target_meeting: null, host_profile_id: hosts.data[0].id, meeting_title: 'QA E5 Notes', meeting_agenda: 'Verify shared attributed notes', meeting_start: start.toISOString(), meeting_end: new Date(+start + 3600000).toISOString(), meeting_type_value: 'office', meeting_venue: '', meeting_url_value: '', meeting_description: '', participant_ids: [employee.user.id, participantB.id] });
     if (meeting.error) throw meeting.error;
     cleanup.meetingId = meeting.data;
     const inserted = await employee.db.from('meeting_note_entries').insert({ meeting_id: meeting.data, author_profile_id: employee.user.id, content: 'QA E5 attributed participant note' }).select('id,content,created_at,author:profiles!meeting_note_entries_author_profile_id_fkey(full_name)').single();
     if (inserted.error || !inserted.data.created_at || !inserted.data.author?.full_name) throw inserted.error || new Error('Meeting note attribution missing');
     const viewed = await gm.db.from('meeting_note_entries').select('id,author_profile_id,content').eq('id', inserted.data.id).single();
     if (viewed.error || viewed.data.author_profile_id !== employee.user.id) throw viewed.error || new Error('Authorized meeting note read failed');
+  });
+
+  await check('A second meeting participant sees the original author name without broader profile visibility', async () => {
+    const authorProfile = await fixtureAdmin.from('profiles').select('full_name').eq('id', employee.user.id).single();
+    if (authorProfile.error) throw authorProfile.error;
+    const profileRead = await participantBSession.db.from('profiles').select('id').eq('id', employee.user.id);
+    if (profileRead.error || profileRead.data.length) throw profileRead.error || new Error('Unrelated profile visibility broadened');
+    const shared = await participantBSession.db.rpc('meeting_note_entries_for_visible_meeting', { target_meeting: cleanup.meetingId });
+    if (shared.error || shared.data.length !== 1 || shared.data[0].author?.full_name !== authorProfile.data.full_name) throw shared.error || new Error('Meeting note author was not visible to the authorized second participant');
+    const unrelated = await assistantSession.db.rpc('meeting_note_entries_for_visible_meeting', { target_meeting: cleanup.meetingId });
+    if (unrelated.error || unrelated.data.length) throw unrelated.error || new Error('Meeting-scoped author display leaked to unrelated staff');
+    mustFail(await client(anonKey).rpc('meeting_note_entries_for_visible_meeting', { target_meeting: cleanup.meetingId }), 'anonymous author display');
   });
 
   await check('Unrelated Assistant Manager and anonymous callers cannot read or add meeting notes', async () => {
