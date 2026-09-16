@@ -28,14 +28,19 @@ export function PsychologistSessionPayables() {
     if (!db) return;
     setLoading(true);
     try {
-      const permissions = await grantedPermissions(db, ['psychologist_payments.view', 'psychologist_payments.settle', 'finance.manage']);
+      const permissions = await grantedPermissions(db, ['psychologist_payments.view', 'psychologist_payments.settle']);
       setAllowed(permissions.has('psychologist_payments.view'));
       setCanSettlePermission(permissions.has('psychologist_payments.settle'));
       if (!permissions.has('psychologist_payments.view')) return;
       let q = db.from('psychologist_session_payables').select('*,psychologist:outsourced_doctors(doctor_name),appointment:doctor_appointments(start_at,end_at),paid_by_profile:profiles!psychologist_session_payables_paid_by_fkey(full_name)').order('due_date');
       if (status) q = q.eq('status', status);
       if (doctor) q = q.eq('psychologist_id', doctor);
-      const [payables, accountRows] = await Promise.all([q, db.from('finance_accounts').select('id,name').eq('is_active', true).order('name')]);
+      const [payables, accountRows] = await Promise.all([
+        q,
+        permissions.has('psychologist_payments.settle')
+          ? db.rpc('psychologist_payment_accounts')
+          : Promise.resolve({ data: [], error: null }),
+      ]);
       if (payables.error) throw payables.error;
       if (accountRows.error) throw accountRows.error;
       setRows(payables.data || []);
