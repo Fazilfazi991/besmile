@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { serverSupabase } from '@/lib/supabase-server';
 import { ideaAttachmentKey, IDEA_ATTACHMENTS_BUCKET } from '@/lib/storage/storage-service';
 import { safeIdeaFilename, validateIdeaAttachment, validateIdeaPayload } from '@/lib/idea-rules';
+import { blockPublicDemoAction } from '@/lib/demo-mode-server';
 
 const extensionOf = (name: string) => name.toLowerCase().split('.').filter(Boolean).at(-1) || '';
 
@@ -11,6 +12,8 @@ function cleanupClient() {
 }
 
 export async function POST(request: Request) {
+  const demoBlock = blockPublicDemoAction();
+  if (demoBlock) return demoBlock;
   let ideaId: string | undefined;
   let attachmentKey: string | undefined;
   try {

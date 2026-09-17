@@ -9,9 +9,13 @@ import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { grantedPermissions } from '@/lib/granted-permissions';
 import { PageBackButton } from '@/components/page-back-button';
 import { serverAuthorizationRead, serverAuthorizationBoundary } from '@/lib/server-authorization-read';
+import { DemoModeBanner } from '@/components/demo-mode-banner';
+import { isDemoMode } from '@/lib/demo-mode';
+import { DemoShell } from '@/demo/demo-shell';
 import '../workspace-density.css';
 
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
+  if (isDemoMode()) return <DemoShell>{children}</DemoShell>;
   const db = await serverSupabase();
   const { data: { user } } = await serverAuthorizationRead(() => db.auth.getUser(), 'employee.session', true);
   if (!user) redirect('/sign-in');
@@ -27,6 +31,7 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={profile?.designation || profile?.role || 'Employee'} profileHref="/employee/profile" />
     <main className="app-main">
       <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode="employee" userId={user.id} /><TopbarProfileLink href="/employee/profile" name={name} subtitle={profile?.designation || 'Employee'} /></header>
+      <DemoModeBanner />
       <div className="app-content"><PageBackButton />{children}</div>
     </main>
   </div></MobileNavigationProvider>;

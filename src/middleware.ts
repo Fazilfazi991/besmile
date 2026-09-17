@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { adminRouteRequirement, employeeRouteRequirement, isManagementRole, isSecurityAdministratorRole, workspaceLandingPath } from '@/lib/permission-access';
 import { authorizationRead, AuthorizationUnavailable, ACCESS_UNAVAILABLE_MESSAGE } from '@/lib/authorization-transport';
 
+const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
 function redirectWithCookies(request: NextRequest, response: NextResponse, path: string) {
   const redirectResponse = NextResponse.redirect(new URL(path, request.url));
   response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
@@ -10,6 +12,11 @@ function redirectWithCookies(request: NextRequest, response: NextResponse, path:
 }
 
 export async function middleware(request: NextRequest) {
+  if (demoMode) {
+    const path = request.nextUrl.pathname;
+    if (path === '/') return NextResponse.redirect(new URL('/sign-in', request.url));
+    return NextResponse.next();
+  }
   // Vercel's Preview toolbar probes protected routes with same-origin OPTIONS
   // requests. Answer the preflight without resolving a session or rendering any
   // protected content so the probe cannot surface as a browser console error.

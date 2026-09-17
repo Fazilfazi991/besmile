@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { generateOfficialReport } from '@/lib/official-document-engine';
 import { canGenerateOfficialReport, validateOfficialReportPayload } from '@/lib/official-report-types';
 import { serverSupabase } from '@/lib/supabase-server';
+import { blockPublicDemoAction } from '@/lib/demo-mode-server';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
+  const demoBlock = blockPublicDemoAction();
+  if (demoBlock) return demoBlock;
   const db = await serverSupabase();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

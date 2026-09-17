@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { blockPublicDemoAction } from '@/lib/demo-mode-server';
 
 const service = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,6 +10,8 @@ const service = () => createClient(
 
 // Machine-only hourly worker. It is never callable by an ordinary browser session.
 async function run(request: Request) {
+  const demoBlock = blockPublicDemoAction();
+  if (demoBlock) return demoBlock;
   const workerAuthorized = Boolean(process.env.CHAT_EXPIRY_WORKER_SECRET) && request.headers.get("x-chat-expiry-worker-secret") === process.env.CHAT_EXPIRY_WORKER_SECRET;
   const cronAuthorized = Boolean(process.env.CRON_SECRET) && request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
   if (!workerAuthorized && !cronAuthorized)

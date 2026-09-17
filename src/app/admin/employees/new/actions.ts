@@ -7,6 +7,7 @@ import { isSecurityAdministratorRole, normalizeRole } from '@/lib/permission-acc
 import { normalizeDateOnly } from '@/lib/employee-edit-rules';
 import { normalizeGender } from '@/lib/gender';
 import { employeeStatuses } from '@/lib/employee-status';
+import { assertDemoSafeAction } from '@/lib/demo-mode';
 
 const operationalRoles = new Set(['chairman', 'director', 'general_manager', 'psychologist', 'intern', 'guest_sales', 'staff']);
 const protectedManagementRoles = new Set(['chairman', 'director', 'general_manager', 'super_admin']);
@@ -14,6 +15,7 @@ const protectedManagementRoles = new Set(['chairman', 'director', 'general_manag
 export type CreateEmployeeState = { error?: string; success?: string; fields?: Record<string, string> };
 
 export async function createEmployee(_: CreateEmployeeState, form: FormData): Promise<CreateEmployeeState> {
+  try { assertDemoSafeAction('Creating employees'); } catch (error) { return { error: error instanceof Error ? error.message : 'This action is disabled in the public demo.' }; }
   const fields = Object.fromEntries(['full_name', 'email', 'phone', 'gender', 'employee_code', 'department_id', 'designation', 'role', 'manager_id', 'joining_date', 'employment_type', 'status'].map((key) => [key, String(form.get(key) || '')]));
   const session = await serverSupabase();
   const { data: { user } } = await session.auth.getUser();

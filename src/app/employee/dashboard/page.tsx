@@ -7,6 +7,8 @@ import { employeeRepository } from '@/lib/employee-repository';
 import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { permissionAllows, type PermissionRequirement } from '@/lib/permission-access';
 import { dashboardDesignationGreeting } from '@/lib/dashboard-greeting';
+import { isDemoMode } from '@/lib/demo-mode';
+import { DemoDashboard } from '@/demo/demo-workspace';
 
 type DashboardData = Record<string, any>;
 
@@ -145,6 +147,7 @@ export default function EmployeeDashboard() {
     catch (caughtError: any) { setData(current => ({ ...current, notifications: previous })); setError(caughtError.message || 'Unable to update notifications.'); }
   };
 
+  if (isDemoMode()) return <DemoDashboard />;
   if (loading) return <DashboardState title="Preparing your workspace" detail="Loading today's attendance, tasks, updates, and requests..." />;
   if (!profile) return <DashboardState title="Unable to load dashboard" detail={error || 'Please sign in again.'} />;
 

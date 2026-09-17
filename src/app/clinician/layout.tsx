@@ -7,12 +7,16 @@ import { ThemeModeSwitcher } from '@/components/theme-mode-switcher';
 import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { PageBackButton } from '@/components/page-back-button';
 import { serverAuthorizationRead } from '@/lib/server-authorization-read';
+import { DemoModeBanner } from '@/components/demo-mode-banner';
+import { isDemoMode } from '@/lib/demo-mode';
+import { DemoShell } from '@/demo/demo-shell';
 
 const groups = [
   { title: 'CLINICIAN WORKSPACE', links: [{ label: 'My Schedule', href: '/clinician/schedule' }, { label: 'Notifications', href: '/clinician/notifications' }, { label: 'Profile', href: '/clinician/profile' }] },
 ];
 
 export default async function ClinicianLayout({ children }: { children: React.ReactNode }) {
+  if (isDemoMode()) return <DemoShell>{children}</DemoShell>;
   const db = await serverSupabase();
   const { data: { user } } = await serverAuthorizationRead(() => db.auth.getUser(), 'clinician.session', true);
   if (!user) redirect('/sign-in');
@@ -28,6 +32,7 @@ export default async function ClinicianLayout({ children }: { children: React.Re
     <PermissionSidebar groups={groups} name={name} subtitle={profile.designation || 'Outsourced psychologist'} profileHref="/clinician/profile" />
     <main className="app-main">
       <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode="employee" userId={user.id} /><TopbarProfileLink href="/clinician/profile" name={name} subtitle={profile.designation || 'Clinician'} /></header>
+      <DemoModeBanner />
       <div className="app-content"><PageBackButton />{children}</div>
     </main>
   </div></MobileNavigationProvider>;

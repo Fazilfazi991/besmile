@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { serverSupabase } from '@/lib/supabase-server';
 import { ideaStorage } from '@/lib/storage/storage-service';
+import { blockPublicDemoAction } from '@/lib/demo-mode-server';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ ideaId: string; attachmentId: string }> }) {
+  const demoBlock = blockPublicDemoAction();
+  if (demoBlock) return demoBlock;
   try {
     const { ideaId, attachmentId } = await params;
     const db = await serverSupabase();

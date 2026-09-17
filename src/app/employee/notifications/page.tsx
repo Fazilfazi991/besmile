@@ -7,6 +7,8 @@ import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
 import { chatActivitySummary, importantNotifications } from '@/lib/notification-separation';
 import { presentationForNotification } from '@/lib/notification-presentation';
+import { isDemoMode } from '@/lib/demo-mode';
+import { DemoNotifications } from '@/demo/demo-workspace';
 
 const safeLink = (link: string | null | undefined) => {
   const workspace = typeof window !== 'undefined' && window.location.pathname.startsWith('/clinician') ? 'clinician' : 'employee';
@@ -72,6 +74,7 @@ export default function NotificationsPage() {
     }
   };
 
+  if (isDemoMode()) return <DemoNotifications />;
   if (loading) return <section className="organization-notifications"><p className="notification-status">Loading notifications...</p></section>;
   if (error && !profile) return <section className="organization-notifications"><p className="notification-status notification-status-error">{error}</p></section>;
   return <section className="organization-notifications">

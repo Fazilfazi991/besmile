@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { serverSupabase } from '@/lib/supabase-server';
 import { officialDocumentAccess } from '@/lib/official-document-access';
+import { blockPublicDemoAction } from '@/lib/demo-mode-server';
 
 export async function POST(request: Request) {
+  const demoBlock = blockPublicDemoAction();
+  if (demoBlock) return demoBlock;
   const db = await serverSupabase();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

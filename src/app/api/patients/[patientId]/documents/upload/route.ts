@@ -3,7 +3,10 @@ import { serverSupabase } from '@/lib/supabase-server';
 import { patientStorage, patientDocumentKey } from '@/lib/storage/storage-service';
 import { safeDocumentFilename, validatePatientDocument } from '@/lib/patient-document-rules';
 import { normalizeClientError } from '@/lib/client-error';
+import { blockPublicDemoAction } from '@/lib/demo-mode-server';
 export async function POST(request: Request, { params }: { params: Promise<{ patientId: string }> }) {
+  const demoBlock = blockPublicDemoAction();
+  if (demoBlock) return demoBlock;
   try { const { patientId } = await params; const db = await serverSupabase(); const { data: { user } } = await db.auth.getUser(); if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const [allowed, patient] = await Promise.all([db.rpc('has_permission',{permission_code:'patient_documents.upload'}), db.from('patients').select('id').eq('id',patientId).is('deleted_at',null).maybeSingle()]);
     if (allowed.error) throw allowed.error; if (!allowed.data) return NextResponse.json({error:'Permission denied'},{status:403});

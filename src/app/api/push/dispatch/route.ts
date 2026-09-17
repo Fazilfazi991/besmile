@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { sendPushToUser } from '@/lib/push-server';
+import { blockPublicDemoAction } from '@/lib/demo-mode-server';
 
 // This endpoint is intentionally machine-to-machine only. Configure a Supabase
 // Database Webhook on INSERT of public.notifications to call it with this secret.
 export async function POST(request: Request) {
+  const demoBlock = blockPublicDemoAction();
+  if (demoBlock) return demoBlock;
   const secret = process.env.PUSH_DISPATCH_SECRET;
   if (!secret || request.headers.get('x-push-dispatch-secret') !== secret) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   try {

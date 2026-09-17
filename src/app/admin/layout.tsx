@@ -9,9 +9,13 @@ import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { grantedPermissions } from '@/lib/granted-permissions';
 import { PageBackButton } from '@/components/page-back-button';
 import { serverAuthorizationRead, serverAuthorizationBoundary } from '@/lib/server-authorization-read';
+import { DemoModeBanner } from '@/components/demo-mode-banner';
+import { isDemoMode } from '@/lib/demo-mode';
+import { DemoShell } from '@/demo/demo-shell';
 import '../workspace-density.css';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  if (isDemoMode()) return <DemoShell>{children}</DemoShell>;
   const db = await serverSupabase();
   const { data: { user } } = await serverAuthorizationRead(() => db.auth.getUser(), 'admin.session', true);
   if (!user) redirect('/sign-in');
@@ -31,6 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={subtitle} profileHref={profileHref} />
     <main className="app-main">
       <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><TopbarProfileLink href={profileHref} name={name} subtitle={subtitle} /></header>
+      <DemoModeBanner />
       <div className="app-content"><PageBackButton />{children}</div>
     </main>
   </div></MobileNavigationProvider>;
