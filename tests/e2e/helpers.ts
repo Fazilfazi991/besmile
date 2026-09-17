@@ -1,9 +1,25 @@
 import { expect, Page, Request, Response } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { recordFixtureLoginRetry } from './fixture-auth';
 export type QaRole = 'admin' | 'general_manager' | 'director' | 'manager' | 'employee' | 'assistant_manager' | 'psychologist';
 export function credentials(role: QaRole) { const prefix = `BSMILE_QA_${role.toUpperCase()}`; const email = process.env[`${prefix}_EMAIL`]; const password = process.env[`${prefix}_PASSWORD`]; if (!email || !password) throw new Error(`${prefix}_EMAIL and ${prefix}_PASSWORD are required`); return { email, password }; }
 export async function login(page: Page, role: QaRole) {
   const account = credentials(role);
+  const statePath = join(process.cwd(), 'release-evidence', 'auth-state', `${role}.json`);
+  const metadataPath = join(process.cwd(), 'release-evidence', 'auth-state', `${role}.meta.json`);
+  const stateMatchesAccount = existsSync(metadataPath)
+    && (JSON.parse(readFileSync(metadataPath, 'utf8')) as { email?: string }).email === account.email;
+  if (existsSync(statePath) && stateMatchesAccount) {
+    const state = JSON.parse(readFileSync(statePath, 'utf8')) as { cookies?: any[] };
+    if (state.cookies?.length) await page.context().addCookies(state.cookies);
+    const landing = ['admin', 'general_manager', 'director', 'manager'].includes(role) ? '/admin' : '/employee/dashboard';
+    await page.goto(landing);
+    await expect(page).toHaveURL(/\/(?:admin|employee|clinician)(?:\/|$)/, { timeout: 10_000 });
+    await page.waitForLoadState('load', { timeout: 30_000 });
+    await expect(page.locator('.app-shell')).toBeVisible({ timeout: 30_000 });
+    return;
+  }
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let transportFailure = false;
     let tokenAccepted = false;
