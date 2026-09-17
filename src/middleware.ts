@@ -16,6 +16,13 @@ export async function middleware(request: NextRequest) {
     const path = request.nextUrl.pathname;
     if (path === '/') return NextResponse.redirect(new URL('/sign-in', request.url));
     if (path === '/employee') return NextResponse.redirect(new URL('/admin', request.url));
+    if (path.startsWith('/admin') && !isDemoNativeRoute(path)) {
+      const target = new URL('/admin/demo-module', request.url);
+      target.searchParams.set('from', path);
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-demo-module-path', path);
+      return NextResponse.rewrite(target, { request: { headers: requestHeaders } });
+    }
     return NextResponse.next();
   }
   // Vercel's Preview toolbar probes protected routes with same-origin OPTIONS
@@ -33,6 +40,10 @@ export async function middleware(request: NextRequest) {
     response.cookies.getAll().forEach(cookie => unavailable.cookies.set(cookie));
     return unavailable;
   }
+}
+
+function isDemoNativeRoute(path: string) {
+  return path === '/admin' || path === '/admin/reports' || path === '/admin/employees' || path.startsWith('/admin/patients') || path === '/admin/profile' || path === '/admin/demo-module';
 }
 
 async function authorizeRequest(request: NextRequest, response: NextResponse) {

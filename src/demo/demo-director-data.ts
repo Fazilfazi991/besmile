@@ -1,4 +1,8 @@
 import { demoAppointments, demoPatients, demoUser } from './demo-data';
+import { navigationPermissionCodes } from '@/lib/permission-access';
+
+/** Demo-only capability set. Production permissions are resolved from Supabase. */
+export const demoDirectorPermissions = new Set(navigationPermissionCodes);
 
 const departments = ['Clinical Services', 'Client Success', 'Operations', 'Finance'];
 const clinicianNames = ['Dr. Aisha Rahman', 'Dr. Daniel Carter', 'Maya Patel', 'Dr. Noor Hassan', 'Leah Morgan', 'Samir Cole'];
