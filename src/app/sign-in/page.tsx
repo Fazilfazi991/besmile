@@ -34,7 +34,7 @@ export default function SignIn() {
   };
 
   const enterDemo = async () => {
-    window.location.assign('/employee');
+    window.location.assign('/admin');
   };
 
   return <main className="grid min-h-screen place-items-center p-4"><form className="card w-full max-w-md p-8" noValidate onSubmit={submit}><h1 className="text-2xl font-bold">BSmile CRM</h1><p className="mb-6 text-slate-600">Sign in to your workspace.</p>{demoMode && <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><b>Fusion Ventures Demo</b><p className="mt-1 text-amber-900/80">Explore a workspace containing synthetic demonstration data only.</p><button type="button" disabled={busy} className="btn mt-3 w-full border border-amber-300 bg-white" onClick={() => void enterDemo()}>{busy ? 'Entering demo...' : 'Enter Demo'}</button></div>}<input aria-label="Email" aria-invalid={Boolean(error && (error.includes('Email') || error.includes('email')))} autoComplete="email" className="input mb-3" type="email" placeholder="Email" value={email} onChange={event => setEmail(event.target.value)} /><input aria-label="Password" aria-invalid={Boolean(error && error.includes('Password'))} autoComplete="current-password" className="input" type="password" placeholder="Password" value={password} onChange={event => setPassword(event.target.value)} />{error && <p className="mt-3 text-sm text-red-700" role="alert">{error}</p>}<button disabled={busy} className="btn btn-primary mt-5 w-full">{busy ? 'Signing in...' : 'Sign in'}</button></form></main>;

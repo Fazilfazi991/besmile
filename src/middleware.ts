@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
   if (demoMode) {
     const path = request.nextUrl.pathname;
     if (path === '/') return NextResponse.redirect(new URL('/sign-in', request.url));
+    if (path === '/employee') return NextResponse.redirect(new URL('/admin', request.url));
     return NextResponse.next();
   }
   // Vercel's Preview toolbar probes protected routes with same-origin OPTIONS

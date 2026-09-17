@@ -1,6 +1,6 @@
 export type DemoPatient = { id: string; slug: string; patient_number: string; full_name: string; age: number; status: string; treatment: string; clinician: string; nextAppointment: string; notes: number; progress: number; source: string };
 
-export const demoUser = { id: 'demo-alex-morgan', full_name: 'Alex Morgan', role: 'super_admin', designation: 'Demo Administrator', email: 'alex.morgan@example.test' };
+export const demoUser = { id: 'demo-alex-morgan', full_name: 'Alex Morgan', role: 'director', designation: 'Director', status: 'active', is_employee: true, email: 'alex.morgan@example.com' };
 
 export const demoPatients: DemoPatient[] = [
   ['001','Amara Vale',31,'Active care','Wellbeing plan','Dr. Aisha Rahman','Today, 3:30 PM',4,72,'Website'],

@@ -1,6 +1,6 @@
 # Public portfolio demo
 
-The public demo is entirely local and does not connect to Supabase. It uses the real Besmile application shell and selected production UI components with fictional TypeScript data in `src/demo/`.
+The public demo is entirely local and does not connect to Supabase. It uses the real Besmile Director application shell, canonical navigation, Director dashboard components, and selected production UI components with fictional TypeScript data in `src/demo/`.
 
 ## Run locally
 
@@ -11,7 +11,7 @@ NEXT_PUBLIC_DEMO_MODE=true
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Do not add Supabase credentials. In demo mode, middleware, demo layouts, and the portfolio routes bypass authentication and database initialization. The one-click **Enter Demo** button navigates to the demo dashboard without a password or external service.
+Do not add Supabase credentials. In demo mode, middleware, the Director demo shell, and portfolio routes bypass authentication and database initialization. The one-click **Enter Demo** button navigates directly to `/admin`, the real Director landing route, without a password or external service.
 
 ## Demo content
 
@@ -21,4 +21,4 @@ Unsupported or sensitive actions remain unavailable: file upload/download, expor
 
 ## Deployment
 
-Create a standalone Vercel project, set only the two demo variables above, and deploy. Do not attach production environment variables, a Supabase project, external-service credentials, or cron/webhook secrets. Production mode remains unchanged whenever `NEXT_PUBLIC_DEMO_MODE` is false.
+Deploy the `feature/public-demo` branch to the existing `besmile-public-demo` Vercel project. Configure only `NEXT_PUBLIC_DEMO_MODE=true` (and optionally the public app URL). Do not attach production environment variables, a Supabase project, external-service credentials, or cron/webhook secrets. Production mode remains unchanged whenever `NEXT_PUBLIC_DEMO_MODE` is false.

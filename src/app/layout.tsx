@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: 'BSmile internal portal',
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: { url: '/images/bsmile-mark.png', type: 'image/png' },
+    icon: { url:'/images/bsmile-mark.png', type: 'image/png' },
     apple: '/images/bsmile-mark.png',
   },
   ...(isDemoMode() ? { robots: { index: false, follow: false } } : {}),
