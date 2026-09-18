@@ -67,17 +67,41 @@ on conflict(code) do update set description = excluded.description;
 
 -- Add missing capabilities to the existing Psychologist role; never replace
 -- or delete the role's earlier permissions.
-insert into public.role_permissions(role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.code = 'psychologist'
-  and p.code = any(array[
-    'patient_documents.view','patient_documents.upload','patient_documents.download',
-    'patient_notes.view','patient_notes.create','patient_notes.edit',
-    'clinical_notes.view','clinical_notes.create','clinical_notes.edit'
-  ])
-on conflict do nothing;
+-- Production still has the supported legacy role_permissions(role, permission_id)
+-- shape, while QA uses role_permissions(role_id, permission_id). Seed the same
+-- additive capability set through whichever shape the target exposes.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'role_permissions' and column_name = 'role'
+  ) then
+    insert into public.role_permissions(role, permission_id)
+    select 'Psychologist'::public.employee_role, p.id
+    from public.permissions p
+    where p.code = any(array[
+      'patient_documents.view','patient_documents.upload','patient_documents.download',
+      'patient_notes.view','patient_notes.create','patient_notes.edit',
+      'clinical_notes.view','clinical_notes.create','clinical_notes.edit'
+    ])
+    on conflict do nothing;
+  elsif exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'role_permissions' and column_name = 'role_id'
+  ) then
+    insert into public.role_permissions(role_id, permission_id)
+    select r.id, p.id from public.roles r cross join public.permissions p
+    where r.code = 'psychologist'
+      and p.code = any(array[
+        'patient_documents.view','patient_documents.upload','patient_documents.download',
+        'patient_notes.view','patient_notes.create','patient_notes.edit',
+        'clinical_notes.view','clinical_notes.create','clinical_notes.edit'
+      ])
+    on conflict do nothing;
+  else
+    raise exception 'Unsupported role_permissions schema for patient workspace permission seeding';
+  end if;
+end $$;
 
 insert into public.designation_permission_bundle_permissions(bundle_id, permission_id)
 select bundle.id, permission.id

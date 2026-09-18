@@ -19,6 +19,9 @@ describe('task completion and Psychologist patient access hotfix', () => {
       'clinical_notes.view', 'clinical_notes.create', 'clinical_notes.edit',
     ]) expect(migration).toContain(`'${code}'`);
     expect(migration).toContain('on conflict do nothing');
+    expect(migration).toContain("column_name = 'role'");
+    expect(migration).toContain("column_name = 'role_id'");
+    expect(migration).toContain("'Psychologist'::public.employee_role");
     expect(migration).not.toMatch(/delete\s+from\s+public\.(role_permissions|designation_permission_bundle_permissions)/i);
     expect(migration).not.toMatch(/grant\s+all/i);
     expect(migration).not.toMatch(/disable\s+row level security/i);
