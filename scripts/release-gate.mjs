@@ -55,12 +55,17 @@ function runStep([name, command, args]) {
 }
 
 async function waitForServer(url, timeoutMs = 30_000) {
+  const signInUrl = new URL('/sign-in', url);
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    try { if ((await fetch(url, { redirect: 'manual' })).status < 500) return; } catch {}
+    try {
+      const response = await fetch(signInUrl, { redirect: 'manual' });
+      const document = await response.text();
+      if (response.status < 500 && /type="email"/.test(document)) return;
+    } catch {}
     await new Promise(resolve => setTimeout(resolve, 500));
   }
-  throw new Error(`QA application did not become ready at ${url}`);
+  throw new Error(`QA sign-in page did not become ready at ${signInUrl}`);
 }
 
 let appServer;

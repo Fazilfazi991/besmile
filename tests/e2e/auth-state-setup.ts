@@ -1,8 +1,9 @@
 import { chromium, type FullConfig } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { login, type QaRole } from './helpers';
 
-const roles = ['admin', 'general_manager', 'director', 'manager', 'employee', 'assistant_manager', 'psychologist'] as const;
+const roles: QaRole[] = ['admin', 'general_manager', 'director', 'manager', 'employee', 'assistant_manager', 'psychologist'];
 
 export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0]?.use.baseURL || process.env.BSMILE_QA_BASE_URL;
@@ -18,11 +19,12 @@ export default async function globalSetup(config: FullConfig) {
       const context = await browser.newContext({ baseURL });
       try {
         const page = await context.newPage();
-        await page.goto('/sign-in');
-        await page.getByLabel('Email').fill(email);
-        await page.getByLabel('Password').fill(password);
-        await page.getByRole('button', { name: 'Sign in' }).click();
-        await page.waitForURL(/\/(?:admin|employee|clinician)(?:\/|$)/, { timeout: 30_000 });
+        // Keep the setup flow identical to the browser suite's proven login
+        // path. This also handles a valid pre-existing state without another
+        // password submission.
+        // Reuse a still-valid matching role state; an expired state falls back
+        // to the canonical password-login flow and is replaced below.
+        await login(page, role);
         await context.storageState({ path: join(output, `${role}.json`) });
         writeFileSync(join(output, `${role}.meta.json`), JSON.stringify({ email }));
       } finally {
