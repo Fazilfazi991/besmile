@@ -219,15 +219,17 @@ test('meeting create, participant detail, edit and calendar remain connected', a
   await dialog.getByLabel('Meeting title').fill(marker);
   await dialog.getByLabel('Agenda', { exact: true }).fill('QA lifecycle agenda');
   await dialog.getByRole('combobox', { name: 'Host', exact: true }).selectOption({ label: 'QA General Manager' });
-  const date = new Date(Date.now() + 365 * 86400_000).toISOString().slice(0, 10);
+  const fixtureSeed = crypto.randomUUID().replaceAll('-', '');
+  const date = new Date(Date.now() + (3_000 + parseInt(fixtureSeed.slice(0, 4), 16) % 3_000) * 86400_000).toISOString().slice(0, 10);
   await dialog.getByLabel('Date', { exact: true }).fill(date);
-  const startMinutes = 180 + (Date.now() % 540);
+  const startMinutes = 480 + parseInt(fixtureSeed.slice(4, 8), 16) % 480;
   const formatTime = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
   await dialog.getByLabel('Start time').fill(formatTime(startMinutes));
   await dialog.getByLabel('End time').fill(formatTime(startMinutes + 10));
   const participant = dialog.locator('.people label').filter({ hasText: 'QA Employee' }).first();
   await participant.getByRole('checkbox').check();
   const participantName = await participant.locator('b').innerText();
+  await expect(dialog.getByRole('button', { name: 'Create Meeting', exact: true })).toBeEnabled({ timeout: 30_000 });
   const createResponse = page.waitForResponse(response => response.url().includes('/rest/v1/rpc/save_meeting') && response.request().method() === 'POST' && response.status() === 200);
   await dialog.getByRole('button', { name: 'Create Meeting', exact: true }).click();
   await createResponse;
@@ -266,6 +268,15 @@ test('meeting create, participant detail, edit and calendar remain connected', a
     await navigateAfterLogin(page, '/admin/calendar');
     await expect(page.getByRole('region', { name: 'Month calendar' })).toBeVisible({ timeout: 30_000 });
     await assertNoRawDatabaseError(page);
+    await navigateAfterLogin(page, '/admin/meetings');
+    await page.getByRole('button').filter({ hasText: marker }).click();
+    await page.getByRole('button', { name: 'Cancel Meeting', exact: true }).click();
+    await page.getByLabel('Cancellation reason').fill('Release gate lifecycle complete');
+    const cancelResponse = page.waitForResponse((response) => response.url().includes('/rest/v1/rpc/cancel_meeting') && response.request().method() === 'POST' && response.ok());
+    await page.getByRole('button', { name: 'Confirm cancellation' }).click();
+    await cancelResponse;
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByRole('tab', { name: /Cancelled/ })).toHaveAttribute('aria-selected', 'true');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally {
     await cleanupQaMeeting(marker);
