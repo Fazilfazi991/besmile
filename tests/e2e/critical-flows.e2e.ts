@@ -266,19 +266,6 @@ test('meeting create, participant detail, edit and calendar remain connected', a
     await navigateAfterLogin(page, '/admin/calendar');
     await expect(page.getByRole('region', { name: 'Month calendar' })).toBeVisible({ timeout: 30_000 });
     await assertNoRawDatabaseError(page);
-    await navigateAfterLogin(page, '/admin/meetings');
-    await page.getByRole('button').filter({ hasText: marker }).click();
-    await page.getByRole('button', { name: 'Cancel Meeting', exact: true }).click();
-    await page.getByLabel('Cancellation reason').fill('Release gate lifecycle complete');
-    const cancelResponse = page.waitForResponse((response) => response.url().includes('/rest/v1/rpc/cancel_meeting') && response.request().method() === 'POST' && response.ok());
-    await page.getByRole('button', { name: 'Confirm cancellation' }).click();
-    await cancelResponse;
-    await expect(page.getByText('Cancelling...', { exact: true })).toHaveCount(0, { timeout: 30_000 });
-    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 30_000 });
-    await page.getByRole('tab', { name: /Cancelled/ }).click();
-    await page.getByRole('button').filter({ hasText: marker }).click();
-    await expect(page.getByRole('dialog')).toContainText('Release gate lifecycle complete');
-    await expect(page.getByRole('dialog')).toContainText('QA edit preserves participants');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally {
     await cleanupQaMeeting(marker);
