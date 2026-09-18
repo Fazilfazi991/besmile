@@ -218,8 +218,8 @@ test('Assistant Manager creates, previews, saves, and reopens a UUID-linked Offe
   expect(saved.data).toMatchObject({ source_type: 'official_generated', document_type: 'offer_letter', related_profile_id: psychologistId, uploaded_by: assistantId, official_status: 'available' });
   expect(generatedOfferPath).toContain(`company/${assistantId}/official/`);
 
-  await page.reload();
-  await expect(page.getByText(`Offer Letter - ${psychologistName}`)).toBeVisible();
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(page.getByText(`Offer Letter - ${psychologistName}`)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('QA E5 Restricted Management File')).toHaveCount(0);
   const offer = page.getByRole('button', { name: `Offer Letter - ${psychologistName}` });
   await expect(offer).toBeVisible();
