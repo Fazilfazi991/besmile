@@ -54,10 +54,11 @@ function runStep([name, command, args]) {
   return status === 'PASS';
 }
 
-async function waitForServer(url, timeoutMs = 30_000) {
+async function waitForServer(url, server, timeoutMs = 30_000) {
   const signInUrl = new URL('/sign-in', url);
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (server.exitCode !== null) throw new Error(`QA app server exited before readiness (code ${server.exitCode})`);
     try {
       const response = await fetch(signInUrl, { redirect: 'manual' });
       const document = await response.text();
@@ -83,8 +84,12 @@ try {
       const localQa = ['127.0.0.1', 'localhost'].includes(baseUrl.hostname);
       if (localQa) {
         const port = baseUrl.port || (baseUrl.protocol === 'https:' ? '443' : '80');
-        appServer = spawn('pnpm', ['start', '-p', port], { shell: process.platform === 'win32', detached: process.platform === 'win32', windowsHide: true, stdio: 'inherit', env: process.env });
-        await waitForServer(process.env.BSMILE_QA_BASE_URL);
+        appServer = spawn('pnpm', ['exec', 'next', 'start', '-p', port], { shell: process.platform === 'win32', detached: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
+        let serverLog = '';
+        appServer.stderr?.on('data', chunk => { serverLog = `${serverLog}${chunk}`.slice(-4000); });
+        appServer.stdout?.on('data', chunk => { serverLog = `${serverLog}${chunk}`.slice(-4000); });
+        appServer.on('exit', code => { if (code !== null && code !== 0) console.error(`QA app server exited with code ${code}: ${serverLog}`); });
+        await waitForServer(process.env.BSMILE_QA_BASE_URL, appServer);
       }
       runStep(['critical browser flows', 'pnpm', ['exec', 'playwright', 'test', 'tests/e2e/critical-flows.e2e.ts', 'tests/e2e/appointments-kpi.e2e.ts', 'tests/e2e/mobile-profile-polish.e2e.ts', 'tests/e2e/crm-dashboard-e1.e2e.ts', 'tests/e2e/teams-e2.e2e.ts', 'tests/e2e/ui-reports-e3.e2e.ts', 'tests/e2e/permissions-e5.e2e.ts']]);
     }
