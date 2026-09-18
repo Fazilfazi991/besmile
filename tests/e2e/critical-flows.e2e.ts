@@ -209,7 +209,11 @@ test('meeting create, participant detail, edit and calendar remain connected', a
     await expect(page.getByRole('dialog').locator('.meeting-detail-row').filter({ hasText: 'Participants' })).toContainText(participantName);
     await expect(dialog.locator('.meeting-detail-row').filter({ hasText: 'Host' })).toContainText('QA General Manager');
     await expect(dialog.locator('.meeting-detail-row').filter({ hasText: 'Agenda' })).toContainText('QA lifecycle agenda');
-    const employee = await browser.newPage({ viewport: page.viewportSize()! });
+    // Own the nested session's context explicitly. browser.newPage() creates an
+    // implicit disposable context; under the shared auth-state/reporter setup
+    // that context can outlive the parent page fixture and race fixture teardown.
+    const employeeContext = await browser.newContext({ viewport: page.viewportSize()! });
+    const employee = await employeeContext.newPage();
     try {
       await login(employee, 'employee');
       await navigateAfterLogin(employee, '/employee/meetings');
@@ -218,7 +222,7 @@ test('meeting create, participant detail, edit and calendar remain connected', a
       await expect(employee.getByRole('button', { name: 'Edit Meeting', exact: true })).toHaveCount(0);
       await expect(employee.getByRole('button', { name: 'Cancel Meeting', exact: true })).toHaveCount(0);
       await assertNoRawDatabaseError(employee);
-    } finally { await employee.close(); }
+    } finally { await employeeContext.close(); }
     await page.getByRole('button', { name: 'Edit Meeting', exact: true }).click();
     await dialog.getByLabel('Agenda').fill('QA edit preserves participants');
     await dialog.getByRole('button', { name: 'Save Changes' }).click();
@@ -290,7 +294,10 @@ test('employee submits Daily Work and manager can review it', async ({ page, bro
   const marker = `Release gate work ${Date.now()}`; await login(page, 'employee'); await navigateAfterLogin(page, '/employee/daily-work'); const summary = page.getByLabel('Work summary'); const saveButton = page.getByRole('button', { name: /save summary|update summary/i }); await expect(saveButton).toBeEnabled(); await summary.fill(marker);
   const saved = page.waitForResponse(response => response.url().includes('/daily_work_updates') && response.request().method() !== 'GET');
   await saveButton.click(); const savedResponse = await saved; expect(savedResponse.ok()).toBe(true); await expect(summary).toHaveValue(marker); await expect(page.getByText(/saved/i)).toBeVisible();
-  const manager = await browser.newPage(); await login(manager, 'general_manager'); await navigateAfterLogin(manager, '/admin/daily-work'); await manager.getByRole('textbox', { name: /^search$/i }).fill(marker); await expect(manager.getByText(marker)).toBeVisible(); await manager.close();
+  const managerContext = await browser.newContext();
+  const manager = await managerContext.newPage();
+  try { await login(manager, 'general_manager'); await navigateAfterLogin(manager, '/admin/daily-work'); await manager.getByRole('textbox', { name: /^search$/i }).fill(marker); await expect(manager.getByText(marker)).toBeVisible(); }
+  finally { await managerContext.close(); }
 });
 
 test('attendance Excel export downloads a workbook', async ({ page }) => { await login(page, 'general_manager'); await page.goto('/admin/attendance'); const download = page.waitForEvent('download'); await page.getByRole('button', { name: /export excel/i }).click(); expect((await download).suggestedFilename()).toMatch(/\.xlsx$/i); });
