@@ -4,6 +4,30 @@ import { createClient } from '@supabase/supabase-js';
 import { credentials } from './helpers';
 import { fixtureLogin } from './fixture-auth';
 import { defaultCrmLeadDate } from '../../src/lib/crm-lead-date';
+import { readFileSync } from 'node:fs';
+
+async function cleanupQaMeeting(marker: string) {
+  const state = JSON.parse(readFileSync('release-evidence/auth-state/general_manager.json', 'utf8')) as { cookies?: Array<{ name?: string; value?: string }> };
+  const cookie = state.cookies?.find(item => item.name === `sb-${process.env.BSMILE_QA_PROJECT_REF}-auth-token` && typeof item.value === 'string');
+  if (!cookie?.value) throw new Error('General Manager auth state unavailable for deterministic Meeting cleanup');
+  const encoded = cookie.value.replace(/^base64-/, '');
+  const session = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as { access_token?: string; refresh_token?: string };
+  if (!session.access_token || !session.refresh_token) throw new Error('General Manager auth state is missing a session');
+  const db = createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+  const auth = await db.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token });
+  if (auth.error) throw auth.error;
+  const found = await db.from('meetings').select('id,status').eq('title', marker);
+  if (found.error) throw found.error;
+  for (const meeting of found.data || []) {
+    if (meeting.status !== 'cancelled') {
+      const cancelled = await db.rpc('cancel_meeting', { target_meeting: meeting.id, cancel_reason: 'Release gate lifecycle complete' });
+      if (cancelled.error) throw cancelled.error;
+    }
+  }
+  const remaining = await db.from('meetings').select('id,status').eq('title', marker).neq('status', 'cancelled');
+  if (remaining.error) throw remaining.error;
+  if ((remaining.data || []).length) throw new Error(`Meeting cleanup did not settle for ${marker}`);
+}
 
 for (const customDate of [false, true]) {
   test(`admin ${customDate ? 'chooses' : 'defaults'} Lead Date on create and edits it without changing creation time`, async ({ page }) => {
@@ -242,7 +266,6 @@ test('meeting create, participant detail, edit and calendar remain connected', a
     await navigateAfterLogin(page, '/admin/calendar');
     await expect(page.getByRole('region', { name: 'Month calendar' })).toBeVisible({ timeout: 30_000 });
     await assertNoRawDatabaseError(page);
-  } finally {
     await navigateAfterLogin(page, '/admin/meetings');
     await page.getByRole('button').filter({ hasText: marker }).click();
     await page.getByRole('button', { name: 'Cancel Meeting', exact: true }).click();
@@ -257,6 +280,8 @@ test('meeting create, participant detail, edit and calendar remain connected', a
     await expect(page.getByRole('dialog')).toContainText('Release gate lifecycle complete');
     await expect(page.getByRole('dialog')).toContainText('QA edit preserves participants');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  } finally {
+    await cleanupQaMeeting(marker);
   }
 });
 for (const [role, landing] of roleLandings) test(`${role} login`, async ({ page }) => { await login(page, role); await expect(page).toHaveURL(landing); await assertNoRawDatabaseError(page); });
