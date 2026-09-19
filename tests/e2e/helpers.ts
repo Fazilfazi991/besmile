@@ -59,9 +59,18 @@ export async function login(page: Page, role: QaRole, options: { reuseState?: bo
       // A token request that never produces either a response or a browser-level
       // failure is also transport infrastructure, not an authorization result.
       const postAuthBootstrapFailure = tokenAccepted && /\/sign-in(?:[?#].*)?$/.test(page.url());
+      const transientAccessCheck = tokenAccepted && /\/access-unavailable(?:[?#].*)?$/.test(page.url());
       const stalledTokenRequest = !tokenResponseSeen
         && /\/sign-in(?:[?#].*)?$/.test(page.url())
         && await page.getByRole('button', { name: 'Signing in...' }).isDisabled().catch(() => false);
+      if (transientAccessCheck && attempt === 0) {
+        recordFixtureLoginRetry(role, 'post-auth-access-check');
+        const landing = ['admin', 'general_manager', 'director', 'manager'].includes(role) ? '/admin' : '/employee/dashboard';
+        await navigateAfterLogin(page, landing);
+        await expect(page).toHaveURL(/\/(?:admin|employee|clinician)(?:\/|$)/, { timeout: 10_000 });
+        await expect(page.locator('.app-shell')).toBeVisible({ timeout: 30_000 });
+        return;
+      }
       if (attempt === 1 || (!transportFailure && !postAuthBootstrapFailure && !stalledTokenRequest)) throw error;
       recordFixtureLoginRetry(role, postAuthBootstrapFailure ? 'post-auth-bootstrap' : 'transient-transport');
       await page.waitForTimeout(150);

@@ -41,6 +41,7 @@ async function accountControls(page: Page) {
 
 for (const role of ['employee', 'general_manager', 'assistant_manager'] as const) {
   test(`${role} account controls persist theme and end the authenticated session`, async ({ page, browser }) => {
+    let signedOut = false;
     try {
       // Signing out is global in Supabase by default. Use an independent session
       // so this assertion never begins with an already-revoked shared token.
@@ -65,6 +66,7 @@ for (const role of ['employee', 'general_manager', 'assistant_manager'] as const
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'standard');
       await restored.getByRole('button', { name: 'Sign out', exact: true }).click();
       await expect(page).toHaveURL(/\/sign-in/);
+      signedOut = true;
       expect((await page.context().cookies()).filter(cookie => /sb-.*-auth-token/.test(cookie.name))).toHaveLength(0);
       await page.goBack();
       await expect(page.locator('.app-shell')).toHaveCount(0);
@@ -74,7 +76,7 @@ for (const role of ['employee', 'general_manager', 'assistant_manager'] as const
     } finally {
       // Global sign-out revokes every session for the canonical role. Rebuild
       // its reusable state before later serial tests consume that fixture.
-      if (role !== 'assistant_manager') await refreshAuthState(browser, role);
+      if (signedOut && role !== 'assistant_manager') await refreshAuthState(browser, role);
     }
   });
 }
