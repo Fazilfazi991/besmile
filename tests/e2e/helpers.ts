@@ -45,7 +45,17 @@ export async function login(page: Page, role: QaRole, options: { reuseState?: bo
       await page.goto('/sign-in');
       await page.getByLabel('Email').fill(account.email);
       await page.getByLabel('Password').fill(account.password);
+      const tokenResponse = page.waitForResponse(
+        result => result.url().includes('/auth/v1/token'),
+        { timeout: 10_000 },
+      ).catch(() => undefined);
       await page.getByRole('button', { name: 'Sign in' }).click();
+      const tokenResult = await tokenResponse;
+      if (tokenResult) {
+        tokenResponseSeen = true;
+        tokenAccepted = tokenResult.ok();
+        if ([502, 503, 504].includes(tokenResult.status())) transportFailure = true;
+      }
       // A changed URL only proves navigation committed, not that the authenticated
       // landing document finished loading. Do not interrupt its bootstrap.
       await expect(page).toHaveURL(/\/(?:admin|employee|clinician)(?:\/|$)/, { timeout: 10_000 });
