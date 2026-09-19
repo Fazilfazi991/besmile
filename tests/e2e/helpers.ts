@@ -1,5 +1,5 @@
-import { expect, Page, Request, Response } from '@playwright/test';
-import { existsSync, readFileSync } from 'node:fs';
+import { Browser, expect, Page, Request, Response } from '@playwright/test';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { recordFixtureLoginRetry } from './fixture-auth';
 export type QaRole = 'admin' | 'general_manager' | 'director' | 'manager' | 'employee' | 'assistant_manager' | 'psychologist';
@@ -69,6 +69,19 @@ export async function login(page: Page, role: QaRole, options: { reuseState?: bo
       page.off('requestfailed', failed);
       page.off('response', response);
     }
+  }
+}
+export async function refreshAuthState(browser: Browser, role: QaRole) {
+  const account = credentials(role);
+  const context = await browser.newContext({ baseURL: process.env.BSMILE_QA_BASE_URL });
+  try {
+    const page = await context.newPage();
+    await login(page, role, { reuseState: false });
+    const output = join(process.cwd(), 'release-evidence', 'auth-state');
+    await context.storageState({ path: join(output, `${role}.json`) });
+    writeFileSync(join(output, `${role}.meta.json`), JSON.stringify({ email: account.email }));
+  } finally {
+    await context.close();
   }
 }
 export async function navigateAfterLogin(page: Page, path: string) {

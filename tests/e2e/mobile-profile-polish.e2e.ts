@@ -1,6 +1,6 @@
 import { expect, test, Page } from '@playwright/test';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { login, navigateAfterLogin, credentials, assertNoRawDatabaseError } from './helpers';
+import { login, navigateAfterLogin, credentials, assertNoRawDatabaseError, refreshAuthState } from './helpers';
 import { fixtureLogin } from './fixture-auth';
 
 // Owner-approved, disposable QA identity. Privileged access is provisioning-only;
@@ -40,34 +40,42 @@ async function accountControls(page: Page) {
 }
 
 for (const role of ['employee', 'general_manager', 'assistant_manager'] as const) {
-  test(`${role} account controls persist theme and end the authenticated session`, async ({ page }) => {
-    await login(page, role);
-    const protectedPath = new URL(page.url()).pathname;
-    const account = await accountControls(page);
-    const colorful = account.getByRole('button', { name: 'Colorful Mode', exact: true });
-    await expect(colorful).toBeVisible();
-    if (page.viewportSize()!.width <= 900) {
-      expect((await colorful.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      expect((await account.getByRole('button', { name: 'Sign out', exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  test(`${role} account controls persist theme and end the authenticated session`, async ({ page, browser }) => {
+    try {
+      // Signing out is global in Supabase by default. Use an independent session
+      // so this assertion never begins with an already-revoked shared token.
+      await login(page, role, { reuseState: false });
+      const protectedPath = new URL(page.url()).pathname;
+      const account = await accountControls(page);
+      const colorful = account.getByRole('button', { name: 'Colorful Mode', exact: true });
+      await expect(colorful).toBeVisible();
+      if (page.viewportSize()!.width <= 900) {
+        expect((await colorful.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect((await account.getByRole('button', { name: 'Sign out', exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
+      await colorful.click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'colorful');
+      await page.reload();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'colorful');
+      await page.setViewportSize({ width: 1366, height: 768 });
+      await expect(page.getByRole('button', { name: 'Colorful Mode', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await page.setViewportSize(test.info().project.use.viewport!);
+      const restored = await accountControls(page);
+      await restored.getByRole('button', { name: 'Standard Mode', exact: true }).click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'standard');
+      await restored.getByRole('button', { name: 'Sign out', exact: true }).click();
+      await expect(page).toHaveURL(/\/sign-in/);
+      expect((await page.context().cookies()).filter(cookie => /sb-.*-auth-token/.test(cookie.name))).toHaveLength(0);
+      await page.goBack();
+      await expect(page.locator('.app-shell')).toHaveCount(0);
+      await navigateAfterLogin(page, protectedPath);
+      await expect(page).toHaveURL(/\/sign-in/);
+      await expect(page.getByLabel('Password')).toBeVisible();
+    } finally {
+      // Global sign-out revokes every session for the canonical role. Rebuild
+      // its reusable state before later serial tests consume that fixture.
+      if (role !== 'assistant_manager') await refreshAuthState(browser, role);
     }
-    await colorful.click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'colorful');
-    await page.reload();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'colorful');
-    await page.setViewportSize({ width: 1366, height: 768 });
-    await expect(page.getByRole('button', { name: 'Colorful Mode', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await page.setViewportSize(test.info().project.use.viewport!);
-    const restored = await accountControls(page);
-    await restored.getByRole('button', { name: 'Standard Mode', exact: true }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'standard');
-    await restored.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await expect(page).toHaveURL(/\/sign-in/);
-    expect((await page.context().cookies()).filter(cookie => /sb-.*-auth-token/.test(cookie.name))).toHaveLength(0);
-    await page.goBack();
-    await expect(page.locator('.app-shell')).toHaveCount(0);
-    await navigateAfterLogin(page, protectedPath);
-    await expect(page).toHaveURL(/\/sign-in/);
-    await expect(page.getByLabel('Password')).toBeVisible();
   });
 }
 
