@@ -292,6 +292,12 @@ test('Assistant Manager uploads and reopens a patient document through the scope
   await expect(page.getByRole('button', { name: 'Download document', exact: true }).last()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await assertNoRawDatabaseError(page);
+  const removedStorage = await fixtureAdmin.storage.from('patient-documents').remove([uploadedDocument.data.storage_key]);
+  if (removedStorage.error) throw removedStorage.error;
+  const removedDocument = await fixtureAdmin.from('patient_documents').delete().eq('id', uploadedDocument.data.id);
+  if (removedDocument.error) throw removedDocument.error;
+  createdPatientPaths.splice(createdPatientPaths.indexOf(uploadedDocument.data.storage_key), 1);
+  createdPatientDocuments.splice(createdPatientDocuments.indexOf(uploadedDocument.data.id), 1);
 });
 
 test('Psychologist navigates the complete assigned-client workspace and uploads a document', async ({ page }) => {
