@@ -294,6 +294,8 @@ test('Assistant Manager uploads and reopens a patient document through the scope
   await assertNoRawDatabaseError(page);
   const removedStorage = await fixtureAdmin.storage.from('patient-documents').remove([uploadedDocument.data.storage_key]);
   if (removedStorage.error) throw removedStorage.error;
+  const removedActivity = await fixtureAdmin.from('patient_activity_logs').delete().eq('document_id', uploadedDocument.data.id);
+  if (removedActivity.error) throw removedActivity.error;
   const removedDocument = await fixtureAdmin.from('patient_documents').delete().eq('id', uploadedDocument.data.id);
   if (removedDocument.error) throw removedDocument.error;
   createdPatientPaths.splice(createdPatientPaths.indexOf(uploadedDocument.data.storage_key), 1);
