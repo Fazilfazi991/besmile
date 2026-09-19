@@ -44,6 +44,14 @@ test.beforeAll(async () => {
   psychologistName = `QA E5 Psychologist ${crypto.randomUUID().slice(0, 8)}`;
   const psychologist = await createUser('psychologist', { full_name: psychologistName, role: 'psychologist', designation: 'Psychologist' });
   assistantId = assistant.id; psychologistId = psychologist.id;
+  // Production Assistant Managers receive this existing read scope through the
+  // canonical scheduling provisioning migration. Mirror that scope for this
+  // disposable user; the upload capability itself must still come from the
+  // designation bundle under test.
+  const existingPatientPermissions = await fixtureAdmin.from('permissions').select('id,code').in('code', ['patients.view_all', 'patient_documents.view', 'patient_documents.download']);
+  if (existingPatientPermissions.error || existingPatientPermissions.data.length !== 3) throw existingPatientPermissions.error || new Error('Assistant Manager patient fixture permissions are unavailable');
+  const patientViewGrant = await fixtureAdmin.from('user_permission_grants').insert(existingPatientPermissions.data.map(permission => ({ profile_id: assistantId, permission_id: permission.id, reason: 'QA Assistant Manager existing patient read-scope fixture' })));
+  if (patientViewGrant.error) throw patientViewGrant.error;
   process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = assistant.email;
   process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = assistant.password;
   process.env.BSMILE_QA_PSYCHOLOGIST_EMAIL = psychologist.email;
@@ -255,6 +263,34 @@ test('unauthorized employee cannot reach the official creator or generate restri
     return request.status;
   });
   expect(response).toBe(403);
+  await assertNoRawDatabaseError(page);
+});
+
+test('Assistant Manager uploads and reopens a patient document through the scoped lifecycle', async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, 'assistant_manager');
+  await navigateAfterLogin(page, `/admin/patients/${patientSlug}`);
+  await expect(page.getByRole('heading', { name: 'QA E5 Authorized Client' })).toBeVisible();
+  await page.getByRole('button', { name: 'Documents', exact: true }).click();
+  await page.getByRole('button', { name: 'Upload Document', exact: true }).click();
+  const marker = `QA Assistant Patient Upload ${Date.now()}`;
+  await page.locator('input[name="file"]').setInputFiles({ name: 'assistant-manager.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
+  await page.getByPlaceholder('Document name').fill(marker);
+  await page.getByPlaceholder('Category').fill('Administration');
+  await page.locator('input[name="documentDate"]').fill(new Date().toISOString().slice(0, 10));
+  await page.getByRole('button', { name: 'Upload', exact: true }).click();
+  await expect(page.getByText('Document uploaded.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(marker)).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Documents', exact: true }).click();
+  await expect(page.getByText(marker)).toBeVisible();
+  const uploadedDocument = await fixtureAdmin.from('patient_documents').select('id,storage_key').eq('patient_id', patientId).eq('document_name', marker).single();
+  if (uploadedDocument.error) throw uploadedDocument.error;
+  createdPatientDocuments.push(uploadedDocument.data.id);
+  createdPatientPaths.push(uploadedDocument.data.storage_key);
+  await expect(page.getByRole('button', { name: 'Open document', exact: true }).last()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download document', exact: true }).last()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await assertNoRawDatabaseError(page);
 });
 

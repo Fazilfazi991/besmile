@@ -38,6 +38,10 @@ try {
   const department = await fixtureAdmin.from('departments').select('id').eq('name', 'Administration').single();
   if (department.error) throw department.error;
   assistant = await createFixture('assistant', { full_name: 'QA E5 Assistant Manager', role: 'staff', designation: 'Assistant Manager', department_id: department.data.id });
+  const existingPatientPermissions = await fixtureAdmin.from('permissions').select('id,code').in('code', ['patients.view_all', 'patient_documents.view', 'patient_documents.download']);
+  if (existingPatientPermissions.error || existingPatientPermissions.data.length !== 3) throw existingPatientPermissions.error || new Error('Assistant Manager patient fixture permissions are unavailable');
+  const patientViewGrant = await fixtureAdmin.from('user_permission_grants').insert(existingPatientPermissions.data.map(permission => ({ profile_id: assistant.id, permission_id: permission.id, reason: 'QA Assistant Manager existing patient read-scope fixture' })));
+  if (patientViewGrant.error) throw patientViewGrant.error;
   psychologistName = `QA E5 Psychologist ${crypto.randomUUID().slice(0, 8)}`;
   psychologist = await createFixture('psychologist', { full_name: psychologistName, role: 'psychologist', designation: 'Psychologist' });
   participantB = await createFixture('participant-b', { full_name: 'QA E5 Participant B', role: 'staff', designation: 'Employee', department_id: department.data.id });
@@ -187,6 +191,32 @@ try {
     const signed = await psychologistSession.db.storage.from('patient-documents').createSignedUrl(path, 60);
     if (signed.error || !signed.data.signedUrl) throw signed.error || new Error('Assigned client document download failed');
     mustFail(await psychologistSession.db.from('patient_documents').insert({ patient_id: foreign.data.id, document_name: 'Denied', original_filename: 'denied.pdf', category: 'Other', visibility: 'assigned_psychologist', mime_type: 'application/pdf', file_extension: 'pdf', file_size_bytes: 8, uploaded_by: psychologist.id, storage_key: `pending-${crypto.randomUUID()}` }), 'foreign patient document insert');
+  });
+
+  await check('Assistant Manager has the scoped patient document upload lifecycle without granting it to an unrelated Employee', async () => {
+    const [assignedId] = cleanup.patientIds;
+    const assistantPermission = await assistantSession.db.rpc('has_permission', { permission_code: 'patient_documents.upload' });
+    if (assistantPermission.error || assistantPermission.data !== true) throw assistantPermission.error || new Error('Assistant Manager lacks patient document upload');
+    const patientViewPermission = await assistantSession.db.rpc('has_permission', { permission_code: 'patients.view_all' });
+    if (patientViewPermission.error || patientViewPermission.data !== true) throw patientViewPermission.error || new Error('Assistant Manager fixture lacks canonical patient visibility');
+    const patientAccess = await assistantSession.db.rpc('patient_access', { patient: assignedId });
+    if (patientAccess.error || patientAccess.data !== true) throw patientAccess.error || new Error('Assistant Manager fixture cannot access the QA patient');
+    const employeePermission = await employee.db.rpc('has_permission', { permission_code: 'patient_documents.upload' });
+    if (employeePermission.error || employeePermission.data !== false) throw employeePermission.error || new Error('Unrelated Employee gained patient document upload');
+
+    const pendingKey = `pending-${crypto.randomUUID()}`;
+    const document = await assistantSession.db.from('patient_documents').insert({ patient_id: assignedId, document_name: 'QA Assistant Manager Patient Document', original_filename: 'assistant-manager.pdf', category: 'Administration', visibility: 'general_staff', mime_type: 'application/pdf', file_extension: 'pdf', file_size_bytes: 8, uploaded_by: assistant.id, storage_key: pendingKey }).select('id').single();
+    if (document.error) throw document.error;
+    cleanup.patientDocumentIds.push(document.data.id);
+    const path = `patients/${assignedId}/documents/${document.data.id}/v1/${crypto.randomUUID()}.pdf`;
+    const upload = await assistantSession.db.storage.from('patient-documents').upload(path, new Uint8Array([37,80,68,70,45,49,46,52]), { contentType: 'application/pdf' });
+    if (upload.error) throw upload.error;
+    cleanup.patientPaths.push(path);
+    const finalized = await assistantSession.db.from('patient_documents').update({ storage_key: path, updated_by: assistant.id }).eq('id', document.data.id).select('id').single();
+    if (finalized.error) throw finalized.error;
+    const signed = await assistantSession.db.storage.from('patient-documents').createSignedUrl(path, 60);
+    if (signed.error || !signed.data.signedUrl) throw signed.error || new Error('Assistant Manager patient document download failed');
+    mustFail(await employee.db.from('patient_documents').insert({ patient_id: assignedId, document_name: 'Denied', original_filename: 'denied.pdf', category: 'Other', visibility: 'general_staff', mime_type: 'application/pdf', file_extension: 'pdf', file_size_bytes: 8, uploaded_by: employee.user.id, storage_key: `pending-${crypto.randomUUID()}` }), 'unrelated Employee patient document insert');
   });
 
   await check('Psychologist note, session and activity reads stay assigned-client scoped without anonymous table access', async () => {
