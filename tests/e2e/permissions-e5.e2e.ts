@@ -292,14 +292,6 @@ test('Assistant Manager uploads and reopens a patient document through the scope
   await expect(page.getByRole('button', { name: 'Download document', exact: true }).last()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await assertNoRawDatabaseError(page);
-  const removedStorage = await fixtureAdmin.storage.from('patient-documents').remove([uploadedDocument.data.storage_key]);
-  if (removedStorage.error) throw removedStorage.error;
-  const removedActivity = await fixtureAdmin.from('patient_activity_logs').delete().eq('document_id', uploadedDocument.data.id);
-  if (removedActivity.error) throw removedActivity.error;
-  const removedDocument = await fixtureAdmin.from('patient_documents').delete().eq('id', uploadedDocument.data.id);
-  if (removedDocument.error) throw removedDocument.error;
-  createdPatientPaths.splice(createdPatientPaths.indexOf(uploadedDocument.data.storage_key), 1);
-  createdPatientDocuments.splice(createdPatientDocuments.indexOf(uploadedDocument.data.id), 1);
 });
 
 test('Psychologist navigates the complete assigned-client workspace and uploads a document', async ({ page }) => {
@@ -324,8 +316,8 @@ test('Psychologist navigates the complete assigned-client workspace and uploads 
   const uploadedDocument = await fixtureAdmin.from('patient_documents').select('id,storage_key').eq('patient_id', patientId).eq('document_name', marker).single();
   if (uploadedDocument.error) throw uploadedDocument.error;
   createdPatientDocuments.push(uploadedDocument.data.id); createdPatientPaths.push(uploadedDocument.data.storage_key);
-  await expect(page.getByRole('button', { name: 'Open document', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Download document', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open document', exact: true }).last()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download document', exact: true }).last()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await assertNoRawDatabaseError(page);
 });
