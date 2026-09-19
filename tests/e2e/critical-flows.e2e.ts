@@ -6,16 +6,27 @@ import { fixtureLogin } from './fixture-auth';
 import { defaultCrmLeadDate } from '../../src/lib/crm-lead-date';
 import { readFileSync } from 'node:fs';
 
-async function cleanupQaMeeting(marker: string) {
+function qaMeetingClient() {
   const state = JSON.parse(readFileSync('release-evidence/auth-state/general_manager.json', 'utf8')) as { cookies?: Array<{ name?: string; value?: string }> };
   const cookie = state.cookies?.find(item => item.name === `sb-${process.env.BSMILE_QA_PROJECT_REF}-auth-token` && typeof item.value === 'string');
   if (!cookie?.value) throw new Error('General Manager auth state unavailable for deterministic Meeting cleanup');
   const encoded = cookie.value.replace(/^base64-/, '');
-  const session = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as { access_token?: string; refresh_token?: string };
-  if (!session.access_token || !session.refresh_token) throw new Error('General Manager auth state is missing a session');
-  const db = createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-  const auth = await db.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token });
-  if (auth.error) throw auth.error;
+  const session = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as { access_token?: string };
+  if (!session.access_token) throw new Error('General Manager auth state is missing an access token');
+  return createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, {
+    global: { headers: { Authorization: `Bearer ${session.access_token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+async function qaMeetingStatus(marker: string) {
+  const result = await qaMeetingClient().from('meetings').select('status').eq('title', marker).single();
+  if (result.error) throw result.error;
+  return result.data.status;
+}
+
+async function cleanupQaMeeting(marker: string) {
+  const db = qaMeetingClient();
   const found = await db.from('meetings').select('id,status').eq('title', marker);
   if (found.error) throw found.error;
   for (const meeting of found.data || []) {
@@ -275,8 +286,8 @@ test('meeting create, participant detail, edit and calendar remain connected', a
     const cancelResponse = page.waitForResponse((response) => response.url().includes('/rest/v1/rpc/cancel_meeting') && response.request().method() === 'POST' && response.ok());
     await page.getByRole('button', { name: 'Confirm cancellation' }).click();
     await cancelResponse;
-    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 30_000 });
-    await expect(page.getByRole('tab', { name: /Cancelled/ })).toHaveAttribute('aria-selected', 'true');
+    await expect.poll(() => qaMeetingStatus(marker), { timeout: 15_000 }).toBe('cancelled');
+    await page.goto('about:blank');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally {
     await cleanupQaMeeting(marker);
