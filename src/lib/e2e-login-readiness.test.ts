@@ -17,7 +17,9 @@ function fixture() {
   return {
     goto: vi.fn(), getByLabel: vi.fn(() => ({ fill: vi.fn() })),
     getByRole: vi.fn(() => ({ click: vi.fn(), isDisabled: vi.fn(async () => false) })), locator: vi.fn(),
-    waitForLoadState: vi.fn(), waitForTimeout: vi.fn(),
+    waitForLoadState: vi.fn(),
+    waitForResponse: vi.fn(async (): Promise<{ ok: () => boolean; status: () => number } | undefined> => undefined),
+    waitForTimeout: vi.fn(),
     on: vi.fn(), off: vi.fn(), url: vi.fn(() => 'http://localhost:3000/sign-in'),
   };
 }
@@ -56,17 +58,8 @@ describe('release browser login readiness', () => {
   });
 
   it('retries one successful-token sign-in bounce before requiring the authenticated shell', async () => {
-    let responseListener: ((response: { url: () => string; status: () => number }) => void) | undefined;
     const page = fixture();
-    page.on.mockImplementation((event: string, listener: typeof responseListener) => {
-      if (event === 'response') responseListener = listener;
-    });
-    page.getByRole.mockImplementation(() => ({
-      click: vi.fn(async () => {
-        responseListener?.({ url: () => 'https://qa.invalid/auth/v1/token', status: () => 200 });
-      }),
-      isDisabled: vi.fn(async () => false),
-    }));
+    page.waitForResponse.mockResolvedValue({ ok: () => true, status: () => 200 });
     assertions.url.mockRejectedValueOnce(new Error('bootstrap returned to sign-in'));
 
     await login(page as never, 'employee');
