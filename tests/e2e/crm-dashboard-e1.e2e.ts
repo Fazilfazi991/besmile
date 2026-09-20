@@ -12,7 +12,7 @@ for (const role of ['admin', 'general_manager', 'director'] as QaRole[]) {
       if (request.url().includes('/rest/v1/rpc/crm_dashboard_summary')) summaryRequests.push(request.postData() || '');
     });
 
-    await login(page, role);
+    await login(page, role, { waitForLanding: true });
     await navigateAfterLogin(page, '/admin/crm');
     await expect(page.getByRole('heading', { name: 'CRM Dashboard' })).toBeVisible();
     await expect(page.getByText(/Last 30 days · new leads by canonical lead date/i)).toBeVisible();

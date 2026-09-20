@@ -4,8 +4,17 @@ import { join } from 'node:path';
 import { recordFixtureLoginRetry } from './fixture-auth';
 export type QaRole = 'admin' | 'general_manager' | 'director' | 'manager' | 'employee' | 'assistant_manager' | 'psychologist';
 export function credentials(role: QaRole) { const prefix = `BSMILE_QA_${role.toUpperCase()}`; const email = process.env[`${prefix}_EMAIL`]; const password = process.env[`${prefix}_PASSWORD`]; if (!email || !password) throw new Error(`${prefix}_EMAIL and ${prefix}_PASSWORD are required`); return { email, password }; }
-export async function login(page: Page, role: QaRole, options: { reuseState?: boolean } = {}) {
+async function waitForAuthenticatedLanding(page: Page, landing: string) {
+  if (landing !== '/admin') return;
+  // The app shell is visible before the client dashboard queries settle. Tests
+  // that immediately leave /admin would otherwise abort those requests and
+  // attribute the resulting console error to the destination page.
+  await expect(page.getByText('Loading live company data…')).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 30_000 });
+}
+export async function login(page: Page, role: QaRole, options: { reuseState?: boolean; waitForLanding?: boolean } = {}) {
   const account = credentials(role);
+  const landing = ['admin', 'general_manager', 'director', 'manager'].includes(role) ? '/admin' : '/employee/dashboard';
   const statePath = join(process.cwd(), 'release-evidence', 'auth-state', `${role}.json`);
   const metadataPath = join(process.cwd(), 'release-evidence', 'auth-state', `${role}.meta.json`);
   const stateMatchesAccount = existsSync(metadataPath)
@@ -14,11 +23,11 @@ export async function login(page: Page, role: QaRole, options: { reuseState?: bo
     try {
       const state = JSON.parse(readFileSync(statePath, 'utf8')) as { cookies?: any[] };
       if (state.cookies?.length) await page.context().addCookies(state.cookies);
-      const landing = ['admin', 'general_manager', 'director', 'manager'].includes(role) ? '/admin' : '/employee/dashboard';
       await page.goto(landing);
       await expect(page).toHaveURL(/\/(?:admin|employee|clinician)(?:\/|$)/, { timeout: 10_000 });
       await page.waitForLoadState('load', { timeout: 30_000 });
       await expect(page.locator('.app-shell')).toBeVisible({ timeout: 30_000 });
+      if (options.waitForLanding) await waitForAuthenticatedLanding(page, landing);
       return;
     } catch {
       // A matching fixture file is not sufficient if its session has expired.
@@ -61,6 +70,7 @@ export async function login(page: Page, role: QaRole, options: { reuseState?: bo
       await expect(page).toHaveURL(/\/(?:admin|employee|clinician)(?:\/|$)/, { timeout: 10_000 });
       await page.waitForLoadState('load', { timeout: 30_000 });
       await expect(page.locator('.app-shell')).toBeVisible({ timeout: 30_000 });
+      if (options.waitForLanding) await waitForAuthenticatedLanding(page, landing);
       return;
     } catch (error) {
       // A successful token exchange can occasionally be followed by an aborted
@@ -75,10 +85,10 @@ export async function login(page: Page, role: QaRole, options: { reuseState?: bo
         && await page.getByRole('button', { name: 'Signing in...' }).isDisabled().catch(() => false);
       if (transientAccessCheck && attempt === 0) {
         recordFixtureLoginRetry(role, 'post-auth-access-check');
-        const landing = ['admin', 'general_manager', 'director', 'manager'].includes(role) ? '/admin' : '/employee/dashboard';
         await navigateAfterLogin(page, landing);
         await expect(page).toHaveURL(/\/(?:admin|employee|clinician)(?:\/|$)/, { timeout: 10_000 });
         await expect(page.locator('.app-shell')).toBeVisible({ timeout: 30_000 });
+        if (options.waitForLanding) await waitForAuthenticatedLanding(page, landing);
         return;
       }
       if (attempt === 1 || (!transportFailure && !postAuthBootstrapFailure && !stalledTokenRequest)) throw error;
