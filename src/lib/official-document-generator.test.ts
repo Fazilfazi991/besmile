@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { generateOfficialDocument, generateOfficialReport } from './official-document-engine';
+import { generateOfficialDocument, generateOfficialReport, officialDocumentLayout } from './official-document-engine';
 import { officialDocumentFilename, officialDocumentTypes, validateOfficialDocumentInput } from './official-document-types';
 import { officialReportSpecs, validateOfficialReportPayload } from './official-report-types';
 
@@ -18,6 +18,50 @@ const offer = {
 };
 
 describe('official document generator', () => {
+  it('renders one canonical title and one copy of every first-page section for all six operational document types', async () => {
+    const auditedDocuments = [
+      { documentType: 'offer_letter', title: 'Offer letter', relatedName: 'QA Candidate', position: 'Psychologist', joiningDate: '2026-09-01' },
+      { documentType: 'appointment_letter', title: 'Appointment letter', relatedName: 'QA Employee' },
+      { documentType: 'experience_letter', title: 'Experience letter', relatedName: 'QA Employee' },
+      { documentType: 'general_report', title: 'General report', relatedName: 'QA Record' },
+      { documentType: 'sales_report', title: 'Sales report', relatedName: 'QA Record' },
+      { documentType: 'custom_official_document', customHeading: 'Custom Official Document', title: 'Custom official document', relatedName: 'QA Record' },
+    ] as const;
+
+    for (const sample of auditedDocuments) {
+      const input = validateOfficialDocumentInput({
+        ...sample,
+        issueDate: '2026-09-17',
+        body: 'A single official document body paragraph.',
+        signatoryName: 'Mr. Yousaf',
+        signatoryTitle: 'Director',
+      });
+      const layout = officialDocumentLayout(input);
+      const canonical = input.heading.toLocaleLowerCase();
+      expect(layout.titleLines).toEqual([input.heading]);
+      expect(layout.titleLines.filter((line) => line.toLocaleLowerCase() === canonical)).toHaveLength(1);
+      expect(layout.metadataRows.filter(([label]) => /^date(?: of issue)?$/i.test(label))).toHaveLength(1);
+      if (input.documentType === 'offer_letter') {
+        expect(layout.metadataRows.filter(([label]) => label === 'Candidate')).toHaveLength(1);
+        expect(layout.metadataRows.filter(([label]) => label === 'Related to')).toHaveLength(0);
+      } else {
+        expect(layout.metadataRows.filter(([label]) => label === 'Related to')).toHaveLength(1);
+      }
+      expect(layout.bodyParagraphs).toEqual(['A single official document body paragraph.']);
+      expect(layout.signatureLines).toEqual(['Mr. Yousaf', 'Director']);
+
+      const result = await generateOfficialDocument(input);
+      expect(result.buffer.subarray(0, 4).toString()).toBe('%PDF');
+      expect(result.pageCount).toBe(1);
+    }
+  }, 30_000);
+
+  it('uses the same PDF engine before preview and generated-output handling diverge', () => {
+    const route = readFileSync(resolve(process.cwd(), 'src/app/api/documents/official/generate/route.ts'), 'utf8');
+    expect(route.match(/generateOfficialDocument\(input\)/g)).toHaveLength(1);
+    expect(route.indexOf('generateOfficialDocument(input)')).toBeLessThan(route.indexOf("if (mode === 'generate')"));
+  });
+
   it('configures every Batch 1 document family with automatic headings', () => {
     expect(officialDocumentTypes.map((item) => item.key)).toEqual(expect.arrayContaining([
       'offer_letter', 'appointment_letter', 'experience_letter', 'salary_slip', 'policy', 'general_report',

@@ -25,7 +25,14 @@ function formattedDate(value?: string) {
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`));
 }
 
-function metadataRows(input: NormalizedOfficialDocument) {
+export type OfficialDocumentLayout = {
+  titleLines: string[];
+  metadataRows: string[][];
+  bodyParagraphs: string[];
+  signatureLines: string[];
+};
+
+function metadataRows(input: NormalizedOfficialDocument): string[][] {
   if (input.documentType === 'offer_letter') return [
     ['Date of issue', formattedDate(input.issueDate)],
     ['Candidate', input.relatedName || ''],
@@ -41,7 +48,19 @@ function metadataRows(input: NormalizedOfficialDocument) {
   return [['Date', formattedDate(input.issueDate)], ['Related to', input.relatedName || '']].filter(([, value]) => value);
 }
 
+export function officialDocumentLayout(input: NormalizedOfficialDocument): OfficialDocumentLayout {
+  return {
+    // `title` identifies the saved record and filename target. The automatic
+    // document heading is the only title rendered on the official letter.
+    titleLines: [input.heading],
+    metadataRows: metadataRows(input),
+    bodyParagraphs: input.body.replace(/\r\n/g, '\n').split(/\n{2,}/).map((item) => item.trim()).filter(Boolean),
+    signatureLines: [input.signatoryName || '', input.signatoryTitle || ''].filter(Boolean),
+  };
+}
+
 export async function generateOfficialDocument(input: NormalizedOfficialDocument) {
+  const layout = officialDocumentLayout(input);
   const doc = new PDFDocument({
     autoFirstPage: false,
     size: 'A4',
@@ -77,13 +96,9 @@ export async function generateOfficialDocument(input: NormalizedOfficialDocument
   doc.addPage();
 
   const isOfferLetter = input.documentType === 'offer_letter';
-  doc.font('Noto-Bold').fontSize(isOfferLetter ? 19 : 16).fillColor('#26384d').text(input.heading, { align: 'center', characterSpacing: isOfferLetter ? 0.45 : 0.7 });
+  doc.font('Noto-Bold').fontSize(isOfferLetter ? 19 : 16).fillColor('#26384d').text(layout.titleLines[0], { align: 'center', characterSpacing: isOfferLetter ? 0.45 : 0.7 });
   doc.moveDown(0.55);
-  if (input.title) {
-    doc.font('Noto-Bold').fontSize(11).fillColor('#26384d').text(input.title, { align: 'center' });
-    doc.moveDown(0.7);
-  }
-  const rows = metadataRows(input);
+  const rows = layout.metadataRows;
   if (rows.length) {
     const labelWidth = 100;
     for (const [label, value] of rows) {
@@ -97,13 +112,12 @@ export async function generateOfficialDocument(input: NormalizedOfficialDocument
     doc.moveDown(0.85);
   }
 
-  const paragraphs = input.body.replace(/\r\n/g, '\n').split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
   doc.x = content.left;
   doc.font('Noto').fontSize(isOfferLetter ? 10.75 : 10).fillColor('#263238');
-  for (const paragraph of paragraphs) {
+  for (const paragraph of layout.bodyParagraphs) {
     doc.text(paragraph, { width: content.right - content.left, align: 'left', lineGap: isOfferLetter ? 3.4 : 3, paragraphGap: isOfferLetter ? 8 : 7 });
   }
-  if (input.signatoryName || input.signatoryTitle) {
+  if (layout.signatureLines.length) {
     if (doc.y > content.bottom - 92) doc.addPage();
     doc.moveDown(1.4);
     doc.font('Noto').fontSize(9).text('For BSmile - The Mind Studio');

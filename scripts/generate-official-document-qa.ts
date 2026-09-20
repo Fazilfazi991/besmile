@@ -16,6 +16,22 @@ const samples = [
     },
   },
   {
+    filename: 'BSmile_Experience_Letter_QA_Employee_2026-09-17.pdf',
+    input: {
+      documentType: 'experience_letter', issueDate: '2026-09-17', title: 'Experience letter', relatedName: 'QA Employee',
+      body: 'This is to certify that QA Employee worked with BSmile - The Mind Studio and carried out the assigned responsibilities professionally.',
+      signatoryName: 'QA Authorized Signatory', signatoryTitle: 'Director',
+    },
+  },
+  {
+    filename: 'BSmile_Appointment_Letter_QA_Employee_2026-09-17.pdf',
+    input: {
+      documentType: 'appointment_letter', issueDate: '2026-09-17', title: 'Appointment letter', relatedName: 'QA Employee',
+      body: 'We are pleased to confirm your appointment with BSmile - The Mind Studio under the approved employment terms and organizational policies.',
+      signatoryName: 'QA Authorized Signatory', signatoryTitle: 'Director',
+    },
+  },
+  {
     filename: 'BSmile_Policy_Unicode_QA_2026-08-14.pdf',
     input: {
       documentType: 'policy', issueDate: '2026-08-14', title: 'Official Communication Policy', policyCategory: 'Operations',
