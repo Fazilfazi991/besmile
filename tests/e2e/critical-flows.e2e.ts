@@ -303,9 +303,9 @@ test('general manager task creation, assignment, detail and edit', async ({ page
   await page.getByRole('textbox', { name: /search employees/i }).fill('QA Employee');
   await page.getByRole('button', { name: /Quality Assurance Operations Specialist$/i }).click();
   await page.getByRole('button', { name: /create task/i }).click();
-  const taskCard = page.getByRole('article').filter({ hasText: marker }).first(); await expect(taskCard).toBeVisible();
+  const taskCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: marker, exact: true }) }); await expect(taskCard).toBeVisible();
   if (page.viewportSize()!.width < 768) await taskCard.getByRole('button').first().click();
-  else { await page.getByLabel(`Actions for ${marker}`).last().click(); await page.getByRole('button', { name: /view details/i }).click(); }
+  else { const taskActions = taskCard.getByTestId('desktop-task-card-actions'); await taskActions.locator('summary').click(); await taskActions.getByRole('button', { name: 'View details', exact: true }).click(); }
   await expect(page.getByText(/task owner/i)).toBeVisible(); await expect(page.getByText(/completion sla/i)).toBeVisible();
   await assertNoRawDatabaseError(page);
 });
