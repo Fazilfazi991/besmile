@@ -60,6 +60,24 @@ describe('task status clarity presentation', () => {
     expect(actions).toBeGreaterThan(primaryClose);
   });
 
+  it('resolves an open detail from the latest task collection after refresh', () => {
+    type Task = { id: string; task_comments: Array<{ body: string }> };
+    const detailTaskId = 'task-under-review';
+    let tasks: Task[] = [{ id: detailTaskId, task_comments: [] }];
+    const detailTask = () => tasks.find(task => task.id === detailTaskId);
+
+    expect(detailTask()?.task_comments).toHaveLength(0);
+    tasks = [{ id: detailTaskId, task_comments: [{ body: 'Fresh completion update' }] }];
+    expect(detailTask()?.task_comments).toEqual([{ body: 'Fresh completion update' }]);
+
+    expect(adminPage).toContain('const [detailTaskId, setDetailTaskId]');
+    expect(adminPage).toContain('tasks.find(task => task.id === detailTaskId)');
+    expect(adminPage).toContain('onOpen={() => setDetailTaskId(task.id)}');
+    expect(adminPage).toContain('task={detailTask}');
+    expect(adminPage).toContain('onClose={() => setDetailTaskId(undefined)}');
+    expect(adminPage).not.toContain('const [detail, setDetail]');
+  });
+
   it('shows truthful completion and assignment status timing when available', () => {
     expect(taskDetail).toContain('task.completed_at &&');
     expect(taskDetail).toContain('Completed at');

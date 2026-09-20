@@ -1,5 +1,26 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { assertNoRawDatabaseError, login, navigateAfterLogin } from './helpers';
+import { createClient } from '@supabase/supabase-js';
+import { assertNoRawDatabaseError, credentials, login, navigateAfterLogin } from './helpers';
+
+async function qaTaskReviewSnapshot(title: string) {
+  const url = process.env.BSMILE_QA_SUPABASE_URL!;
+  if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe' || new URL(url).hostname !== 'enylrvmjgbntkrgpqsfe.supabase.co') {
+    throw new Error('Task review evidence requires QA');
+  }
+  const db = createClient(url, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+  const account = credentials('general_manager');
+  const signedIn = await db.auth.signInWithPassword(account);
+  if (signedIn.error) throw signedIn.error;
+  try {
+    const taskResult = await db.from('tasks').select('id,title').eq('title', title).single();
+    if (taskResult.error) throw taskResult.error;
+    const commentsResult = await db.from('task_comments').select('id,body,author_id,created_at').eq('task_id', taskResult.data.id).order('created_at');
+    if (commentsResult.error) throw commentsResult.error;
+    return { taskId: taskResult.data.id, title: taskResult.data.title, comments: commentsResult.data || [] };
+  } finally {
+    await db.auth.signOut();
+  }
+}
 
 async function enableColorfulMode(page: Page) {
   await page.evaluate(() => {
@@ -153,17 +174,20 @@ test('Task Management cards open an isolated, complete review experience', async
   await expect(card.getByText('Task status: Completed', { exact: false })).toBeVisible();
   if (await actions.getAttribute('open') !== null) await actions.locator('summary').click();
 
+  // Open as soon as the completion success state is visible. The dialog must
+  // remain open and update from the refreshed task collection without a
+  // close/reopen cycle.
   await primaryCard.click();
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Close task details' }).click();
-
-  if (!mobile) {
-    await primaryCard.focus();
-    await primaryCard.press('Space');
-    await expect(dialog).toBeVisible();
-  } else {
-    await primaryCard.click();
-  }
+  const snapshot = await qaTaskReviewSnapshot(marker);
+  expect(snapshot.title).toBe(marker);
+  expect(snapshot.comments).toHaveLength(2);
+  expect(snapshot.comments.some(comment => comment.body === longUpdate)).toBe(true);
+  await testInfo.attach('completed-task-review-evidence', {
+    body: JSON.stringify({ taskId: snapshot.taskId, title: snapshot.title, dbCommentCount: snapshot.comments.length }),
+    contentType: 'application/json',
+  });
+  if (!mobile) await expect(card.getByText('2 progress updates', { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(dialog.getByText('Task status', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Completed', { exact: true }).first()).toBeVisible();
   await expect(dialog.getByText('Assignment progress', { exact: true })).toBeVisible();
@@ -172,17 +196,29 @@ test('Task Management cards open an isolated, complete review experience', async
   await expect(dialog.getByText('Completion SLA', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Progress updates', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Progress updates are comments and do not change an assignment’s status.')).toBeVisible();
+  const detailUpdates = dialog.locator('.border-l-2 > div');
+  await expect(detailUpdates).toHaveCount(2);
+  await expect(dialog.getByText('No progress updates yet.', { exact: true })).toHaveCount(0);
   const updateBody = dialog.getByText(longUpdate, { exact: true });
   await expect(updateBody).toBeVisible();
-  const update = updateBody.locator('..');
-  await expect(update.locator('b')).not.toHaveText('');
-  await expect(update.locator('small')).not.toHaveText('');
+  for (const update of await detailUpdates.all()) {
+    await expect(update.locator('b')).not.toHaveText('');
+    await expect(update.locator('small')).not.toHaveText('');
+  }
   expect(await updateBody.evaluate(node => ({
     clamped: getComputedStyle(node).webkitLineClamp,
     fullyLaidOut: node.scrollHeight === node.clientHeight,
   }))).toEqual({ clamped: 'none', fullyLaidOut: true });
   await expect(dialog.getByRole('button', { name: 'Close task details' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Close task details' }).click();
+
+  if (!mobile) {
+    await primaryCard.focus();
+    await primaryCard.press('Space');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(longUpdate, { exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close task details' }).click();
+  }
 
   await actions.locator('summary').click();
   const deleteAction = actions.getByRole('button', { name: 'Delete', exact: true });
