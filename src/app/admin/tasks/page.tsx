@@ -305,7 +305,7 @@ function MobileTaskCard({
           </p>
         )}
       </button>
-      <details className="absolute right-2 top-2">
+      <details data-testid="mobile-task-card-actions" className="absolute right-2 top-2">
         <summary
           className="grid h-10 w-10 cursor-pointer list-none touch-manipulation place-items-center rounded-lg text-lg text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700"
           aria-label={`Actions for ${task.title}`}
@@ -416,14 +416,21 @@ function TaskDetail({
           {assignments.length ? (
             assignments.map((assignment: any) => (
               <div
-                className="flex min-w-0 items-center justify-between gap-3 px-3 py-2.5 text-sm"
+                className="flex min-w-0 items-start justify-between gap-3 px-3 py-2.5 text-sm"
                 key={assignment.id}
               >
                 <span className="min-w-0 break-words font-semibold text-slate-800">
                   {assignment.profile?.full_name || "Employee"}
                 </span>
-                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-                  {assignmentStatusLabel(assignment.status)}
+                <span className="shrink-0 text-right">
+                  <span className="inline-block rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                    {assignmentStatusLabel(assignment.status)}
+                  </span>
+                  {assignment.updated_at && (
+                    <small className="mt-1 block text-[11px] leading-4 text-slate-500">
+                      Last status update {new Date(assignment.updated_at).toLocaleString()}
+                    </small>
+                  )}
                 </span>
               </div>
             ))
@@ -451,6 +458,14 @@ function TaskDetail({
               {taskCompletionSlaLabel(task, schedule)}
             </dd>
           </div>
+          {task.completed_at && (
+            <div>
+              <dt className="text-xs text-slate-500">Completed at</dt>
+              <dd className="mt-1 font-semibold text-slate-800">
+                {new Date(task.completed_at).toLocaleString()}
+              </dd>
+            </div>
+          )}
         </dl>
         {task.description && (
           <div className="mt-5">
@@ -479,7 +494,9 @@ function TaskDetail({
                     {comment.author_profile?.full_name ||
                       "Former or unavailable user"}
                   </b>
-                  <p className="break-words text-slate-700">{comment.body}</p>
+                  <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-slate-700">
+                    {comment.body}
+                  </p>
                   <small className="text-slate-500">
                     {new Date(comment.created_at).toLocaleString()}
                   </small>
@@ -539,96 +556,101 @@ function TaskCard({
       onDragStart={(event) =>
         event.dataTransfer.setData("text/task-id", task.id)
       }
-      className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+      className="relative rounded-xl border border-slate-200 bg-white shadow-sm"
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 text-sm font-bold text-slate-900">
+      <button
+        type="button"
+        data-testid="desktop-task-card-primary"
+        onClick={onOpen}
+        className="group block w-full cursor-pointer rounded-xl p-3 pr-12 text-left transition hover:bg-slate-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 active:bg-slate-100"
+      >
+        <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 group-hover:text-teal-800">
           {task.title}
         </h3>
-        <details className="relative shrink-0">
-          <summary
-            className="cursor-pointer list-none rounded px-2 py-1 text-sm hover:bg-slate-100"
-            aria-label={`Actions for ${task.title}`}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <span
+            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${parentStatusTone}`}
           >
-            ⋯
-          </summary>
-          <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border bg-white p-1 shadow-lg">
-            <button
-              className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
-              onClick={onOpen}
-            >
-              View details
-            </button>
-            <button
-              className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
-              onClick={onEdit}
-            >
-              Edit / Reassign
-            </button>
-            {(["todo", "in_progress", "completed"] as const)
-              .filter((status) => status !== task.status)
-              .map((status) => (
-                <button
-                  disabled={saving}
-                  key={status}
-                  className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
-                  onClick={() => onMove(status)}
-                >
-                  Move to {labels[status]}
-                </button>
-              ))}
-            {canDelete && (
+            Task status: {labels[task.status] || task.status}
+          </span>
+          {overdue && (
+            <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700">
+              Overdue
+            </span>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Due: {dateLabel(task.due_date)} <span className="mx-1">•</span>{" "}
+          <span className={`font-semibold capitalize ${priorityTone}`}>
+            {task.priority}
+          </span>
+        </p>
+        <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">
+          {task.description || "No description provided."}
+        </p>
+        {assigned && (
+          <div className="mt-3 flex min-w-0 items-center gap-2">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-white">
+              {initials(assigned.full_name)}
+            </span>
+            <span className="min-w-0 break-words text-[11px] font-semibold text-slate-700">
+              {assignmentSummary}
+            </span>
+          </div>
+        )}
+        <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+          <span>{task.task_comments?.length || 0} progress updates</span>
+          <span className="font-semibold text-teal-700">View details</span>
+        </div>
+        {latest && (
+          <p className="mt-2 line-clamp-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">
+            {latest.body}
+          </p>
+        )}
+      </button>
+      <details data-testid="desktop-task-card-actions" className="absolute right-2 top-2 z-20 shrink-0">
+        <summary
+          className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg text-sm text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700"
+          aria-label={`Actions for ${task.title}`}
+        >
+          ⋯
+        </summary>
+        <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border bg-white p-1 shadow-lg">
+          <button
+            className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+            onClick={onOpen}
+          >
+            View details
+          </button>
+          <button
+            className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+            onClick={onEdit}
+          >
+            Edit / Reassign
+          </button>
+          {(["todo", "in_progress", "completed"] as const)
+            .filter((status) => status !== task.status)
+            .map((status) => (
               <button
                 disabled={saving}
-                className="block w-full rounded px-2 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50"
-                onClick={onDelete}
+                key={status}
+                className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+                onClick={() => onMove(status)}
               >
-                Delete
+                Move to {labels[status]}
               </button>
-            )}
-          </div>
-        </details>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <span
-          className={`rounded-full px-2 py-1 text-[10px] font-semibold ${parentStatusTone}`}
-        >
-          Task status: {labels[task.status] || task.status}
-        </span>
-        {overdue && (
-          <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700">
-            Overdue
-          </span>
-        )}
-      </div>
-      <p className="mt-2 text-xs text-slate-500">
-        Due: {dateLabel(task.due_date)} <span className="mx-1">•</span>{" "}
-        <span className={`font-semibold capitalize ${priorityTone}`}>
-          {task.priority}
-        </span>
-      </p>
-      <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">
-        {task.description || "No description provided."}
-      </p>
-      {assigned && (
-        <div className="mt-3 flex min-w-0 items-center gap-2">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-white">
-            {initials(assigned.full_name)}
-          </span>
-          <span className="min-w-0 break-words text-[11px] font-semibold text-slate-700">
-            {assignmentSummary}
-          </span>
+            ))}
+          {canDelete && (
+            <button
+              disabled={saving}
+              className="block w-full rounded px-2 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50"
+              onClick={onDelete}
+            >
+              Delete
+            </button>
+          )}
         </div>
-      )}
-      <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
-        <span>{task.task_comments?.length || 0} progress updates</span>
-        <span>{latest ? "Latest update" : "Created by management"}</span>
-      </div>
-      {latest && (
-        <p className="mt-2 line-clamp-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">
-          {latest.body}
-        </p>
-      )}
+      </details>
     </article>
   );
 }
