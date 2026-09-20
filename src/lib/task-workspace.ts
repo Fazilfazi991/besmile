@@ -3,6 +3,33 @@ import { isOverdue, type TaskStatus } from './task-rules';
 export type TaskAssignment = { id: string; status: TaskStatus; tasks?: { due_date: string | null; status: string } };
 export const taskCompletionUpdateMaxLength = 2000;
 
+const assignmentStatusLabels: Record<TaskStatus, string> = {
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+};
+
+export function assignmentStatusLabel(status: TaskStatus) {
+  return assignmentStatusLabels[status];
+}
+
+export function assignmentWording(count: number) {
+  return count === 1 ? 'assignment' : 'assignments';
+}
+
+export function assignmentProgress(assignments: readonly Pick<TaskAssignment, 'status'>[]) {
+  return {
+    completed: assignments.filter((assignment) => assignment.status === 'completed').length,
+    total: assignments.length,
+  };
+}
+
+export function assignmentProgressLabel(assignments: readonly Pick<TaskAssignment, 'status'>[], compact = false) {
+  const { completed, total } = assignmentProgress(assignments);
+  if (!total) return 'No assignments';
+  return `${completed} of ${total}${compact ? '' : ` ${assignmentWording(total)}`} completed`;
+}
+
 export function completionUpdateError(value: string) {
   const length = value.trim().length;
   if (!length) return 'A completion update is required.';

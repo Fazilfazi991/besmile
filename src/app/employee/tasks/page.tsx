@@ -195,7 +195,17 @@ export default function TasksPage() {
       </div>
       {notice && <p className="rounded bg-emerald-50 p-3 text-emerald-800">{notice}</p>}
       {taskError && <div className="rounded bg-rose-50 p-3 text-rose-800"><p>{taskError}</p><button className="mt-2 font-semibold underline" onClick={() => void loadTasks()}>Retry task list</button></div>}
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/70 p-1.5 md:grid-cols-4">
+      <div>
+        <h2 className="text-sm font-bold text-slate-800">My assignment status</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Counts reflect your assignments. An overall task may remain open until
+          every assignee finishes.
+        </p>
+      </div>
+      <div
+        className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/70 p-1.5 md:grid-cols-4"
+        aria-label="My assignment status counts"
+      >
         {metrics.map(([icon, label, count, color]) => (
           <div
             className="card flex items-center gap-3 px-3 py-2.5"
@@ -426,8 +436,11 @@ export default function TasksPage() {
             <div className="pr-12">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-bold">{detail.tasks.title}</h2>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span>My assignment status</span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${statusStyle[detail.status]}`}
+                  className={`rounded-full px-2 py-0.5 font-semibold ${statusStyle[detail.status]}`}
                 >
                   {labels[detail.status]}
                 </span>

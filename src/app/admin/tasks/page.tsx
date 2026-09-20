@@ -5,7 +5,7 @@ import { adminRepository } from '@/lib/admin-repository';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
 import { isOverdue } from '@/lib/task-rules';
-import { completionUpdateError, taskCompletionUpdateMaxLength } from '@/lib/task-workspace';
+import { assignmentProgressLabel, assignmentStatusLabel, completionUpdateError, taskCompletionUpdateMaxLength } from '@/lib/task-workspace';
 import { defaultTaskWorkSchedule, loadTaskWorkSchedule, taskCompletionSlaLabel } from '@/lib/task-sla';
 import { useAutoSizeTextareas } from '@/lib/use-auto-size-textareas';
 import { clientSafeError } from '@/lib/client-error';
@@ -214,18 +214,421 @@ export default function AdminTasksPage() {
 }
 
 function Metric({ icon, label, count, tone, active, onClick }: { icon: string; label: string; count: number; tone: string; active: boolean; onClick: () => void }) { return <button type="button" aria-label={`Show ${label.toLowerCase()}`} aria-pressed={active} onClick={onClick} className="flex min-h-12 w-full touch-manipulation items-center gap-2 rounded-xl border border-slate-100 p-2.5 text-left transition active:scale-[.98] active:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"><span className={`grid h-8 w-8 place-items-center rounded-lg text-sm font-bold ${tone}`}>{icon}</span><span><b className="block text-sm leading-none text-slate-900">{count}</b><small className="mt-1 block text-[11px] text-slate-500">{label}</small></span></button>; }
-function MobileTaskCard({ task, saving, canDelete, onOpen, onEdit, onMove, onDelete }: { task: any; saving: boolean; canDelete: boolean; onOpen: () => void; onEdit: () => void; onMove: (status: 'todo'|'in_progress'|'completed') => void; onDelete: () => void }) {
-  const assignments = task.task_assignments || []; const assigned = assignments[0]?.profile; const overdue = isOverdue(task); const dueToday = !overdue && task.status !== 'completed' && task.due_date === new Date().toISOString().slice(0, 10);
-  const priorityTone = task.priority === 'high' ? 'bg-rose-50 text-rose-700' : task.priority === 'medium' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700';
-  const statusTone = task.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : task.status === 'in_progress' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-700';
-  return <article className="relative min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm"><button type="button" onClick={onOpen} className="block min-h-32 w-full touch-manipulation rounded-xl p-4 pr-12 text-left transition active:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"><h2 className="break-words text-[15px] font-bold leading-5 text-slate-950">{task.title}</h2><div className="mt-2 flex min-w-0 items-center gap-2"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-white">{initials(assigned?.full_name)}</span><span className="min-w-0 truncate text-xs font-medium text-slate-700">{assigned?.full_name || 'Unassigned'}{assignments.length > 1 ? ` +${assignments.length - 1}` : ''}</span></div><div className="mt-3 flex flex-wrap items-center gap-1.5"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusTone}`}>{labels[task.status] || task.status}</span><span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${priorityTone}`}>{task.priority} priority</span>{overdue && <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700">Overdue</span>}{dueToday && <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700">Due Today</span>}</div><p className={`mt-2 text-xs font-medium ${overdue ? 'text-rose-700' : dueToday ? 'text-amber-700' : 'text-slate-500'}`}>Due {dateLabel(task.due_date)}</p>{task.description && <p className="mt-2 line-clamp-2 break-words text-xs leading-5 text-slate-500">{task.description}</p>}</button><details className="absolute right-2 top-2"><summary className="grid h-10 w-10 cursor-pointer list-none touch-manipulation place-items-center rounded-lg text-lg text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700" aria-label={`Actions for ${task.title}`}>⋯</summary><div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"><button className="block min-h-10 w-full rounded px-3 text-left text-xs hover:bg-slate-50" onClick={onOpen}>View</button><button className="block min-h-10 w-full rounded px-3 text-left text-xs hover:bg-slate-50" onClick={onEdit}>Edit / Reassign</button>{(['todo','in_progress','completed'] as const).filter(status => status !== task.status).map(status => <button disabled={saving} key={status} className="block min-h-10 w-full rounded px-3 text-left text-xs hover:bg-slate-50 disabled:opacity-50" onClick={() => onMove(status)}>Move to {labels[status]}</button>)}{canDelete && <button disabled={saving} className="block min-h-10 w-full rounded px-3 text-left text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50" onClick={onDelete}>Delete</button>}</div></details></article>;
+function MobileTaskCard({
+  task,
+  saving,
+  canDelete,
+  onOpen,
+  onEdit,
+  onMove,
+  onDelete,
+}: {
+  task: any;
+  saving: boolean;
+  canDelete: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onMove: (status: "todo" | "in_progress" | "completed") => void;
+  onDelete: () => void;
+}) {
+  const assignments = task.task_assignments || [];
+  const assigned = assignments[0]?.profile;
+  const overdue = isOverdue(task);
+  const dueToday =
+    !overdue &&
+    task.status !== "completed" &&
+    task.due_date === new Date().toISOString().slice(0, 10);
+  const priorityTone =
+    task.priority === "high"
+      ? "bg-rose-50 text-rose-700"
+      : task.priority === "medium"
+        ? "bg-amber-50 text-amber-700"
+        : "bg-emerald-50 text-emerald-700";
+  const statusTone =
+    task.status === "completed"
+      ? "bg-emerald-50 text-emerald-700"
+      : task.status === "in_progress"
+        ? "bg-sky-50 text-sky-700"
+        : "bg-slate-100 text-slate-700";
+  const assignmentSummary =
+    assignments.length === 1
+      ? `${assigned?.full_name || "Employee"} — ${assignmentStatusLabel(assignments[0].status)}`
+      : assignmentProgressLabel(assignments);
+  return (
+    <article className="relative min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block min-h-32 w-full touch-manipulation rounded-xl p-4 pr-12 text-left transition active:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+      >
+        <h2 className="break-words text-[15px] font-bold leading-5 text-slate-950">
+          {task.title}
+        </h2>
+        <div className="mt-2 flex min-w-0 items-center gap-2">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-white">
+            {initials(assigned?.full_name)}
+          </span>
+          <span className="min-w-0 break-words text-xs font-medium text-slate-700">
+            {assignmentSummary}
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span
+            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusTone}`}
+          >
+            Task status: {labels[task.status] || task.status}
+          </span>
+          <span
+            className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${priorityTone}`}
+          >
+            {task.priority} priority
+          </span>
+          {overdue && (
+            <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700">
+              Overdue
+            </span>
+          )}
+          {dueToday && (
+            <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700">
+              Due Today
+            </span>
+          )}
+        </div>
+        <p
+          className={`mt-2 text-xs font-medium ${overdue ? "text-rose-700" : dueToday ? "text-amber-700" : "text-slate-500"}`}
+        >
+          Due {dateLabel(task.due_date)}
+        </p>
+        {task.description && (
+          <p className="mt-2 line-clamp-2 break-words text-xs leading-5 text-slate-500">
+            {task.description}
+          </p>
+        )}
+      </button>
+      <details className="absolute right-2 top-2">
+        <summary
+          className="grid h-10 w-10 cursor-pointer list-none touch-manipulation place-items-center rounded-lg text-lg text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700"
+          aria-label={`Actions for ${task.title}`}
+        >
+          ⋯
+        </summary>
+        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+          <button
+            className="block min-h-10 w-full rounded px-3 text-left text-xs hover:bg-slate-50"
+            onClick={onOpen}
+          >
+            View
+          </button>
+          <button
+            className="block min-h-10 w-full rounded px-3 text-left text-xs hover:bg-slate-50"
+            onClick={onEdit}
+          >
+            Edit / Reassign
+          </button>
+          {(["todo", "in_progress", "completed"] as const)
+            .filter((status) => status !== task.status)
+            .map((status) => (
+              <button
+                disabled={saving}
+                key={status}
+                className="block min-h-10 w-full rounded px-3 text-left text-xs hover:bg-slate-50 disabled:opacity-50"
+                onClick={() => onMove(status)}
+              >
+                Move to {labels[status]}
+              </button>
+            ))}
+          {canDelete && (
+            <button
+              disabled={saving}
+              className="block min-h-10 w-full rounded px-3 text-left text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+              onClick={onDelete}
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      </details>
+    </article>
+  );
 }
-function TaskDetail({ task, schedule, onClose }: { task: any; schedule: ReturnType<typeof defaultTaskWorkSchedule>; onClose: () => void }) {
-  const assignments = task.task_assignments || []; const overdue = isOverdue(task); const comments = task.task_comments || [];
-  return <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/30 p-0 sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="task-detail-title"><article className="max-h-[88vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-2xl"><button type="button" className="float-right grid h-10 w-10 place-items-center rounded-lg text-slate-600 hover:bg-slate-100" onClick={onClose} aria-label="Close task details">×</button><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task details</p><h2 id="task-detail-title" className="mt-1 break-words pr-10 text-xl font-bold text-slate-950">{task.title}</h2><div className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-700">{labels[task.status] || task.status}</span><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-700">{task.priority} priority</span>{overdue && <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">Overdue</span>}</div><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-xs text-slate-500">Assigned to</dt><dd className="mt-1 font-semibold text-slate-800">{assignments.length ? assignments.map((item: any) => item.profile?.full_name || 'Employee').join(', ') : 'Unassigned'}</dd></div><div><dt className="text-xs text-slate-500">Task Owner</dt><dd className="mt-1 font-semibold text-slate-800">{task.created_by_profile?.full_name || 'Former or unavailable user'}</dd></div><div><dt className="text-xs text-slate-500">Due date</dt><dd className="mt-1 font-semibold text-slate-800">{dateLabel(task.due_date)}</dd></div><div><dt className="text-xs text-slate-500">Completion SLA</dt><dd className="mt-1 font-semibold text-slate-800">{taskCompletionSlaLabel(task, schedule)}</dd></div></dl>{task.description && <div className="mt-5"><h3 className="text-xs font-semibold text-slate-500">Description</h3><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{task.description}</p></div>}<div className="mt-5"><h3 className="text-xs font-semibold text-slate-500">Task history</h3>{comments.length ? <div className="mt-2 space-y-3 border-l-2 border-teal-100 pl-4">{comments.map((comment: any) => <div className="relative text-sm" key={comment.id}><span className="absolute -left-[22px] top-1 h-2.5 w-2.5 rounded-full bg-teal-500" /><b>{comment.author_profile?.full_name || 'Former or unavailable user'}</b><p className="break-words text-slate-700">{comment.body}</p><small className="text-slate-500">{new Date(comment.created_at).toLocaleString()}</small></div>)}</div> : <p className="mt-2 text-sm text-slate-500">No progress updates yet.</p>}</div></article></div>;
+function TaskDetail({
+  task,
+  schedule,
+  onClose,
+}: {
+  task: any;
+  schedule: ReturnType<typeof defaultTaskWorkSchedule>;
+  onClose: () => void;
+}) {
+  const assignments = task.task_assignments || [];
+  const overdue = isOverdue(task);
+  const comments = task.task_comments || [];
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-end bg-slate-950/30 p-0 sm:place-items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="task-detail-title"
+    >
+      <article className="max-h-[88vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-2xl">
+        <button
+          type="button"
+          className="float-right grid h-10 w-10 place-items-center rounded-lg text-slate-600 hover:bg-slate-100"
+          onClick={onClose}
+          aria-label="Close task details"
+        >
+          ×
+        </button>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Task details
+        </p>
+        <h2
+          id="task-detail-title"
+          className="mt-1 break-words pr-10 text-xl font-bold text-slate-950"
+        >
+          {task.title}
+        </h2>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-700">
+            {task.priority} priority
+          </span>
+          {overdue && (
+            <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+              Overdue
+            </span>
+          )}
+        </div>
+        <dl className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-slate-500">Task status</dt>
+            <dd className="mt-1 font-semibold text-slate-900">
+              {labels[task.status] || task.status}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">Assignment progress</dt>
+            <dd className="mt-1 font-semibold text-slate-900">
+              {assignmentProgressLabel(assignments, true)}
+            </dd>
+          </div>
+        </dl>
+        <div className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">
+          {assignments.length ? (
+            assignments.map((assignment: any) => (
+              <div
+                className="flex min-w-0 items-center justify-between gap-3 px-3 py-2.5 text-sm"
+                key={assignment.id}
+              >
+                <span className="min-w-0 break-words font-semibold text-slate-800">
+                  {assignment.profile?.full_name || "Employee"}
+                </span>
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                  {assignmentStatusLabel(assignment.status)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="px-3 py-2.5 text-sm text-slate-500">No assignees.</p>
+          )}
+        </div>
+        <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-slate-500">Task Owner</dt>
+            <dd className="mt-1 font-semibold text-slate-800">
+              {task.created_by_profile?.full_name ||
+                "Former or unavailable user"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">Due date</dt>
+            <dd className="mt-1 font-semibold text-slate-800">
+              {dateLabel(task.due_date)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">Completion SLA</dt>
+            <dd className="mt-1 font-semibold text-slate-800">
+              {taskCompletionSlaLabel(task, schedule)}
+            </dd>
+          </div>
+        </dl>
+        {task.description && (
+          <div className="mt-5">
+            <h3 className="text-xs font-semibold text-slate-500">
+              Description
+            </h3>
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+              {task.description}
+            </p>
+          </div>
+        )}
+        <div className="mt-5">
+          <h3 className="text-xs font-semibold text-slate-700">
+            Progress updates
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Progress updates are comments and do not change an assignment’s
+            status.
+          </p>
+          {comments.length ? (
+            <div className="mt-3 space-y-3 border-l-2 border-teal-100 pl-4">
+              {comments.map((comment: any) => (
+                <div className="relative text-sm" key={comment.id}>
+                  <span className="absolute -left-[22px] top-1 h-2.5 w-2.5 rounded-full bg-teal-500" />
+                  <b>
+                    {comment.author_profile?.full_name ||
+                      "Former or unavailable user"}
+                  </b>
+                  <p className="break-words text-slate-700">{comment.body}</p>
+                  <small className="text-slate-500">
+                    {new Date(comment.created_at).toLocaleString()}
+                  </small>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">
+              No progress updates yet.
+            </p>
+          )}
+        </div>
+      </article>
+    </div>
+  );
 }
-function TaskCard({ task, saving, canDelete, onOpen, onEdit, onMove, onDelete }: { task: any; saving: boolean; canDelete: boolean; onOpen: () => void; onEdit: () => void; onMove: (status: 'todo'|'in_progress'|'completed') => void; onDelete: () => void }) {
-  const latest = task.task_comments?.at(-1); const assigned = task.task_assignments?.[0]?.profile; const overdue = isOverdue(task); const completed = task.status === 'completed';
-  const priorityTone = task.priority === 'high' ? 'text-rose-700' : task.priority === 'medium' ? 'text-amber-700' : 'text-emerald-700';
-  return <article draggable onDragStart={event => event.dataTransfer.setData('text/task-id', task.id)} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex items-start justify-between gap-2"><h3 className="min-w-0 text-sm font-bold text-slate-900">{task.title}</h3><details className="relative shrink-0"><summary className="cursor-pointer list-none rounded px-2 py-1 text-sm hover:bg-slate-100" aria-label={`Actions for ${task.title}`}>⋯</summary><div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border bg-white p-1 shadow-lg"><button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50" onClick={onOpen}>View details</button><button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50" onClick={onEdit}>Edit / Reassign</button>{(['todo','in_progress','completed'] as const).filter(status => status !== task.status).map(status => <button disabled={saving} key={status} className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50" onClick={() => onMove(status)}>Move to {labels[status]}</button>)}{canDelete && <button disabled={saving} className="block w-full rounded px-2 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50" onClick={onDelete}>Delete</button>}</div></details></div>{(overdue || completed) && <span className={`mt-2 inline-block rounded-full px-2 py-1 text-[10px] font-semibold ${overdue ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>{overdue ? 'Overdue' : 'Completed'}</span>}<p className="mt-2 text-xs text-slate-500">Due: {dateLabel(task.due_date)} <span className="mx-1">•</span> <span className={`font-semibold capitalize ${priorityTone}`}>{task.priority}</span></p><p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">{task.description || 'No description provided.'}</p>{assigned && <div className="mt-3 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-white">{initials(assigned.full_name)}</span><span className="min-w-0"><b className="block truncate text-[11px] text-slate-700">{assigned.full_name}</b><small className="block truncate text-[10px] text-slate-500">{assigned.designation || assigned.role?.replace('_', ' ') || 'Assignee'}</small></span></div>}<div className="mt-3 flex items-center justify-between text-[11px] text-slate-500"><span>◌ {task.task_comments?.length || 0} comments</span><span>{latest ? 'Latest update' : 'Created by management'}</span></div>{latest && <p className="mt-2 line-clamp-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">{latest.body}</p>}</article>;
+function TaskCard({
+  task,
+  saving,
+  canDelete,
+  onOpen,
+  onEdit,
+  onMove,
+  onDelete,
+}: {
+  task: any;
+  saving: boolean;
+  canDelete: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onMove: (status: "todo" | "in_progress" | "completed") => void;
+  onDelete: () => void;
+}) {
+  const assignments = task.task_assignments || [];
+  const latest = task.task_comments?.at(-1);
+  const assigned = assignments[0]?.profile;
+  const overdue = isOverdue(task);
+  const priorityTone =
+    task.priority === "high"
+      ? "text-rose-700"
+      : task.priority === "medium"
+        ? "text-amber-700"
+        : "text-emerald-700";
+  const assignmentSummary =
+    assignments.length === 1
+      ? `${assigned?.full_name || "Employee"} — ${assignmentStatusLabel(assignments[0].status)}`
+      : assignmentProgressLabel(assignments);
+  const parentStatusTone =
+    task.status === "completed"
+      ? "bg-emerald-50 text-emerald-700"
+      : task.status === "in_progress"
+        ? "bg-sky-50 text-sky-700"
+        : "bg-slate-100 text-slate-700";
+  return (
+    <article
+      draggable
+      onDragStart={(event) =>
+        event.dataTransfer.setData("text/task-id", task.id)
+      }
+      className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="min-w-0 text-sm font-bold text-slate-900">
+          {task.title}
+        </h3>
+        <details className="relative shrink-0">
+          <summary
+            className="cursor-pointer list-none rounded px-2 py-1 text-sm hover:bg-slate-100"
+            aria-label={`Actions for ${task.title}`}
+          >
+            ⋯
+          </summary>
+          <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border bg-white p-1 shadow-lg">
+            <button
+              className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+              onClick={onOpen}
+            >
+              View details
+            </button>
+            <button
+              className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+              onClick={onEdit}
+            >
+              Edit / Reassign
+            </button>
+            {(["todo", "in_progress", "completed"] as const)
+              .filter((status) => status !== task.status)
+              .map((status) => (
+                <button
+                  disabled={saving}
+                  key={status}
+                  className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+                  onClick={() => onMove(status)}
+                >
+                  Move to {labels[status]}
+                </button>
+              ))}
+            {canDelete && (
+              <button
+                disabled={saving}
+                className="block w-full rounded px-2 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50"
+                onClick={onDelete}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        </details>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <span
+          className={`rounded-full px-2 py-1 text-[10px] font-semibold ${parentStatusTone}`}
+        >
+          Task status: {labels[task.status] || task.status}
+        </span>
+        {overdue && (
+          <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700">
+            Overdue
+          </span>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-slate-500">
+        Due: {dateLabel(task.due_date)} <span className="mx-1">•</span>{" "}
+        <span className={`font-semibold capitalize ${priorityTone}`}>
+          {task.priority}
+        </span>
+      </p>
+      <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">
+        {task.description || "No description provided."}
+      </p>
+      {assigned && (
+        <div className="mt-3 flex min-w-0 items-center gap-2">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-700 text-[10px] font-bold text-white">
+            {initials(assigned.full_name)}
+          </span>
+          <span className="min-w-0 break-words text-[11px] font-semibold text-slate-700">
+            {assignmentSummary}
+          </span>
+        </div>
+      )}
+      <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+        <span>{task.task_comments?.length || 0} progress updates</span>
+        <span>{latest ? "Latest update" : "Created by management"}</span>
+      </div>
+      {latest && (
+        <p className="mt-2 line-clamp-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">
+          {latest.body}
+        </p>
+      )}
+    </article>
+  );
 }
