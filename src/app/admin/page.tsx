@@ -57,7 +57,7 @@ function OperationalDashboard() {
     presentToday: summary.presentToday,
     onLeave: summary.onLeave,
     leads: summary.leads,
-    newLeads: summary.newLeads,
+    newLeads: summary.todayLeads,
     monthlyIncome: monthly.income,
     previousIncome: monthly.previousIncome,
     pendingLeave: summary.pendingLeave,
@@ -71,7 +71,7 @@ function OperationalDashboard() {
   const kpis = [
     { icon: 'Employees', tone: 'people', title: 'Total employees', value: summary.employees, detail: `${summary.presentToday || 0} active today`, href: '/admin/employees', chart: charts.employees },
     { icon: 'Attendance', tone: 'attendance', title: 'Present today', value: summary.presentToday, detail: `${presentPercent}% attendance`, href: '/admin/attendance', chart: charts.attendance },
-    { icon: 'Leads', tone: 'crm', title: 'Active leads', value: summary.leads, detail: `${summary.newLeads || 0} new today`, href: '/admin/crm', chart: charts.leads },
+    { icon: 'Leads', tone: 'crm', title: 'Active leads', value: summary.leads, detail: `${summary.todayLeads || 0} received today`, href: '/admin/crm', chart: charts.leads },
     { icon: 'Finance Dashboard', tone: 'finance', title: 'Monthly revenue', value: inr(monthly.income), detail: trendLabel(monthly.income, monthly.previousIncome), href: '/admin/finance', chart: charts.revenue },
     { icon: 'Leave', tone: 'leave', title: 'Pending leave', value: summary.pendingLeave, detail: 'Requires review', href: '/admin/leaves', chart: charts.leave },
     { icon: 'Tasks', tone: 'tasks', title: 'Open tasks', value: summary.openTasks, detail: `${summary.overdueTasks || 0} overdue`, href: '/admin/tasks', chart: charts.tasks },
@@ -103,7 +103,7 @@ function OperationalDashboard() {
     {canViewTeam && <TeamAttendanceStrip employees={team} loading={!team} canOpenEmployees={canOpenEmployees} standardHub />}
     <div className="executive-kpis executive-kpis-secondary">{kpis.slice(4).map(kpi => <Link href={kpi.href} className={`executive-kpi executive-kpi-${kpi.tone}`} key={kpi.title}><ModuleIcon label={kpi.icon} className="executive-kpi-icon" /><div><p>{kpi.title}</p><b>{kpi.value}</b><small>{kpi.detail}</small><KpiMiniChart model={kpi.chart} /></div><span className="executive-arrow">→</span></Link>)}</div>
 
-    <div className="executive-grid executive-grid-primary"><DashboardCard title="Revenue overview" subtitle="Current month cash movement" action={<Link href="/admin/finance">Open finance</Link>}><div className="revenue-stats"><Stat label="Income" value={inr(monthly.income)} tone="teal" /><Stat label="Expenses" value={inr(monthly.expenses)} tone="rose" /><Stat label="Profit" value={inr(monthly.income - monthly.expenses)} tone="blue" /></div><MiniBars data={[monthly.previousIncome, monthly.income, monthly.previousExpenses, monthly.expenses]} labels={['Prev income', 'This income', 'Prev expenses', 'This expenses']} /></DashboardCard><DashboardCard title="CRM snapshot" subtitle="Lead activity and conversion" action={<Link href="/admin/crm">Open CRM</Link>}><div className="crm-snapshot"><Snapshot label="New leads" value={summary.newLeads || 0} detail="Today" /><Snapshot label="Follow-ups due" value={summary.followupsDue || 0} detail="Action today" /><Snapshot label="Deals won" value={summary.sales || 0} detail="All sales" /><Snapshot label="Conversion" value={`${conversion}%`} detail="Lead to sale" /></div></DashboardCard></div>
+    <div className="executive-grid executive-grid-primary"><DashboardCard title="Revenue overview" subtitle="Current month cash movement" action={<Link href="/admin/finance">Open finance</Link>}><div className="revenue-stats"><Stat label="Income" value={inr(monthly.income)} tone="teal" /><Stat label="Expenses" value={inr(monthly.expenses)} tone="rose" /><Stat label="Profit" value={inr(monthly.income - monthly.expenses)} tone="blue" /></div><MiniBars data={[monthly.previousIncome, monthly.income, monthly.previousExpenses, monthly.expenses]} labels={['Prev income', 'This income', 'Prev expenses', 'This expenses']} /></DashboardCard><DashboardCard title="CRM snapshot" subtitle="Lead activity and conversion" action={<Link href="/admin/crm">Open CRM</Link>}><div className="crm-snapshot"><Snapshot label="Today's Leads" value={summary.todayLeads || 0} detail="Canonical CRM date" /><Snapshot label="Follow-ups due" value={summary.followupsDue || 0} detail="Action today" /><Snapshot label="Deals won" value={summary.sales || 0} detail="All sales" /><Snapshot label="Conversion" value={`${conversion}%`} detail="Lead to sale" /></div></DashboardCard></div>
 
     {doctorSchedule && <DashboardCard title="Appointment & Scheduling" subtitle="Outsourced psychologist calendar" action={<Link href="/admin/doctor-scheduling">Open scheduling</Link>}><div className="crm-snapshot"><Snapshot label="Appointments today" value={doctorSchedule.today || 0} detail="Scheduled now" /><Snapshot label="Upcoming" value={doctorSchedule.upcoming || 0} detail="Next 14 days" /><Snapshot label="Available psychologists" value={doctorSchedule.availableDoctorsToday || 0} detail="Today" /><Snapshot label="Changed" value={doctorSchedule.changed || 0} detail="Cancelled or rescheduled" /></div></DashboardCard>}
     <CustomerFeedbackDashboardWidget />

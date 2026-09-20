@@ -6,7 +6,7 @@ describe('dashboard KPI factual visuals', () => {
     expect(page).toContain('value: summary.employees');
     expect(page).toContain('value: summary.presentToday');
     expect(page).toContain('operationalKpiCharts({');
-    expect(page).toContain('newLeads: summary.newLeads');
+    expect(page).toContain('newLeads: summary.todayLeads');
     expect(page).toContain('monthlyIncome: monthly.income');
     expect(page).toContain('previousIncome: monthly.previousIncome');
     expect(page).toContain('<KpiMiniChart model={kpi.chart} />');

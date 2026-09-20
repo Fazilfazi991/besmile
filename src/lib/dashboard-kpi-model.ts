@@ -52,7 +52,7 @@ export function operationalKpiCharts(input: {
       { label: 'Not clocked in', value: notClockedIn, color: '#dfe8ea' },
     ]),
     attendance: ratioChart('Attendance rate today', input.presentToday, input.employees, 'Present', 'Not present'),
-    leads: ratioChart('New share of active leads today', input.newLeads, input.leads, 'New today', 'Existing', ['#e7773d', '#f2ded3']),
+    leads: ratioChart("Today's share of active leads", input.newLeads, input.leads, 'Today', 'Existing', ['#e7773d', '#f2ded3']),
     revenue: distributionChart('bars', 'Current and previous month revenue', [
       { label: 'Previous', value: input.previousIncome, color: '#9cb9b5' },
       { label: 'Current', value: input.monthlyIncome, color: '#14988c' },
