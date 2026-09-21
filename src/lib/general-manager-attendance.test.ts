@@ -8,10 +8,10 @@ const attendanceFoundation = readFileSync(new URL('../../supabase/migrations/000
 describe('General Manager attendance', () => {
   it('uses the shared employee attendance actions in the management dashboard', () => {
     expect(dashboard).toContain('employeeRepository.attendanceToday(signedInProfile.id)');
-    expect(dashboard).toContain("employeeRepository.clockIn(profile.id, await freshLocation('Clock In'))");
+    expect(dashboard).toContain("employeeRepository.clockIn(profile.id, await freshLocation('Punch-In'))");
     expect(dashboard).toContain('employeeRepository.startBreak(todayAttendance.id)');
     expect(dashboard).toContain('employeeRepository.endBreak(activeBreak.id)');
-    expect(dashboard).toContain("employeeRepository.clockOut(todayAttendance.id, await freshLocation('Clock Out'))");
+    expect(dashboard).toContain("employeeRepository.clockOut(todayAttendance.id, await freshLocation('Punch-Out'))");
     expect(dashboard).toContain('Attendance update could not be confirmed.');
   });
 
@@ -27,7 +27,7 @@ describe('General Manager attendance', () => {
     const employeeRepository = readFileSync(new URL('./employee-repository.ts', import.meta.url), 'utf8');
     expect(employeeRepository).toMatch(/rpc\(\s*["']record_self_attendance_location["']/);
     expect(attendanceFoundation).toContain('unique(profile_id,work_date)');
-    expect(employeeRepository).toContain('You have already clocked in today.');
+    expect(employeeRepository).toContain('A Punch-In has already been recorded today.');
   });
 
   it('grants GM self-service and company attendance visibility without attendance management authority', () => {

@@ -109,8 +109,8 @@ export default function AttendancePage() {
     attendanceRequest.current = true; setActing(true); setError(''); setNotice('');
     try {
       if (action === 'clockIn' || action === 'clockOut') setAttendanceStatus(locationCheckingMessage);
-      if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation('Clock In'));
-      if (action === 'clockOut' && todayEntry?.row) await employeeRepository.clockOut(todayEntry.row.id, await freshLocation('Clock Out'));
+      if (action === 'clockIn') await employeeRepository.clockIn(profile.id, await freshLocation('Punch-In'));
+      if (action === 'clockOut' && todayEntry?.row) await employeeRepository.clockOut(todayEntry.row.id, await freshLocation('Punch-Out'));
       if (action === 'startBreak' && todayEntry?.row) await employeeRepository.startBreak(todayEntry.row.id);
       if (action === 'endBreak' && activeBreak) await employeeRepository.endBreak(activeBreak.id);
       setNotice('Attendance updated.'); await load();
@@ -123,10 +123,10 @@ export default function AttendancePage() {
   const filtered = status === 'all' ? days : days.filter(day => day.status === status);
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
   const todayAction = !todayEntry?.row
-    ? <button className="btn btn-primary" disabled={acting || !canClockIn(todayEntry?.status || 'future')} onClick={() => void attendanceAction('clockIn')}>Clock in</button>
+    ? <button className="btn btn-primary" disabled={acting || !canClockIn(todayEntry?.status || 'future')} onClick={() => void attendanceAction('clockIn')}>Punch-In</button>
     : todayEntry.row.clock_out ? null : activeBreak
       ? <button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('endBreak')}>End break</button>
-      : <><button className="btn" disabled={acting} onClick={() => void attendanceAction('startBreak')}>Start break</button><button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>Clock out</button></>;
+      : <><button className="btn" disabled={acting} onClick={() => void attendanceAction('startBreak')}>Start break</button><button className="btn btn-primary" disabled={acting} onClick={() => void attendanceAction('clockOut')}>Punch-Out</button></>;
 
   return <section className="attendance-workspace">
     <header className="attendance-heading">
@@ -153,14 +153,14 @@ export default function AttendancePage() {
 
     <div className="attendance-records" aria-busy={loading}>
       <table aria-label="Personal attendance records">
-        <thead><tr><th>Date</th><th>Punch In</th><th>Punch Out</th><th>Total Working Hours</th><th>Status</th><th>Action</th></tr></thead>
+        <thead><tr><th>Date</th><th>Punch-In</th><th>Punch-Out</th><th>Total Working Hours</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
           {loading ? Array.from({ length: 7 }, (_, index) => <tr className="attendance-loading-row" key={index}><td colSpan={6}><span /></td></tr>) : visible.map(day => { const worked = durationFor(day); const exception = exceptionFor(day); const pending = regularizationFor(day.row?.id); return <tr className={exception ? 'attendance-exception-row' : ''} key={day.key}>
             <td data-label="Date"><time dateTime={day.key}>{dateLabel(day.key)}</time></td>
-            <td data-label="Punch In">{time(day.row?.clock_in, data.settings.timezone)}</td>
-            <td data-label="Punch Out">{time(day.row?.clock_out, data.settings.timezone)}</td>
-            <td data-label="Total Working Hours">{worked.minutes === null ? (worked.isIncomplete ? 'Punch out required' : '—') : durationLabel(worked.minutes)}</td>
-            <td data-label="Status"><StatusBadge status={exception === 'missing_punch' ? 'Half Day · Missed Punch' : exception === 'under_hours' ? 'Under Required Hours' : labels[day.status] || day.status} />{exception ? <small>{exception === 'missing_punch' ? 'Punch out was not recorded after shift close.' : `Less than ${durationLabel(Number(data.settings.overtime_after_minutes))} required.`}</small> : null}</td>
+            <td data-label="Punch-In">{time(day.row?.clock_in, data.settings.timezone)}</td>
+            <td data-label="Punch-Out">{time(day.row?.clock_out, data.settings.timezone)}</td>
+            <td data-label="Total Working Hours">{worked.minutes === null ? (worked.isIncomplete ? 'Punch-Out required' : '—') : durationLabel(worked.minutes)}</td>
+            <td data-label="Status"><StatusBadge status={exception === 'missing_punch' ? 'Half Day · Missing Punch-Out' : exception === 'under_hours' ? 'Under Required Hours' : labels[day.status] || day.status} />{exception ? <small>{exception === 'missing_punch' ? 'Punch-Out was not recorded after shift close.' : `Less than ${durationLabel(Number(data.settings.overtime_after_minutes))} required.`}</small> : null}</td>
             <td data-label="Action">{exception ? pending ? <small className="attendance-pending">Regularization pending</small> : <button className="attendance-regularize" type="button" onClick={() => setRegularizing(day)}>Regularize</button> : '—'}</td>
           </tr>; })}
         </tbody>
@@ -168,6 +168,6 @@ export default function AttendancePage() {
       {!loading && !visible.length ? <CompactEmptyState title="No attendance records" description="No records match this period and status." /> : null}
     </div>
     {!loading ? <Pagination page={page} pageSize={pageSize} pageSizeOptions={PAGE_SIZES} total={filtered.length} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} /> : null}
-    {regularizing ? <div className="attendance-regularization" role="dialog" aria-modal="true" aria-labelledby="regularization-title"><form onSubmit={event => { event.preventDefault(); void submitRegularization(); }}><h2 id="regularization-title">Regularize attendance</h2><p>{dateLabel(regularizing.key)} needs review. Your original punch data will remain unchanged.</p><div className="attendance-requested-punches"><label>Proposed punch in <span>(optional)</span><input type="datetime-local" value={requestedPunches.clockIn} onChange={event => setRequestedPunches(current => ({ ...current, clockIn: event.target.value }))} /></label><label>Proposed punch out <span>(optional)</span><input type="datetime-local" value={requestedPunches.clockOut} onChange={event => setRequestedPunches(current => ({ ...current, clockOut: event.target.value }))} /></label></div><label>Reason<textarea value={regularizationReason} maxLength={1000} minLength={3} required onChange={event => setRegularizationReason(event.target.value)} placeholder="Explain the missed punch or short working time." /></label><div><button type="button" className="btn" onClick={() => { setRegularizing(null); setRegularizationReason(''); setRequestedPunches({ clockIn: '', clockOut: '' }); }}>Cancel</button><button className="btn btn-primary" disabled={savingRegularization}>{savingRegularization ? 'Submitting…' : 'Submit for approval'}</button></div></form></div> : null}
+    {regularizing ? <div className="attendance-regularization" role="dialog" aria-modal="true" aria-labelledby="regularization-title"><form onSubmit={event => { event.preventDefault(); void submitRegularization(); }}><h2 id="regularization-title">Regularize attendance</h2><p>{dateLabel(regularizing.key)} needs review. Your original Punch-In/Punch-Out data will remain unchanged.</p><div className="attendance-requested-punches"><label>Proposed Punch-In <span>(optional)</span><input type="datetime-local" value={requestedPunches.clockIn} onChange={event => setRequestedPunches(current => ({ ...current, clockIn: event.target.value }))} /></label><label>Proposed Punch-Out <span>(optional)</span><input type="datetime-local" value={requestedPunches.clockOut} onChange={event => setRequestedPunches(current => ({ ...current, clockOut: event.target.value }))} /></label></div><label>Reason<textarea value={regularizationReason} maxLength={1000} minLength={3} required onChange={event => setRegularizationReason(event.target.value)} placeholder="Explain the missing Punch-Out or short working time." /></label><div><button type="button" className="btn" onClick={() => { setRegularizing(null); setRegularizationReason(''); setRequestedPunches({ clockIn: '', clockOut: '' }); }}>Cancel</button><button className="btn btn-primary" disabled={savingRegularization}>{savingRegularization ? 'Submitting…' : 'Submit for approval'}</button></div></form></div> : null}
   </section>;
 }

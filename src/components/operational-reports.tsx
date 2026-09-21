@@ -23,7 +23,7 @@ const meta: Record<Key, ReportMeta> = {
   leads: { label: 'Leads', permissions: ['crm.manage_all', 'crm.view_team', 'leads.view'], headers: ['Created', 'Lead name', 'Phone', 'Source', 'Assigned staff', 'Status', 'Follow-up', 'Converted client ID'] },
   patients: { label: 'Clients', permissions: ['patients.view', 'patients.view_all'], headers: ['Client ID', 'Name', 'Phone', 'Email', 'Status', 'Source', 'Assigned psychologist', 'Created'] },
   employees: { label: 'Employees', permissions: ['employees.view'], headers: ['Employee code', 'Name', 'Department', 'Designation', 'Employment status', 'Joining date', 'Manager'] },
-  attendance: { label: 'Attendance', permissions: ['attendance.view', 'attendance.manage'], headers: ['Date', 'Employee', 'Clock in', 'Break minutes', 'Clock out', 'Status'] },
+  attendance: { label: 'Attendance', permissions: ['attendance.view', 'attendance.manage'], headers: ['Date', 'Employee', 'Punch-In', 'Break minutes', 'Punch-Out', 'Status'] },
   leave: { label: 'Leave', permissions: ['leave.view', 'leave.manage', 'leave.approve'], headers: ['Employee', 'Leave type', 'Start', 'End', 'Days', 'Status', 'Requested'] },
   appointments: { label: 'Appointments', permissions: ['doctor_scheduling.view', 'appointments.view'], headers: ['Appointment', 'Client', 'Client ID', 'Clinician', 'Clinician type', 'Status', 'Created'] },
   documents: { label: 'Documents', permissions: ['documents.manage', 'documents.employee.manage', 'patient_documents.view'], headers: ['Owner type', 'Document type', 'Owner / entity', 'Expiry date', 'Status'] },
@@ -78,7 +78,7 @@ async function loadReportRows(kind: Key, range: OperationalReportRange, employee
     query = dateRange(query, 'work_date', range);
     const result = await query;
     if (result.error) throw result.error;
-    return (result.data || []).map((row: any) => ({ 'Date': row.work_date, 'Employee': value(row.employee?.full_name), 'Clock in': value(row.clock_in), 'Break minutes': row.break_minutes || 0, 'Clock out': value(row.clock_out), 'Status': row.status }));
+    return (result.data || []).map((row: any) => ({ 'Date': row.work_date, 'Employee': value(row.employee?.full_name), 'Punch-In': value(row.clock_in), 'Break minutes': row.break_minutes || 0, 'Punch-Out': value(row.clock_out), 'Status': row.status }));
   }
   if (kind === 'leave') {
     let query = db.from('leave_requests').select('leave_type,starts_on,ends_on,requested_days,status,created_at,leave_types(name),employee:profiles!leave_requests_profile_id_fkey(full_name)').order('starts_on', { ascending: false });

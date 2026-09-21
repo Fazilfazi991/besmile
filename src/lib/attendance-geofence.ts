@@ -4,7 +4,7 @@ export type LocationEvidence = {
   accuracy: number;
 };
 
-export type AttendanceLocationAction = "Clock In" | "Clock Out";
+export type AttendanceLocationAction = "Punch-In" | "Punch-Out";
 
 export const officeGeofence = {
   latitude: 10.0468516,
@@ -29,7 +29,7 @@ export const locationUnsupportedMessage =
   "Location services are not supported or available in this browser/device.";
 
 export const outsideGeofenceMessage =
-  "You are outside the permitted attendance area. Clock In/Out is allowed only within 100m of the office.";
+  "You are outside the permitted attendance area. Punch-In/Punch-Out is allowed only within 100m of the office.";
 
 export function haversineMetres(
   latitude: number,
@@ -70,7 +70,7 @@ export const inaccurateLocationError = (accuracy: number) =>
 
 export function locationError(
   error: Pick<GeolocationPositionError, "code"> | undefined,
-  action: AttendanceLocationAction = "Clock In",
+  action: AttendanceLocationAction = "Punch-In",
 ) {
   if (error?.code === 1)
     return `Location permission is required to ${action}. Please allow location access for BSmile and try again.`;
@@ -84,7 +84,9 @@ export function locationError(
 export function attendanceRpcError(message: string) {
   if (/You are .*metres from the office|outside the permitted attendance area/i.test(message))
     return outsideGeofenceMessage;
-  return message;
+  return message
+    .replace(/\bclock[- ]?in\b/gi, "Punch-In")
+    .replace(/\bclock[- ]?out\b/gi, "Punch-Out");
 }
 
 async function permissionState(): Promise<PermissionState | undefined> {
@@ -131,7 +133,7 @@ function geolocationFailure(
 }
 
 export async function freshLocation(
-  action: AttendanceLocationAction = "Clock In",
+  action: AttendanceLocationAction = "Punch-In",
 ): Promise<LocationEvidence> {
   if (typeof navigator === "undefined" || !navigator.geolocation)
     throw new Error(locationUnsupportedMessage);

@@ -14,8 +14,8 @@ const selfAttendanceSurfaces = [
 describe("self-attendance location flow integration", () => {
   it("uses the shared fresh location flow for both clock in and clock out", () => {
     for (const source of selfAttendanceSurfaces) {
-      expect(source).toContain("freshLocation('Clock In')");
-      expect(source).toContain("freshLocation('Clock Out')");
+      expect(source).toContain("freshLocation('Punch-In')");
+      expect(source).toContain("freshLocation('Punch-Out')");
       expect(source).toContain("locationCheckingMessage");
     }
   });

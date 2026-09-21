@@ -695,11 +695,11 @@ function Overview({ profile, data, employment, personal, metrics }: any) {
             label="Attendance"
             value={
               today?.status ||
-              (profile.status === "active" ? "Not clocked in" : "Inactive")
+              (profile.status === "active" ? "Punch-In not recorded" : "Inactive")
             }
           />
           <Metric
-            label="Clock in"
+            label="Punch-In"
             value={
               today?.clock_in
                 ? new Date(today.clock_in).toLocaleTimeString([], {
@@ -710,7 +710,7 @@ function Overview({ profile, data, employment, personal, metrics }: any) {
             }
           />
           <Metric
-            label="Clock out"
+            label="Punch-Out"
             value={
               today?.clock_out
                 ? new Date(today.clock_out).toLocaleTimeString([], {
@@ -775,10 +775,10 @@ function Attendance({ rows }: any) {
   return (
     <Panel title="Attendance this month">
       <DataTable
-        headings={["Date", "Status", "Clock in", "Clock out", "Working hours"]}
+        headings={["Date", "Status", "Punch-In", "Punch-Out", "Working hours"]}
         rows={rows.map((row: any) => [
           row.work_date,
-          <FinanceStatus value={row.status || "not clocked in"} />,
+          <FinanceStatus value={row.status || "Punch-In not recorded"} />,
           row.clock_in
             ? new Date(row.clock_in).toLocaleTimeString([], {
                 hour: "2-digit",

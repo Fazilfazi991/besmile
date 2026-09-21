@@ -49,7 +49,7 @@ export function operationalKpiCharts(input: {
     employees: distributionChart('segments', 'Today’s workforce status', [
       { label: 'Present', value: input.presentToday, color: '#14988c' },
       { label: 'On leave', value: input.onLeave, color: '#4f86d9' },
-      { label: 'Not clocked in', value: notClockedIn, color: '#dfe8ea' },
+      { label: 'Punch-In not recorded', value: notClockedIn, color: '#dfe8ea' },
     ]),
     attendance: ratioChart('Attendance rate today', input.presentToday, input.employees, 'Present', 'Not present'),
     leads: ratioChart("Today's share of active leads", input.newLeads, input.leads, 'Today', 'Existing', ['#e7773d', '#f2ded3']),
