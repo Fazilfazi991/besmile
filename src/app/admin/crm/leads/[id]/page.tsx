@@ -7,6 +7,8 @@ import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
 import { clientSafeError } from "@/lib/client-error";
 import { isValidCrmLeadDate } from "@/lib/crm-lead-date";
+import { employeeRepository } from "@/lib/employee-repository";
+import { LeadToPatientConversion } from "@/components/lead-to-patient-conversion";
 
 const dateInput = (value?: string | null) =>
   value ? String(value).slice(0, 10) : "";
@@ -28,19 +30,29 @@ export default function LeadDetail() {
     third_session_date: "",
     notes: "",
   });
-  const [patientNumber, setPatientNumber] = useState("");
   const [patientConversionOpen, setPatientConversionOpen] = useState(false);
+  const [canConvertPatient, setCanConvertPatient] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const load = async () => {
     try {
-      const [item, options] = await Promise.all([
+      const [item, options, permissions] = await Promise.all([
         adminRepository.crmLead(id),
         adminRepository.crmLookups(),
+        employeeRepository.grantedPermissions([
+          "leads.convert_to_patient",
+          "crm.manage_all",
+          "patients.create",
+        ]),
       ]);
       setLead(item);
       setLookups(options);
+      setCanConvertPatient(
+        permissions.has("patients.create") &&
+          (permissions.has("leads.convert_to_patient") ||
+            permissions.has("crm.manage_all")),
+      );
     } catch (caught: any) {
       setError(caught.message);
     }
@@ -146,12 +158,7 @@ export default function LeadDetail() {
       setBusy(false);
     }
   };
-  const convertPatient = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!patientNumber.trim()) {
-      setError("Client ID is required.");
-      return;
-    }
+  const convertPatient = async (patientNumber: string) => {
     setBusy(true);
     setError("");
     try {
@@ -161,9 +168,10 @@ export default function LeadDetail() {
       );
       setPatientConversionOpen(false);
       setMessage(
-        `Lead converted to client ${patient.patient_number || patientNumber.trim()}.`,
+        `Lead converted to client ${patient.patient_number || patientNumber}.`,
       );
       await load();
+      return true;
     } catch (caught: any) {
       const text = String(
         caught.message || "Client conversion could not be completed.",
@@ -177,6 +185,7 @@ export default function LeadDetail() {
               ? "You do not have permission to convert this lead to a client."
               : text,
       );
+      return false;
     } finally {
       setBusy(false);
     }
@@ -205,7 +214,7 @@ export default function LeadDetail() {
             {lead.phone} {lead.location ? `· ${lead.location}` : ""}
           </p>
         </div>
-        {!convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setPatientConversionOpen(true); }}>Convert to client</button>}
+        {canConvertPatient && !convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setPatientConversionOpen(true); }}>Convert to client</button>}
         {convertedPatient && <Link className="btn border" href={`/admin/patients/${convertedPatient.slug || convertedPatient.id}`}>Open client</Link>}
         <button
           className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-700"
@@ -459,7 +468,12 @@ export default function LeadDetail() {
           )}
         </section>
       </div>
-      {patientConversionOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><form className="card w-full max-w-lg p-6" onSubmit={convertPatient}><h2 className="text-lg font-bold">Convert to Client</h2><p className="mt-1 text-sm text-slate-600">The lead remains in CRM. Matching contact and context fields will be copied to the new client record.</p><label className="mt-4 block text-sm font-semibold">Client ID <span className="text-rose-700">*</span><input autoFocus className="input mt-1" required value={patientNumber} onChange={event => setPatientNumber(event.target.value)} placeholder="Enter unique Client ID" /></label><p className="mt-2 text-xs text-slate-500">The Client ID must be unique. Validation errors keep your entered value.</p><div className="mt-5 flex justify-end gap-2"><button className="btn border" type="button" disabled={busy} onClick={() => setPatientConversionOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Converting...' : 'Convert to client'}</button></div></form></div>}
+      <LeadToPatientConversion
+        open={patientConversionOpen}
+        busy={busy}
+        onClose={() => setPatientConversionOpen(false)}
+        onSubmit={convertPatient}
+      />
     </section>
   );
 }

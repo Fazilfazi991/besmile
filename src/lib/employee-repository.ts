@@ -183,7 +183,7 @@ export const employeeRepository = {
     const { data, error } = await required()
       .from("crm_leads")
       .select(
-        "*,source:crm_lead_sources(name),status:crm_lead_statuses(name),assignee:profiles!crm_leads_assigned_to_fkey(full_name),crm_lead_followups(*,profiles(full_name)),crm_sales(*)",
+        "*,source:crm_lead_sources(name),status:crm_lead_statuses(name),assignee:profiles!crm_leads_assigned_to_fkey(full_name),converted_patient:patients!crm_leads_converted_patient_id_fkey(id,slug,patient_number,full_name),crm_lead_followups(*,profiles(full_name)),crm_sales(*)",
       )
       .eq("id", id)
       .maybeSingle();
@@ -300,6 +300,18 @@ export const employeeRepository = {
     });
     if (error) throw error;
     return data;
+  },
+  async convertMyCrmLeadToPatient(
+    _userId: string,
+    leadId: string,
+    patientNumber: string,
+  ) {
+    const { data, error } = await required().rpc("convert_lead_to_patient", {
+      target_lead: leadId,
+      requested_patient_number: patientNumber.trim(),
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data[0] : data;
   },
   async clockIn(
     _userId: string,

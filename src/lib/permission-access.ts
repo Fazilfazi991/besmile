@@ -310,6 +310,7 @@ export function employeeRouteRequirement(
   if (path === "/employee/patients") return anyOf("patients.view", "patients.view_all");
   if (path.startsWith("/employee/patients"))
     return anyOf("patients.view", "patients.view_assigned", "patients.view_all");
+  if (path.startsWith("/employee/crm/import")) return anyOf("crm.import");
   if (path.startsWith("/employee/crm/sales"))
     return anyOf("crm.view_team", "crm.manage_all", "sales.view");
   if (path.startsWith("/employee/crm"))
@@ -759,6 +760,11 @@ export const employeeNavigation: readonly NavigationGroup[] = [
           ],
           ["admin.shell"],
         ),
+      },
+      {
+        label: "Import Leads",
+        href: "/employee/crm/import",
+        requirement: requireAnyWithout(["crm.import"], ["admin.shell"]),
       },
       {
         label: "My Follow-ups",

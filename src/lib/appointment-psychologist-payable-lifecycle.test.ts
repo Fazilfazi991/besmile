@@ -27,7 +27,8 @@ describe('appointment psychologist payable lifecycle', () => {
 
   it('keeps settlement permission separate and shows the payable audit fields', () => {
     expect(payments).toContain("permissions.has('psychologist_payments.settle')");
-    expect(payments).toContain('canSettlePermission && x.status');
+    expect(payments).toContain('canSettlePermission && awaitingSettlement');
+    expect(payments).toContain("x.status === 'scheduled' || x.status === 'payment_due'");
     expect(payments).toContain('paid_by_profile');
     expect(payments).toContain('session_duration_minutes');
   });
