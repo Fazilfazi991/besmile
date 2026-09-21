@@ -101,9 +101,18 @@ describe("client access, CRM import, and psychologist payment alignment", () => 
     expect(migration).not.toMatch(/disable\s+row level security|grant\s+all/i);
     expect(migration).not.toMatch(/create\s+policy/i);
 
-    const salesCoordinatorGrant = migration.slice(
-      migration.indexOf("bundle.designation = 'Sales Coordinator'"),
-      migration.indexOf(")\n)\ninsert into", migration.indexOf("bundle.designation = 'Sales Coordinator'")),
+    const salesCoordinatorStart = migration.indexOf(
+      "bundle.designation = 'Sales Coordinator'",
+    );
+    const salesCoordinatorTail = migration.slice(salesCoordinatorStart);
+    const salesCoordinatorEnd = salesCoordinatorTail.search(
+      /\)\r?\n\)\r?\ninsert into/,
+    );
+    expect(salesCoordinatorStart).toBeGreaterThanOrEqual(0);
+    expect(salesCoordinatorEnd).toBeGreaterThanOrEqual(0);
+    const salesCoordinatorGrant = salesCoordinatorTail.slice(
+      0,
+      salesCoordinatorEnd,
     );
     expect(salesCoordinatorGrant).toContain("array['crm.import','leads.create']");
     expect(salesCoordinatorGrant).not.toMatch(
