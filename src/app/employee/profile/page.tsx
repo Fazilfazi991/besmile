@@ -1,6 +1,7 @@
 'use client';
 
 import {FormEvent,useEffect,useState} from 'react';
+import {useRouter} from 'next/navigation';
 import {currentProfile} from '@/lib/auth';
 import {employeeRepository} from '@/lib/employee-repository';
 import {resolveEmployeeAvatar} from '@/lib/employee-avatar';
@@ -13,14 +14,15 @@ const addressText=(value:any)=>typeof value==='string'?value:value?.line1||value
 const normalized=(data:any)=>({...data,address:{line1:addressText(data.address)},emergency_contact:data.emergency_contact||{},bank_details:data.bank_details||{}});
 
 export default function ProfilePage(){
+  const router=useRouter();
   const [profile,setProfile]=useState<any>();const [form,setForm]=useState<any>({});const [photo,setPhoto]=useState('');const [editing,setEditing]=useState(false);const [showAccount,setShowAccount]=useState(false);const [notice,setNotice]=useState('');const [error,setError]=useState('');const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);
   const load=async()=>{setLoading(true);try{const session=await currentProfile() as any;if(!session)throw Error('Your session has expired.');const data=await employeeRepository.profile(session.id);setProfile(data);setForm(normalized(data));const uploadedPhoto=data.avatar_url?await employeeRepository.signedProfilePhoto(data.avatar_url):'';setPhoto(resolveEmployeeAvatar(data.full_name,uploadedPhoto)||'');setError('')}catch(e:any){setError(e.message||'Unable to load your profile.')}finally{setLoading(false)}};
   useEffect(()=>{const timer=setTimeout(()=>void load(),0);return()=>clearTimeout(timer)},[]);
   const set=(key:string,value:any)=>setForm((current:any)=>({...current,[key]:value}));
   const nested=(group:string,key:string,value:string)=>setForm((current:any)=>({...current,[group]:{...current[group],[key]:value}}));
   const save=async(event:FormEvent)=>{event.preventDefault();setNotice('');setError('');const validation=validateProfile(form);if(validation){setError(validation);return;}setSaving(true);try{const fields=['full_name','phone','personal_email','date_of_birth','gender','address','emergency_contact','bank_details'];const patch=Object.fromEntries(fields.filter(key=>JSON.stringify(form[key]??null)!==JSON.stringify(normalized(profile)[key]??null)).map(key=>[key,form[key]||null]));if(!Object.keys(patch).length){setEditing(false);return;}await employeeRepository.updateMyProfile(profile.id,patch);setNotice('Profile saved successfully.');setEditing(false);await load();}catch(e:any){setError(e.message||'Unable to save profile.');}finally{setSaving(false)}};
-  const upload=async(file?:File)=>{if(!file)return;setNotice('');setError('');try{await employeeRepository.uploadProfilePhoto(profile.id,file);setNotice('Profile photo updated.');await load()}catch(e:any){setError(e.message)}};
-  const removePhoto=async()=>{if(!profile.avatar_url||!window.confirm('Remove your profile photo?'))return;setNotice('');setError('');try{await employeeRepository.removeProfilePhoto(profile.id,profile.avatar_url);setNotice('Profile photo removed.');await load()}catch(e:any){setError(e.message)}};
+  const upload=async(file?:File)=>{if(!file)return;setNotice('');setError('');try{await employeeRepository.uploadProfilePhoto(profile.id,file);setNotice('Profile photo updated.');router.refresh();await load()}catch(e:any){setError(e.message)}};
+  const removePhoto=async()=>{if(!profile.avatar_url||!window.confirm('Remove your profile photo?'))return;setNotice('');setError('');try{await employeeRepository.removeProfilePhoto(profile.id,profile.avatar_url);setNotice('Profile photo removed.');router.refresh();await load()}catch(e:any){setError(e.message)}};
   if(loading)return <section><h1 className="text-2xl font-bold">My Profile</h1><p className="mt-3 text-slate-600">Loading your profile…</p></section>;
   if(error&&!profile)return <section><h1 className="text-2xl font-bold">My Profile</h1><p className="mt-3 text-rose-700">{error}</p><button className="btn btn-primary mt-3" onClick={()=>void load()}>Try again</button></section>;
   const completion=profileCompletion(form);const employment=[['Employee ID',profile.employee_code||profile.id],['Work email',profile.email],['Role',String(profile.role||'').replace('_',' ')],['Department',profile.department?.name||'Not assigned'],['Designation',profile.designation||'Not assigned'],['Reporting manager',profile.manager?.full_name||'Not assigned'],['Joining date',profile.joining_date||'Not set'],['Employment status',profile.status]];const maskedAccount=form.bank_details?.account_number?`•••• ${String(form.bank_details.account_number).slice(-4)}`:'Not provided';

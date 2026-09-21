@@ -9,13 +9,14 @@ import { TopbarProfileLink } from '@/components/topbar-profile-link';
 import { grantedPermissions } from '@/lib/granted-permissions';
 import { PageBackButton } from '@/components/page-back-button';
 import { serverAuthorizationRead, serverAuthorizationBoundary } from '@/lib/server-authorization-read';
+import { signedProfilePhotoUrl } from '@/lib/profile-photo';
 import '../workspace-density.css';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
   const { data: { user } } = await serverAuthorizationRead(() => db.auth.getUser(), 'admin.session', true);
   if (!user) redirect('/sign-in');
-  const { data: profile } = await serverAuthorizationRead(signal => db.from('profiles').select('full_name,email,role,designation,status').eq('id', user.id).abortSignal(signal).maybeSingle(), 'admin.profile');
+  const { data: profile } = await serverAuthorizationRead(signal => db.from('profiles').select('full_name,email,role,designation,status,avatar_url').eq('id', user.id).abortSignal(signal).maybeSingle(), 'admin.profile');
   if (!profile) redirect('/unauthorized');
   if (profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
   const allowed = await serverAuthorizationBoundary(() => grantedPermissions(db, navigationPermissionCodes));
@@ -26,11 +27,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const profileHref = isEmployeeShell ? '/employee/profile' : isSecurityAdministratorRole(profile.role) ? '/admin/access' : '/admin/profile';
   const subtitle = profile.role === 'super_admin' ? 'Super Admin' : profile.designation || profile.role || 'Employee';
   const headerMode = isEmployeeShell ? 'employee' : 'admin';
+  const photoUrl = await signedProfilePhotoUrl(db, profile.avatar_url);
 
   return <MobileNavigationProvider><div className="app-shell employee-shell">
     <PermissionSidebar groups={visibleGroups} name={name} subtitle={subtitle} profileHref={profileHref} />
     <main className="app-main">
-      <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><TopbarProfileLink href={profileHref} name={name} subtitle={subtitle} /></header>
+      <header className="app-topbar"><div className="topbar-mode"><MobileNavigationTrigger /><ThemeModeSwitcher /></div><GlobalCommandCenter mode={headerMode} userId={user.id} canEmployees={allowed.has('employees.view')} canCrm={allowed.has('crm.manage_all') || allowed.has('crm.view_team') || allowed.has('leads.view')} canInvoices={allowed.has('invoices.view') || allowed.has('invoices.manage')} /><TopbarProfileLink href={profileHref} name={name} subtitle={subtitle} photoUrl={photoUrl} /></header>
       <div className="app-content"><PageBackButton />{children}</div>
     </main>
   </div></MobileNavigationProvider>;
