@@ -16,6 +16,20 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const qualificationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260921144702_qa_qualification_permission_alignment.sql",
+  ),
+  "utf8",
+);
+const conversionTriggerMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260921152904_qa_lead_conversion_trigger_alignment.sql",
+  ),
+  "utf8",
+);
 const adminLead = readFileSync(
   resolve(process.cwd(), "src/app/admin/crm/leads/[id]/page.tsx"),
   "utf8",
@@ -46,6 +60,20 @@ const payments = readFileSync(
 );
 
 describe("client access, CRM import, and psychologist payment alignment", () => {
+  it("adds only the canonical scoped CRM permissions required by QA qualification", () => {
+    for (const permission of ["crm.view_assigned", "leads.edit"])
+      expect(qualificationMigration).toContain(`'${permission}'`);
+
+    expect(qualificationMigration).toContain("('Psychology', 'Psychologist', 'crm.view_assigned')");
+    expect(qualificationMigration).toContain("('Operations', 'Sales Coordinator', 'crm.view_assigned')");
+    expect(qualificationMigration).toContain("('Operations', 'Sales Coordinator', 'leads.edit')");
+    expect(qualificationMigration).toContain("role.code = 'psychologist'");
+    expect(qualificationMigration).toContain("on conflict do nothing");
+    expect(qualificationMigration).not.toMatch(/crm\.manage_all|admin\.shell|finance\.|patients\./);
+    expect(qualificationMigration).not.toMatch(/create\s+policy|drop\s+policy|disable\s+row level security|grant\s+all/i);
+    expect(qualificationMigration).not.toMatch(/delete\s+from|update\s+public\.(?:role_permissions|designation_permission_bundle_permissions)/i);
+  });
+
   it("adds approved designation permissions without replacing prior grants", () => {
     for (const permission of [
       "leads.convert_to_patient",
@@ -103,6 +131,22 @@ describe("client access, CRM import, and psychologist payment alignment", () => 
       "revoke all on function public.convert_lead_to_patient(uuid, text)",
     );
     expect(migration).toContain("to authenticated");
+
+    expect(conversionTriggerMigration).toContain(
+      "current_setting('app.lead_conversion_target', true)",
+    );
+    expect(conversionTriggerMigration).toContain(
+      "set_config('app.lead_conversion_target', lead_row.id::text, true)",
+    );
+    expect(conversionTriggerMigration).toContain(
+      "public.crm_lead_can_view(old.assigned_to, old.converted_patient_id)",
+    );
+    expect(conversionTriggerMigration).toContain(
+      "public.has_permission('leads.convert_to_patient')",
+    );
+    expect(conversionTriggerMigration).not.toMatch(
+      /insert\s+into\s+public\.(?:role_permissions|designation_permission_bundle_permissions)|create\s+policy|drop\s+policy|disable\s+row level security|grant\s+all/i,
+    );
   });
 
   it("uses one conversion architecture and permission-gates both lead screens", () => {

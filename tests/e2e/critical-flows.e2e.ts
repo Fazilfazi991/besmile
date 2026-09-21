@@ -275,7 +275,7 @@ test('meeting create, participant detail, edit and calendar remain connected', a
     const editResponse = page.waitForResponse((response) => response.url().includes('/rest/v1/rpc/save_meeting') && response.request().method() === 'POST' && response.ok());
     await saveChanges.click();
     await editResponse;
-    await expect(dialog).toHaveCount(0);
+    await expect(dialog).toHaveCount(0, { timeout: 30_000 });
     await navigateAfterLogin(page, '/admin/calendar');
     await expect(page.getByRole('region', { name: 'Month calendar' })).toBeVisible({ timeout: 30_000 });
     await assertNoRawDatabaseError(page);

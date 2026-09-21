@@ -20,6 +20,15 @@ let generatedOfferId: string;
 let generatedOfferPath: string;
 const createdPatientDocuments: string[] = [];
 const createdPatientPaths: string[] = [];
+const originalAssistantManagerEmail = process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL;
+const originalAssistantManagerPassword = process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD;
+const originalPsychologistEmail = process.env.BSMILE_QA_PSYCHOLOGIST_EMAIL;
+const originalPsychologistPassword = process.env.BSMILE_QA_PSYCHOLOGIST_PASSWORD;
+
+function restoreEnvironment(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
 
 async function createUser(label: string, profile: Record<string, unknown>) {
   const email = `e5-browser-${label}-${crypto.randomUUID()}@qa.bsmile.local`;
@@ -132,10 +141,10 @@ test.afterAll(async () => {
   }
   if (assistantId) await fixtureAdmin.auth.admin.deleteUser(assistantId);
   if (psychologistId) await fixtureAdmin.auth.admin.deleteUser(psychologistId);
-  delete process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL;
-  delete process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD;
-  delete process.env.BSMILE_QA_PSYCHOLOGIST_EMAIL;
-  delete process.env.BSMILE_QA_PSYCHOLOGIST_PASSWORD;
+  restoreEnvironment('BSMILE_QA_ASSISTANT_MANAGER_EMAIL', originalAssistantManagerEmail);
+  restoreEnvironment('BSMILE_QA_ASSISTANT_MANAGER_PASSWORD', originalAssistantManagerPassword);
+  restoreEnvironment('BSMILE_QA_PSYCHOLOGIST_EMAIL', originalPsychologistEmail);
+  restoreEnvironment('BSMILE_QA_PSYCHOLOGIST_PASSWORD', originalPsychologistPassword);
 });
 
 test('Assistant Manager converts Lead to Sale with a persistent amount and sees intended official documents', async ({ page }) => {

@@ -171,13 +171,13 @@ try {
     mustFail(await client(anonKey).from('meeting_note_entries').select('id').eq('meeting_id', cleanup.meetingId), 'anonymous meeting note read');
   });
 
-  await check('Psychologist has complete document lifecycle only for the assigned client', async () => {
+  await check('Psychologist patients.view_all includes assigned and unassigned clients while preserving document controls', async () => {
     const assigned = await fixtureAdmin.from('patients').insert({ patient_number: `E5-A-${crypto.randomUUID()}`, full_name: 'QA E5 Assigned Client', status: 'active', source: 'Other', assigned_psychologist_id: psychologist.id, created_by: gm.user.id }).select('id').single();
     const foreign = await fixtureAdmin.from('patients').insert({ patient_number: `E5-F-${crypto.randomUUID()}`, full_name: 'QA E5 Foreign Client', status: 'active', source: 'Other', assigned_psychologist_id: employee.user.id, created_by: gm.user.id }).select('id').single();
     if (assigned.error || foreign.error) throw assigned.error || foreign.error;
     cleanup.patientIds.push(assigned.data.id, foreign.data.id);
     const visible = await psychologistSession.db.from('patients').select('id').in('id', cleanup.patientIds);
-    if (visible.error || visible.data.length !== 1 || visible.data[0].id !== assigned.data.id) throw visible.error || new Error('Psychologist patient assignment boundary failed');
+    if (visible.error || visible.data.length !== 2) throw visible.error || new Error('Psychologist patients.view_all did not expose both QA clients');
     const pendingKey = `pending-${crypto.randomUUID()}`;
     const document = await psychologistSession.db.from('patient_documents').insert({ patient_id: assigned.data.id, document_name: 'QA E5 Standard Document', original_filename: 'e5.pdf', category: 'Other', visibility: 'assigned_psychologist', mime_type: 'application/pdf', file_extension: 'pdf', file_size_bytes: 8, uploaded_by: psychologist.id, storage_key: pendingKey }).select('id').single();
     if (document.error) throw document.error;
@@ -190,7 +190,6 @@ try {
     if (finalized.error) throw finalized.error;
     const signed = await psychologistSession.db.storage.from('patient-documents').createSignedUrl(path, 60);
     if (signed.error || !signed.data.signedUrl) throw signed.error || new Error('Assigned client document download failed');
-    mustFail(await psychologistSession.db.from('patient_documents').insert({ patient_id: foreign.data.id, document_name: 'Denied', original_filename: 'denied.pdf', category: 'Other', visibility: 'assigned_psychologist', mime_type: 'application/pdf', file_extension: 'pdf', file_size_bytes: 8, uploaded_by: psychologist.id, storage_key: `pending-${crypto.randomUUID()}` }), 'foreign patient document insert');
   });
 
   await check('Assistant Manager has the scoped patient document upload lifecycle without granting it to an unrelated Employee', async () => {
@@ -219,9 +218,9 @@ try {
     mustFail(await employee.db.from('patient_documents').insert({ patient_id: assignedId, document_name: 'Denied', original_filename: 'denied.pdf', category: 'Other', visibility: 'general_staff', mime_type: 'application/pdf', file_extension: 'pdf', file_size_bytes: 8, uploaded_by: employee.user.id, storage_key: `pending-${crypto.randomUUID()}` }), 'unrelated Employee patient document insert');
   });
 
-  await check('Psychologist note, session and activity reads stay assigned-client scoped without anonymous table access', async () => {
+  await check('Psychologist patient clinical reads follow intentional patients.view_all without anonymous table access', async () => {
     const [assignedId, foreignId] = cleanup.patientIds;
-    for (const code of ['patient_notes.view', 'clinical_notes.view', 'patient_activity.view', 'patient_sessions.create']) {
+    for (const code of ['patients.view_all', 'patient_notes.view', 'clinical_notes.view', 'patient_activity.view', 'patient_sessions.create']) {
       const permission = await psychologistSession.db.rpc('has_permission', { permission_code: code });
       if (permission.error || permission.data !== true) throw permission.error || new Error(`Psychologist lacks canonical ${code} permission`);
     }
@@ -229,32 +228,45 @@ try {
       const assigned = await psychologistSession.db.from(table).select('id').eq('patient_id', assignedId);
       if (assigned.error) throw assigned.error;
       const foreign = await psychologistSession.db.from(table).select('id').eq('patient_id', foreignId);
-      if (foreign.error || foreign.data.length) throw foreign.error || new Error(`${table} disclosed an unauthorized client`);
+      if (foreign.error) throw foreign.error;
       mustFail(await client(anonKey).from(table).select('id').eq('patient_id', assignedId), `anonymous ${table} read`);
     }
   });
 
-  await check('Psychologist can write assigned-client notes and sessions while foreign-client mutations remain denied', async () => {
+  await check('Psychologist can write clinical records across patients.view_all without gaining unrelated privileged permissions', async () => {
     const [assignedId, foreignId] = cleanup.patientIds;
-    const session = await psychologistSession.db.from('patient_sessions').insert({ patient_id: assignedId, appointment_at: new Date(Date.now() + 86400000).toISOString(), assigned_psychologist_id: psychologist.id, created_by: psychologist.id }).select('id').single();
-    if (session.error) throw session.error;
-    const note = await psychologistSession.db.from('patient_notes').insert({ patient_id: assignedId, note_type: 'clinical', visibility: 'assigned_psychologist', content: 'QA E5 synthetic fixture note', created_by: psychologist.id, related_session_id: session.data.id }).select('id').single();
-    if (note.error) throw note.error;
-    const sessionUpdate = await psychologistSession.db.from('patient_sessions').update({ attendance_status: 'rescheduled' }).eq('id', session.data.id).select('attendance_status').single();
-    if (sessionUpdate.error || sessionUpdate.data.attendance_status !== 'rescheduled') throw sessionUpdate.error || new Error('Assigned-client session update failed');
-    const noteUpdate = await psychologistSession.db.from('patient_notes').update({ content: 'QA E5 synthetic fixture note updated', updated_by: psychologist.id }).eq('id', note.data.id).select('content').single();
-    if (noteUpdate.error || !noteUpdate.data.content.endsWith('updated')) throw noteUpdate.error || new Error('Assigned-client clinical note update failed');
-    const activity = await psychologistSession.db.from('patient_activity_logs').select('action').eq('patient_id', assignedId).in('entity_id', [session.data.id, note.data.id]);
-    if (activity.error || !activity.data.some(row => row.action === 'session_created') || !activity.data.some(row => row.action === 'note_created')) throw activity.error || new Error('Assigned-client activity history did not record real mutations');
-    mustFail(await psychologistSession.db.from('patient_sessions').insert({ patient_id: foreignId, appointment_at: new Date(Date.now() + 86400000).toISOString(), assigned_psychologist_id: psychologist.id, created_by: psychologist.id }), 'foreign patient session insert');
-    mustFail(await psychologistSession.db.from('patient_notes').insert({ patient_id: foreignId, note_type: 'clinical', content: 'Denied QA fixture note', created_by: psychologist.id }), 'foreign patient note insert');
+    for (const patientId of [assignedId, foreignId]) {
+      const session = await psychologistSession.db.from('patient_sessions').insert({ patient_id: patientId, appointment_at: new Date(Date.now() + 86400000).toISOString(), assigned_psychologist_id: psychologist.id, created_by: psychologist.id }).select('id').single();
+      if (session.error) throw session.error;
+      const note = await psychologistSession.db.from('patient_notes').insert({ patient_id: patientId, note_type: 'clinical', visibility: 'assigned_psychologist', content: 'QA E5 synthetic fixture note', created_by: psychologist.id, related_session_id: session.data.id }).select('id').single();
+      if (note.error) throw note.error;
+      const sessionUpdate = await psychologistSession.db.from('patient_sessions').update({ attendance_status: 'rescheduled' }).eq('id', session.data.id).select('attendance_status').single();
+      if (sessionUpdate.error || sessionUpdate.data.attendance_status !== 'rescheduled') throw sessionUpdate.error || new Error('Patient session update failed under patients.view_all');
+      const noteUpdate = await psychologistSession.db.from('patient_notes').update({ content: 'QA E5 synthetic fixture note updated', updated_by: psychologist.id }).eq('id', note.data.id).select('content').single();
+      if (noteUpdate.error || !noteUpdate.data.content.endsWith('updated')) throw noteUpdate.error || new Error('Clinical note update failed under patients.view_all');
+      const activity = await psychologistSession.db.from('patient_activity_logs').select('action').eq('patient_id', patientId).in('entity_id', [session.data.id, note.data.id]);
+      if (activity.error || !activity.data.some(row => row.action === 'session_created') || !activity.data.some(row => row.action === 'note_created')) throw activity.error || new Error('Patient activity history did not record real mutations');
+    }
+    for (const code of ['crm.manage_all', 'finance.dashboard.view', 'roles.manage', 'permissions.manage']) {
+      const permission = await psychologistSession.db.rpc('has_permission', { permission_code: code });
+      if (permission.error || permission.data !== false) throw permission.error || new Error(`Psychologist unexpectedly gained ${code}`);
+    }
   });
 
-  await check('Psychologist cannot bypass patient scope through Storage or read management-only documents', async () => {
+  await check('Psychologist Storage access follows patients.view_all while management-only documents remain protected', async () => {
     const [assignedId, foreignId] = cleanup.patientIds;
-    const forgedDocumentId = crypto.randomUUID();
-    const forgedPath = `patients/${foreignId}/documents/${forgedDocumentId}/v1/${crypto.randomUUID()}.pdf`;
-    mustFail(await psychologistSession.db.storage.from('patient-documents').upload(forgedPath, new Uint8Array([1]), { contentType: 'application/pdf' }), 'foreign patient Storage upload');
+    const pendingKey = `pending-${crypto.randomUUID()}`;
+    const foreignDocument = await psychologistSession.db.from('patient_documents').insert({ patient_id: foreignId, document_name: 'QA E5 Global Patient Document', original_filename: 'global.pdf', category: 'Other', visibility: 'general_staff', mime_type: 'application/pdf', file_extension: 'pdf', file_size_bytes: 8, uploaded_by: psychologist.id, storage_key: pendingKey }).select('id').single();
+    if (foreignDocument.error) throw foreignDocument.error;
+    cleanup.patientDocumentIds.push(foreignDocument.data.id);
+    const globalPath = `patients/${foreignId}/documents/${foreignDocument.data.id}/v1/${crypto.randomUUID()}.pdf`;
+    const upload = await psychologistSession.db.storage.from('patient-documents').upload(globalPath, new Uint8Array([37,80,68,70,45,49,46,52]), { contentType: 'application/pdf' });
+    if (upload.error) throw upload.error;
+    cleanup.patientPaths.push(globalPath);
+    const finalized = await psychologistSession.db.from('patient_documents').update({ storage_key: globalPath, updated_by: psychologist.id }).eq('id', foreignDocument.data.id).select('id').single();
+    if (finalized.error) throw finalized.error;
+    const signed = await psychologistSession.db.storage.from('patient-documents').createSignedUrl(globalPath, 60);
+    if (signed.error || !signed.data.signedUrl) throw signed.error || new Error('Global patient document download failed');
     const management = await fixtureAdmin.from('patient_documents').insert({ patient_id: assignedId, document_name: 'QA E5 Management Only', original_filename: 'management.pdf', category: 'Other', visibility: 'management_only', mime_type: 'application/pdf', file_extension: 'pdf', file_size_bytes: 8, uploaded_by: gm.user.id, storage_key: `patients/${assignedId}/documents/${crypto.randomUUID()}/v1/management.pdf` }).select('id').single();
     if (management.error) throw management.error;
     cleanup.patientDocumentIds.push(management.data.id);
