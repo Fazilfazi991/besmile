@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { KeyboardEvent, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
 import {
   employeeStatuses,
@@ -11,10 +12,27 @@ import {
 } from '@/lib/employee-status';
 
 type WorkforceView = 'active' | 'removed' | 'all';
+type EmployeeSuggestion = {
+  id: string;
+  full_name: string;
+  email?: string | null;
+  employee_code?: string | null;
+  designation?: string | null;
+  status?: string | null;
+  workforce_visible?: boolean | null;
+};
+
+const normalizedEmployeeSearch = (value: string) => value.trim().replace(/[%_,]/g, '').slice(0, 80);
 
 export default function EmployeesPage() {
+  const router = useRouter();
   const [employees, setEmployees] = useState<any[]>([]);
   const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<EmployeeSuggestion[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState('');
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [role, setRole] = useState('');
   const [status, setStatus] = useState('');
   const [workforceView, setWorkforceView] = useState<WorkforceView>('active');
@@ -25,11 +43,11 @@ export default function EmployeesPage() {
   const load = async (value = query) => {
     setLoading(true);
     try {
-      const result = await adminRepository.employees(value, 0, 150, 'all');
+      const result = await adminRepository.employees(normalizedEmployeeSearch(value), 0, 150, 'all');
       setEmployees(result.data);
       setError('');
-    } catch (caught: any) {
-      setError(caught.message || 'Employees could not be loaded.');
+    } catch {
+      setError('Employees could not be loaded. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -39,6 +57,64 @@ export default function EmployeesPage() {
     const timer = window.setTimeout(() => void load(''), 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    const term = normalizedEmployeeSearch(query);
+    if (term.length < 2) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setSuggestionsLoading(true);
+      setSuggestionsError('');
+      try {
+        const result = await adminRepository.employees(term, 0, workforceView === 'removed' ? 30 : 8, workforceView === 'active' ? 'current' : 'all');
+        if (cancelled) return;
+        const candidates = result.data as EmployeeSuggestion[];
+        const matches = workforceView === 'removed'
+          ? candidates.filter((employee) => isFormerEmployeeStatus(employee.status) || employee.workforce_visible === false).slice(0, 8)
+          : candidates.slice(0, 8);
+        setSuggestions(matches);
+        setActiveSuggestion(matches.length ? 0 : -1);
+        setSuggestionsOpen(true);
+      } catch {
+        if (!cancelled) {
+          setSuggestions([]);
+          setActiveSuggestion(-1);
+          setSuggestionsError('Employee suggestions are temporarily unavailable.');
+          setSuggestionsOpen(true);
+        }
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query, workforceView]);
+
+  const chooseSuggestion = (employee: EmployeeSuggestion) => {
+    setQuery(employee.full_name);
+    setSuggestionsOpen(false);
+    router.push(`/admin/employees/${employee.id}`);
+  };
+
+  const employeeSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      setSuggestionsOpen(false);
+      return;
+    }
+    if (!suggestionsOpen || !suggestions.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveSuggestion((current) => (current + 1) % suggestions.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveSuggestion((current) => (current - 1 + suggestions.length) % suggestions.length);
+    } else if (event.key === 'Enter' && activeSuggestion >= 0) {
+      event.preventDefault();
+      chooseSuggestion(suggestions[activeSuggestion]);
+    }
+  };
 
   const departments = [...new Set(employees.map((employee) => employee.department?.name).filter(Boolean))];
   const roles = [...new Set(employees.map((employee) => employee.role).filter(Boolean))];
@@ -80,7 +156,63 @@ export default function EmployeesPage() {
           <option value="removed">Removed / inactive</option>
           <option value="all">All</option>
         </select>
-        <input className="input" placeholder="Search name, email, phone, or employee ID" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <div
+          className="employee-search-picker"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSuggestionsOpen(false);
+          }}
+        >
+          <input
+            className="input"
+            role="combobox"
+            aria-label="Search employees"
+            aria-autocomplete="list"
+            aria-expanded={suggestionsOpen}
+            aria-controls="employee-search-suggestions"
+            aria-activedescendant={activeSuggestion >= 0 ? `employee-search-suggestion-${suggestions[activeSuggestion]?.id}` : undefined}
+            autoComplete="off"
+            placeholder="Search name, email, phone, or employee ID"
+            value={query}
+            onChange={(event) => {
+              const value = event.target.value;
+              setQuery(value);
+              setSuggestions([]);
+              setActiveSuggestion(-1);
+              setSuggestionsError('');
+              setSuggestionsOpen(normalizedEmployeeSearch(value).length >= 2);
+            }}
+            onFocus={() => {
+              if (normalizedEmployeeSearch(query).length >= 2) setSuggestionsOpen(true);
+            }}
+            onKeyDown={employeeSearchKeyDown}
+          />
+          {suggestionsOpen && (
+            <div id="employee-search-suggestions" className="employee-search-suggestions" role="listbox" aria-label="Matching employees">
+              {suggestionsLoading ? (
+                <p role="status">Searching employees…</p>
+              ) : suggestionsError ? (
+                <p role="status">{suggestionsError}</p>
+              ) : suggestions.length ? suggestions.map((employee, index) => (
+                <button
+                  id={`employee-search-suggestion-${employee.id}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === activeSuggestion}
+                  className={index === activeSuggestion ? 'is-active' : ''}
+                  key={employee.id}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActiveSuggestion(index)}
+                  onClick={() => chooseSuggestion(employee)}
+                >
+                  <span>{employee.full_name}</span>
+                  <small>{[employee.designation, employee.employee_code, employee.email].filter(Boolean).join(' · ') || employeeStatusLabel(employee.status)}</small>
+                </button>
+              )) : (
+                <p role="status">No matching employees.</p>
+              )}
+            </div>
+          )}
+        </div>
         <select className="input" value={role} onChange={(event) => setRole(event.target.value)}>
           <option value="">All roles</option>
           {roles.map((value) => <option key={value}>{value}</option>)}
