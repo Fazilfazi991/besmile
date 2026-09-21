@@ -328,7 +328,7 @@ export const employeeRepository = {
     );
     if (error) {
       if (error.code === "23505")
-        throw new Error("You have already clocked in today.");
+        throw new Error("A Punch-In has already been recorded today.");
       throw new Error(attendanceRpcError(error.message));
     }
     return data;

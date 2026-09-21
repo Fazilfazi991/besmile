@@ -6,6 +6,10 @@ describe("attendance Excel export", () => {
     const rows = attendanceExportRows([{ full_name: "A", employee_code: "E1", department: { name: "Ops" }, attendance: null, on_leave: false }], "2026-09-08", () => "Absent");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ Employee: "A", "Employee code": "E1", Department: "Ops", Date: "2026-09-08", Status: "Absent" });
+    expect(rows[0]).toHaveProperty("Punch-In");
+    expect(rows[0]).toHaveProperty("Punch-Out");
+    expect(rows[0]).toHaveProperty("Punch-In location");
+    expect(rows[0]).toHaveProperty("Punch-Out location");
     expect(attendanceExportRows([], "2026-09-08", () => "Absent")).toEqual([]);
   });
   it("uses a meaningful xlsx filename", () => expect(attendanceExportFilename("2026-09-08")).toBe("bsmile-attendance-2026-09-08.xlsx"));

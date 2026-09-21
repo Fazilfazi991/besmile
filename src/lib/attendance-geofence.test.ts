@@ -58,7 +58,7 @@ describe("attendance geofence", () => {
     "requests a fresh high-accuracy reading when permission is %s",
     async (state) => {
       const request = browserLocation(state, [{ accuracy: 20 }]);
-      await expect(freshLocation("Clock In")).resolves.toMatchObject({ accuracy: 20 });
+      await expect(freshLocation("Punch-In")).resolves.toMatchObject({ accuracy: 20 });
       expect(request).toHaveBeenCalledTimes(1);
       expect(request.mock.calls[0][2]).toEqual(geolocationOptions);
       expect(geolocationOptions).toMatchObject({
@@ -76,12 +76,12 @@ describe("attendance geofence", () => {
   });
 
   it.each([
-    [1, "Location permission is required to Clock Out"],
+    [1, "Location permission is required to Punch-Out"],
     [2, "current location could not be determined"],
     [3, "Location detection took too long"],
   ])("maps geolocation error %s", async (code, message) => {
     browserLocation("granted", [{ error: Number(code) }]);
-    await expect(freshLocation("Clock Out")).rejects.toThrow(String(message));
+    await expect(freshLocation("Punch-Out")).rejects.toThrow(String(message));
   });
 
   it("reports unsupported geolocation", async () => {
@@ -108,8 +108,10 @@ describe("attendance geofence", () => {
   });
 
   it("keeps permission, outside-geofence, and accuracy messages separate", () => {
-    expect(locationError({ code: 1 }, "Clock In")).toContain("Clock In");
+    expect(locationError({ code: 1 }, "Punch-In")).toContain("Punch-In");
     expect(attendanceRpcError("You are 250 metres from the office. Attendance is available within 100 metres.")).toBe(outsideGeofenceMessage);
+    expect(attendanceRpcError("Clock-in is unavailable on a company holiday")).toBe("Punch-In is unavailable on a company holiday");
+    expect(attendanceRpcError("Clock out is unavailable")).toBe("Punch-Out is unavailable");
     expect(inaccurateLocationError(75)).not.toBe(outsideGeofenceMessage);
   });
 });
