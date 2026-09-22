@@ -101,8 +101,8 @@ test("Assistant Manager receives its authorized signed profile photo in Teams", 
   await assertNoRawDatabaseError(page);
 });
 
-test("General Manager creates, reloads, and logically archives a custom group", async ({ page }) => {
-  test.setTimeout(120_000);
+test("General Manager creates, manages the photo lifecycle, and logically archives a custom group", async ({ page, browser }) => {
+  test.setTimeout(180_000);
   await login(page, "general_manager");
   await navigateAfterLogin(page, "/admin/chat");
   const marker = `E2 QA Group ${Date.now()}`;
@@ -114,8 +114,8 @@ test("General Manager creates, reloads, and logically archives a custom group", 
   await dialog.getByLabel("Group name").fill(marker);
   const people = dialog.locator(".chat-people-list>button");
   await expect(people.first()).toBeVisible();
-  await people.nth(0).click();
-  await people.nth(1).click();
+  await people.filter({ hasText: "A QA Employee With An Exceptionally Long Name For Mobile Layout" }).first().click();
+  await people.filter({ hasText: "QA Teams Assistant Manager" }).first().click();
   await expect(dialog.locator(".chat-selected-members>button")).toHaveCount(2);
   await expect(submit).toBeEnabled();
   await submit.click();
@@ -130,6 +130,49 @@ test("General Manager creates, reloads, and logically archives a custom group", 
   const addPhoto = page.getByRole("button", { name: "Add photo", exact: true });
   await expect(addPhoto).toBeVisible();
   if (page.viewportSize()!.width <= 760) expect((await addPhoto.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jK1sAAAAASUVORK5CYII=", "base64");
+  await page.getByLabel("Choose group photo").setInputFiles({ name: "group-one.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByRole("button", { name: "Change photo", exact: true })).toBeVisible({ timeout: 30_000 });
+  const firstDetailPhoto = page.locator('.chat-detail-summary-avatar[data-avatar-source="profile"] img');
+  await expect(firstDetailPhoto).toBeVisible();
+  const firstPhotoUrl = await firstDetailPhoto.getAttribute("src");
+  await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+  await expect(page.locator('.chat-message-header .chat-avatar[data-avatar-source="profile"] img')).toBeVisible();
+  await openConversationList(page);
+  const photographed = page.locator(".chat-conversation").filter({ hasText: marker });
+  await expect(photographed.locator('.chat-avatar[data-avatar-source="profile"] img')).toBeVisible();
+  await photographed.click();
+  await page.reload();
+  await openConversationList(page);
+  const reloaded = page.locator(".chat-conversation").filter({ hasText: marker });
+  await expect(reloaded.locator('.chat-avatar[data-avatar-source="profile"] img')).toBeVisible({ timeout: 30_000 });
+  await reloaded.click();
+  await page.getByRole("button", { name: "Conversation details", exact: true }).click();
+  await page.getByLabel("Choose group photo").setInputFiles({ name: "group-two.png", mimeType: "image/png", buffer: png });
+  await expect.poll(() => page.locator('.chat-detail-summary-avatar[data-avatar-source="profile"] img').getAttribute("src")).not.toBe(firstPhotoUrl);
+  await expect.poll(async () => (await fixtureAdmin.storage.from("group-photos").list(`groups/${(await fixtureAdmin.from("chat_conversations").select("id").eq("title", marker).single()).data!.id}`)).data?.length).toBe(1);
+  await page.getByRole("button", { name: "Remove photo", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Add photo", exact: true })).toBeVisible();
+  await expect(page.locator('.chat-detail-summary-avatar[data-avatar-source="initials"]')).toBeVisible();
+  const groupRecord = await fixtureAdmin.from("chat_conversations").select("id,avatar_path").eq("title", marker).single();
+  if (groupRecord.error) throw groupRecord.error;
+  expect(groupRecord.data.avatar_path).toBeNull();
+  await expect.poll(async () => (await fixtureAdmin.storage.from("group-photos").list(`groups/${groupRecord.data.id}`)).data?.length).toBe(0);
+
+  const memberContext = await browser.newContext({ baseURL: process.env.BSMILE_QA_BASE_URL, viewport: page.viewportSize()! });
+  try {
+    const memberPage = await memberContext.newPage();
+    await login(memberPage, "assistant_manager", { reuseState: false });
+    await navigateAfterLogin(memberPage, "/employee/chat");
+    await openConversationList(memberPage);
+    await memberPage.locator(".chat-conversation").filter({ hasText: marker }).click();
+    await memberPage.getByRole("button", { name: "Conversation details", exact: true }).click();
+    await expect(memberPage.getByRole("button", { name: "Add photo", exact: true })).toHaveCount(0);
+    await expect(memberPage.getByRole("button", { name: "Change photo", exact: true })).toHaveCount(0);
+    await expect(memberPage.getByRole("button", { name: "Remove photo", exact: true })).toHaveCount(0);
+  } finally {
+    await memberContext.close();
+  }
   await expect(page.locator(".chat-member").filter({ hasText: "Admin" })).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.getByRole("button", { name: "Back to conversation", exact: true }).click();

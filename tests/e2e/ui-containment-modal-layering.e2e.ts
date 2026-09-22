@@ -3,7 +3,7 @@ import { login, navigateAfterLogin } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(90_000);
-  await login(page, 'assistant_manager');
+  await login(page, 'general_manager');
 });
 
 test('Clients keeps its wide table inside a local horizontal scroll region', async ({ page }) => {

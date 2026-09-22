@@ -160,7 +160,7 @@ test('active Outdoor Marketing lookup reaches management create and filter surfa
   await page.getByRole('button', { name: 'Add lead', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Add lead' })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Outdoor Marketing' })).toHaveCount(2);
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Close Add lead dialog', exact: true }).click();
 
   await navigateAfterLogin(page, '/admin/crm/sales');
   await expect(page.getByRole('option', { name: 'Outdoor Marketing' })).toHaveCount(1);
