@@ -307,9 +307,15 @@ export function employeeRouteRequirement(
     );
   if (path.startsWith("/employee/assigned-patients"))
     return anyOf("patients.view_assigned");
-  if (path === "/employee/patients") return anyOf("patients.view", "patients.view_all");
+  if (path === "/employee/patients")
+    return anyOf("patients.view", "patients.view_all", "patients.view_identity");
   if (path.startsWith("/employee/patients"))
-    return anyOf("patients.view", "patients.view_assigned", "patients.view_all");
+    return anyOf(
+      "patients.view",
+      "patients.view_assigned",
+      "patients.view_all",
+      "patients.view_identity",
+    );
   if (path.startsWith("/employee/crm/import")) return anyOf("crm.import");
   if (path.startsWith("/employee/crm/sales"))
     return anyOf("crm.view_team", "crm.manage_all", "sales.view");
@@ -318,6 +324,7 @@ export function employeeRouteRequirement(
       "crm.view_assigned",
       "crm.view_team",
       "crm.manage_all",
+      "leads.view_all",
       "leads.view",
     );
   if (path.startsWith("/employee/dashboard")) return anyOf("dashboard.view");
@@ -483,17 +490,32 @@ export const adminNavigation: readonly NavigationGroup[] = [
       {
         label: "CRM Dashboard",
         href: "/admin/crm",
-        requirement: anyOf("crm.manage_all", "crm.view_team", "leads.view"),
+        requirement: anyOf(
+          "crm.manage_all",
+          "crm.view_team",
+          "leads.view_all",
+          "leads.view",
+        ),
       },
       {
         label: "Leads Management",
         href: "/admin/crm/leads",
-        requirement: anyOf("crm.manage_all", "crm.view_team", "leads.view"),
+        requirement: anyOf(
+          "crm.manage_all",
+          "crm.view_team",
+          "leads.view_all",
+          "leads.view",
+        ),
       },
       {
         label: "Follow-ups",
         href: "/admin/crm/follow-ups",
-        requirement: anyOf("crm.manage_all", "crm.view_team", "leads.view"),
+        requirement: anyOf(
+          "crm.manage_all",
+          "crm.view_team",
+          "leads.view_all",
+          "leads.view",
+        ),
       },
       {
         label: "Import Leads",
@@ -636,7 +658,11 @@ export const employeeNavigation: readonly NavigationGroup[] = [
         label: "Clients",
         href: "/employee/patients",
         activeHrefs: ["/admin/patients"],
-        requirement: anyOf("patients.view", "patients.view_all"),
+        requirement: anyOf(
+          "patients.view",
+          "patients.view_all",
+          "patients.view_identity",
+        ),
       },
       {
         label: "Assigned Clients",
@@ -742,6 +768,7 @@ export const employeeNavigation: readonly NavigationGroup[] = [
             "crm.view_assigned",
             "crm.view_team",
             "crm.manage_all",
+            "leads.view_all",
             "leads.view",
             "sales.view",
           ],
@@ -756,6 +783,7 @@ export const employeeNavigation: readonly NavigationGroup[] = [
             "crm.view_assigned",
             "crm.view_team",
             "crm.manage_all",
+            "leads.view_all",
             "leads.view",
           ],
           ["admin.shell"],
@@ -774,6 +802,7 @@ export const employeeNavigation: readonly NavigationGroup[] = [
             "crm.view_assigned",
             "crm.view_team",
             "crm.manage_all",
+            "leads.view_all",
             "leads.view",
           ],
           ["admin.shell"],

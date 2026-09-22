@@ -1,10 +1,10 @@
 export const permissionCatalogue = [
   'admin.access','admin.shell','employees.view','employees.manage','employees.create','employees.edit','employees.status.manage','attendance.view_self','attendance.view_team','attendance.manage',
   'leave.request','leave.review','tasks.view_self','tasks.view','tasks.create','tasks.manage','tasks.edit','tasks.complete','tasks.reassign','tasks.assign','tasks.manage_access','documents.view','documents.manage',
-  'announcements.view','announcements.manage','notifications.view','chat.use','crm.view_assigned','crm.view_team',
+  'announcements.view','announcements.manage','notifications.view','chat.use','crm.view_assigned','crm.view_team','leads.view_all',
   'crm.manage_all','crm.import','finance.view','finance.manage','payroll.view','payroll.manage','invoices.view',
   'invoices.manage','reports.view','roles.manage','permissions.manage','audit.view','settings.manage',
-  'patients.view','patients.view_all','patients.create','patients.edit','patients.assign','patients.archive',
+  'patients.view','patients.view_all','patients.view_identity','patients.create','patients.edit','patients.assign','patients.archive',
   'patient_documents.view','patient_documents.upload','patient_documents.download','patient_documents.replace','patient_documents.archive','patient_documents.delete',
   'patient_notes.view','patient_notes.create','patient_notes.edit','patient_notes.delete',
   'clinical_notes.view','clinical_notes.create','clinical_notes.edit','clinical_notes.delete','patient_activity.view',

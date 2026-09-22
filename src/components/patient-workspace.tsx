@@ -31,37 +31,55 @@ export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: 
   const [unavailable, setUnavailable] = useState(false);
   const [staff, setStaff] = useState<any[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [canViewCareWorkspace, setCanViewCareWorkspace] = useState(false);
 
   const load = async () => {
     setUnavailable(false);
-    const patientQuery = db.from('patients').select('*,assigned:profiles!patients_assigned_psychologist_id_fkey(full_name)').is('deleted_at', null);
+    const codes = ['patients.edit', 'patients.assign', 'patient_sessions.create', 'patient_notes.create', 'clinical_notes.create', 'patient_documents.upload', 'patient_documents.download'];
+    const permissionResults = await Promise.all(codes.map(code => db.rpc('has_permission', { permission_code: code })));
+    const nextPerms = Object.fromEntries(codes.map((code, i) => [code, !!permissionResults[i].data]));
+    setPerms(nextPerms);
+
+    const identityFields = 'id,patient_number,full_name,date_of_birth,gender,phone,email,address,nationality,preferred_language,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,source,status,slug,is_demo,created_at';
+    const patientQuery = db.from('patients').select(identityFields).is('deleted_at', null);
     const patientResult = isUuid(patientSlug) ? await patientQuery.eq('id', patientSlug).single() : await patientQuery.eq('slug', patientSlug).single();
     if (patientResult.error || !patientResult.data) { setP(null); setUnavailable(true); return; }
-    const patient = patientResult.data;
+    let patient = patientResult.data;
     if (isUuid(patientSlug) && patient.slug) {
       window.location.replace(`${basePath}/${patient.slug}`);
       return;
     }
     const patientId = patient.id;
-    const [b, c, d, e] = await Promise.all([
-      db.from('patient_sessions').select('*').eq('patient_id', patientId).order('appointment_at', { ascending: false }),
-      db.from('patient_notes').select('*,author:profiles!patient_notes_created_by_fkey(full_name)').eq('patient_id', patientId).order('created_at', { ascending: false }),
-      db.from('patient_documents').select('*').eq('patient_id', patientId).is('deleted_at', null).order('uploaded_at', { ascending: false }),
-      db.from('patient_activity_logs').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
-    ]);
+    const careResult = await db.rpc('patient_care_access', { patient: patientId });
+    const hasCareAccess = !!careResult.data;
+    setCanViewCareWorkspace(hasCareAccess);
+
+    if (hasCareAccess) {
+      const [fullPatient, b, c, d, e] = await Promise.all([
+        db.from('patients').select('*,assigned:profiles!patients_assigned_psychologist_id_fkey(full_name)').eq('id', patientId).single(),
+        db.from('patient_sessions').select('*').eq('patient_id', patientId).order('appointment_at', { ascending: false }),
+        db.from('patient_notes').select('*,author:profiles!patient_notes_created_by_fkey(full_name)').eq('patient_id', patientId).order('created_at', { ascending: false }),
+        db.from('patient_documents').select('*').eq('patient_id', patientId).is('deleted_at', null).order('uploaded_at', { ascending: false }),
+        db.from('patient_activity_logs').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
+      ]);
+      if (fullPatient.data) patient = fullPatient.data;
+      setSessions(b.data || []);
+      setNotes(c.data || []);
+      setDocs(d.data || []);
+      setActivity(e.data || []);
+    } else {
+      setSessions([]);
+      setNotes([]);
+      setDocs([]);
+      setActivity([]);
+      setTab('Overview');
+    }
     setP(patient);
-    setSessions(b.data || []);
-    setNotes(c.data || []);
-    setDocs(d.data || []);
-    setActivity(e.data || []);
-    const codes = ['patients.edit', 'patients.assign', 'patient_sessions.create', 'patient_notes.create', 'clinical_notes.create', 'patient_documents.upload', 'patient_documents.download'];
-    const results = await Promise.all(codes.map(code => db.rpc('has_permission', { permission_code: code })));
-    setPerms(Object.fromEntries(codes.map((code, i) => [code, !!results[i].data])));
-    if (results[1].data) {
+    if (permissionResults[1].data && hasCareAccess) {
       const { data } = await db.from('profiles').select('id,full_name').eq('is_employee', true).eq('workforce_visible', true).neq('role', 'director').in('status', operationalEmployeeStatuses).order('full_name');
       setStaff(data || []);
     }
-    if (params.get('edit') === '1' && results[0].data) setForm('patient');
+    if (params.get('edit') === '1' && permissionResults[0].data && hasCareAccess) setForm('patient');
   };
 
   useEffect(() => { void load(); }, [patientSlug]);
@@ -127,19 +145,29 @@ export function PatientWorkspace({ patientSlug, basePath = '/admin/patients' }: 
   const action = (permission: string, label: string, key: string) => perms[permission] && <button className="rounded bg-slate-900 px-3 py-2 text-sm text-white" type="button" onClick={() => form === key ? closeForm() : setForm(key)}>{label}</button>;
   const legacySource = isLegacyPatientSource(p.source) ? String(p.source) : '';
   const editFields = [['full_name', 'Full name'], ['phone', 'Phone'], ['email', 'Email'], ['date_of_birth', 'Date of birth'], ['nationality', 'Nationality'], ['preferred_language', 'Preferred language'], ['emergency_contact_name', 'Emergency contact name'], ['emergency_contact_phone', 'Emergency phone']];
+  const overviewFields = [
+    ['Phone', p.phone],
+    ['Email', p.email],
+    ['Gender', genderLabel(p.gender)],
+    ['Source', patientSourceLabel(p.source)],
+    ...(canViewCareWorkspace ? [['Assigned clinician', p.assigned?.full_name]] : []),
+    ['Address', p.address],
+    ['Nationality', p.nationality],
+    ['Language', p.preferred_language],
+  ];
 
   return <section className="patient-workspace min-w-0 max-w-full space-y-5">
-    <div className="card flex flex-wrap justify-between gap-4 p-5"><div className="min-w-0 flex-1 basis-60"><h1 className="text-2xl font-bold [overflow-wrap:anywhere]">{p.full_name} {p.is_demo && <span className="inline-block rounded bg-amber-100 px-2 py-1 text-xs text-amber-800">Demo</span>}</h1><p className="text-slate-600 [overflow-wrap:anywhere]">{p.patient_number} - {p.status}</p></div><div className="flex max-w-full flex-wrap items-start gap-2">{action('patients.edit', 'Edit Client', 'patient')}<button className="rounded border px-3 py-2 text-sm" type="button" onClick={() => setForm('more')}>More actions</button></div></div>
+    <div className="card flex flex-wrap justify-between gap-4 p-5"><div className="min-w-0 flex-1 basis-60"><h1 className="text-2xl font-bold [overflow-wrap:anywhere]">{p.full_name} {p.is_demo && <span className="inline-block rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Demo</span>}</h1><p className="text-slate-600 [overflow-wrap:anywhere]">{p.patient_number} - {p.status}</p></div>{canViewCareWorkspace && <div className="flex max-w-full flex-wrap items-start gap-2">{action('patients.edit', 'Edit Client', 'patient')}<button className="rounded border px-3 py-2 text-sm" type="button" onClick={() => setForm('more')}>More actions</button></div>}</div>
     {message && <p role="status" aria-live="polite" className="rounded bg-slate-100 p-3 text-sm">{message}</p>}
-    <div className="flex gap-2 overflow-x-auto border-b">{['Overview', 'Appointments', 'Sessions', 'Documents', 'Notes', 'Activity'].map(x => <button key={x} type="button" onClick={() => { setTab(x); setForm(''); }} className={`px-3 py-2 ${tab === x ? 'border-b-2 border-slate-900 font-bold' : ''}`}>{x}</button>)}</div>
-    {tab === 'Overview' && <><div className="flex justify-end">{action('patients.edit', 'Edit patient', 'patient')}</div>{form === 'patient' && <form className="card grid gap-3 p-4 md:grid-cols-2" onChange={() => setHasUnsavedChanges(true)} onSubmit={event => save('patient', event)}>
+    <div className="flex gap-2 overflow-x-auto border-b">{(canViewCareWorkspace ? ['Overview', 'Appointments', 'Sessions', 'Documents', 'Notes', 'Activity'] : ['Overview']).map(x => <button key={x} type="button" onClick={() => { setTab(x); setForm(''); }} className={`px-3 py-2 ${tab === x ? 'border-b-2 border-slate-900 font-bold' : ''}`}>{x}</button>)}</div>
+    {tab === 'Overview' && <><div className="flex justify-end">{canViewCareWorkspace && action('patients.edit', 'Edit patient', 'patient')}</div>{canViewCareWorkspace && form === 'patient' && <form className="card grid gap-3 p-4 md:grid-cols-2" onChange={() => setHasUnsavedChanges(true)} onSubmit={event => save('patient', event)}>
       {editFields.map(([name, label]) => <label key={name}>{label}<input name={name} defaultValue={p[name] || ''} type={name === 'date_of_birth' ? 'date' : 'text'} className="mt-1 w-full rounded border p-2" /></label>)}
       <label>Gender<select name="gender" required defaultValue={normalizeGender(p.gender)} className="mt-1 w-full rounded border p-2"><option value="" disabled>Select gender</option>{genderOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
       <label>Source<select name="source" required defaultValue={normalizePatientSource(p.source) || legacySource} className="mt-1 w-full rounded border p-2"><option value="" disabled>Select source</option>{legacySource && <option value={legacySource}>Legacy: {legacySource}</option>}{patientSourceOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
       <label>Status<select name="status" defaultValue={p.status || 'active'} className="mt-1 w-full rounded border p-2">{statuses.map(status => <option value={status} key={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}</select></label>
       {perms['patients.assign'] && <label>Assigned clinician<select name="assigned_psychologist_id" defaultValue={p.assigned_psychologist_id || ''} className="mt-1 w-full rounded border p-2"><option value="">Unassigned</option>{staff.map(person => <option value={person.id} key={person.id}>{person.full_name}</option>)}</select></label>}
       <label className="md:col-span-2">Address<textarea name="address" defaultValue={p.address || ''} className="mt-1 w-full rounded border p-2" /></label><div className="flex gap-3"><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white disabled:opacity-60" disabled={saving === 'patient'}>{saving === 'patient' ? 'Saving...' : 'Save patient'}</button><button className="rounded border px-3 py-2" type="button" onClick={closeForm} disabled={saving === 'patient'}>Cancel</button></div>
-    </form>}<div className="card grid gap-3 p-5 md:grid-cols-2">{[['Phone', p.phone], ['Email', p.email], ['Gender', genderLabel(p.gender)], ['Source', patientSourceLabel(p.source)], ['Assigned clinician', p.assigned?.full_name], ['Address', p.address], ['Nationality', p.nationality], ['Language', p.preferred_language]].map(([label, value]) => <div key={label as string}><small className="text-slate-500">{label}</small><p>{value || '-'}</p></div>)}</div></>}
+    </form>}<div className="card grid gap-3 p-5 md:grid-cols-2">{overviewFields.map(([label, value]) => <div key={label as string}><small className="text-slate-500">{label}</small><p>{value || '-'}</p></div>)}</div></>}
     {tab === 'Sessions' && <Tab title="Sessions" action={action('patient_sessions.create', 'Add Session', 'session')} form={form === 'session' && <form className="card grid gap-3 p-4 md:grid-cols-2" onSubmit={event => save('session', event)}><label>Date & time<input required name="appointment_at" type="datetime-local" className="mt-1 w-full rounded border p-2" /></label><label>Type<select name="session_type" className="mt-1 w-full rounded border p-2">{types.map(x => <option key={x}>{x}</option>)}</select></label><label>Duration (minutes)<input required min="0" name="duration_minutes" type="number" defaultValue="45" className="mt-1 w-full rounded border p-2" /></label><label>Status<select name="attendance_status" className="mt-1 w-full rounded border p-2">{['scheduled', 'completed', 'cancelled', 'no_show', 'rescheduled'].map(x => <option key={x}>{x}</option>)}</select></label><label>Session number<input name="session_number" type="number" min="1" className="mt-1 w-full rounded border p-2" /></label><label>Follow-up<input name="follow_up_at" type="date" className="mt-1 w-full rounded border p-2" /></label><label className="md:col-span-2">Administrative summary<textarea name="administrative_summary" className="mt-1 w-full rounded border p-2" /></label><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white" disabled={saving === 'session'}>{saving === 'session' ? 'Saving...' : 'Save session'}</button></form>} rows={sessions} empty="No sessions have been added yet." render={x => <><b>{new Date(x.appointment_at).toLocaleString()}</b> - {x.session_type}<p>{x.attendance_status} - {x.duration_minutes} minutes</p></>} />}
     {tab === 'Appointments' && <PatientAppointmentsSection patientId={p.id} scheduleBasePath={basePath.startsWith('/employee') ? '/employee/doctor-scheduling' : '/admin/doctor-scheduling'} />}
     {tab === 'Notes' && <Tab title="Notes" action={action('patient_notes.create', 'Add Note', 'note')} form={form === 'note' && <form className="card grid gap-3 p-4" onSubmit={event => save('note', event)}><label>Type<select name="note_type" className="mt-1 w-full rounded border p-2"><option value="administrative">Administrative</option>{perms['clinical_notes.create'] && <option value="clinical">Clinical</option>}</select></label><label>Visibility<input name="visibility" defaultValue="general_staff" className="mt-1 w-full rounded border p-2" /></label><label>Note<textarea required name="content" className="mt-1 w-full rounded border p-2" /></label><button className="w-fit rounded bg-slate-900 px-3 py-2 text-white" disabled={saving === 'note'}>{saving === 'note' ? 'Saving...' : 'Save note'}</button></form>} rows={notes} empty="No notes have been added yet." render={x => <><b className="capitalize">{x.note_type}</b> - {x.author?.full_name || 'Staff'}<p>{x.content}</p></>} />}

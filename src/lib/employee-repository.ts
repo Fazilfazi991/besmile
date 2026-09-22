@@ -236,12 +236,11 @@ export const employeeRepository = {
     if (error) throw error;
     return data;
   },
-  async updateMyCrmLead(userId: string, id: string, patch: any) {
+  async updateMyCrmLead(_userId: string, id: string, patch: any) {
     const { data, error } = await required()
       .from("crm_leads")
       .update(patch)
       .eq("id", id)
-      .eq("assigned_to", userId)
       .select()
       .single();
     if (error) throw error;
