@@ -23,6 +23,30 @@ const fmtTime = (value: string | Date) => new Intl.DateTimeFormat('en', { timeZo
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const can = (permissions: Record<string, boolean>, ...codes: string[]) => codes.some(code => permissions[code]);
 const psychologistFee = (amount: unknown) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(amount));
+const linkedRecord = (value: any) => Array.isArray(value) ? value[0] : value;
+
+const payableState = (appointment: any) => {
+  const payable = linkedRecord(appointment.payable);
+  if (!payable) return 'Not generated';
+  return ({ scheduled: 'Scheduled', payment_due: 'Payment due', paid: 'Paid', on_hold: 'On hold', cancelled: 'Cancelled' } as Record<string, string>)[payable.status] || label(payable.status || 'Not generated');
+};
+
+const payableExplanation = (appointment: any) => {
+  const payable = linkedRecord(appointment.payable);
+  if (payable) {
+    if (payable.status === 'paid') return `Paid${payable.paid_at ? ` on ${fmtDate(payable.paid_at)}` : ''}.`;
+    if (payable.status === 'payment_due') return payable.due_date ? `Payment is due ${fmtDate(`${payable.due_date}T00:00:00Z`)}.` : 'Ready for settlement in Finance.';
+    if (payable.status === 'scheduled') return payable.due_date ? `Scheduled for ${fmtDate(`${payable.due_date}T00:00:00Z`)}.` : 'Scheduled for settlement in Finance.';
+    if (payable.status === 'on_hold') return 'Finance has placed this payment on hold.';
+    if (payable.status === 'cancelled') return 'This payment was cancelled.';
+  }
+  if (appointment.doctor?.clinician_type !== 'outsourced') return 'Staff psychologists are handled through payroll, so this appointment does not create a session payable.';
+  if (appointment.status !== 'completed') return 'Payment is generated only after an eligible outsourced appointment is completed.';
+  if (new Date(appointment.end_at) > new Date()) return 'Payment can be generated only after the appointment end time.';
+  if (Number(appointment.psychologist_fee_snapshot) === 0) return 'This appointment was recorded without a psychologist payout.';
+  if (appointment.psychologist_fee_snapshot == null) return 'Payment information is missing. Ask Finance to review the clinician payout setup.';
+  return 'Payment has not been generated. Ask Finance to review the clinician payout setup.';
+};
 
 export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, workspace = 'employee' }: { initialPatientId?: string; initialAppointmentId?: string; workspace?: 'admin' | 'employee' | 'clinician' }) {
   const [profile, setProfile] = useState<any>();
@@ -337,6 +361,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
 export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/admin/doctor-scheduling' }: { patientId: string; scheduleBasePath?: string }) {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any>();
   const [allowed, setAllowed] = useState(false);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [formOpen, setFormOpen] = useState(false);
@@ -489,14 +514,15 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
         <div className="form-actions"><button type="button" className="btn border" onClick={() => setFormOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={saving === 'form'}>{saving === 'form' ? 'Saving...' : 'Save'}</button></div>
       </form>
     </div>}
-    <AppointmentMiniList title="Upcoming appointments" rows={upcoming} actions={{ canUpdate, canReschedule, canCancel, canUpdateStatus, canDelete, saving, openForm, changeStatus, deleteAppointment }} />
-    <AppointmentMiniList title="Previous appointments" rows={previous} actions={{ canUpdate, canReschedule, canCancel, canUpdateStatus, canDelete, saving, openForm, changeStatus, deleteAppointment }} />
+    <AppointmentMiniList title="Upcoming appointments" rows={upcoming} onOpen={setSelected} actions={{ canUpdate, canReschedule, canCancel, canUpdateStatus, canDelete, saving, openForm, changeStatus, deleteAppointment }} />
+    <AppointmentMiniList title="Previous appointments" rows={previous} onOpen={setSelected} actions={{ canUpdate, canReschedule, canCancel, canUpdateStatus, canDelete, saving, openForm, changeStatus, deleteAppointment }} />
     <Link className="text-sm font-semibold text-teal-700" href={`${scheduleBasePath}?patient=${patientId}`}>Open Appointment & Scheduling</Link>
+    {selected && <AppointmentPanel appointment={selected} canUpdate={canUpdateStatus} canCancel={canCancel} canSubmitRecord={false} saving={saving === selected.id} onClose={() => setSelected(undefined)} onStatus={status => { setSelected(undefined); void changeStatus(selected, status); }} onSubmitRecord={() => undefined} onReschedule={() => { openForm('reschedule', selected); setSelected(undefined); }} />}
   </div>;
 }
 
-function AppointmentMiniList({ title, rows, actions }: { title: string; rows: any[]; actions?: any }) {
-  return <div className="card divide-y"><h3 className="p-4 text-sm font-bold">{title}</h3>{rows.length ? rows.map(item => <div className="patient-appointment-card p-4 text-sm" key={item.id}><div><b>{fmtDate(item.start_at)}</b><p>{fmtTime(item.start_at)} to {fmtTime(item.end_at)} - {item.doctor?.doctor_name || 'Doctor'}</p><small>{item.doctor?.specialization || 'Specialization'} - {label(item.consultation_type)}</small>{item.psychologist_fee_snapshot != null && <small>Appointment Fee: {psychologistFee(item.psychologist_fee_snapshot)}</small>}{item.remarks && <small>{item.remarks}</small>}</div><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge>{actions && <div className="patient-appointment-actions">{actions.canUpdate && <button type="button" onClick={() => actions.openForm('edit', item)} disabled={actions.saving === item.id}>Edit</button>}{actions.canReschedule && <button type="button" onClick={() => actions.openForm('reschedule', item)} disabled={actions.saving === item.id}>Reschedule</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'confirmed')} disabled={actions.saving === item.id}>Confirm</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'completed')} disabled={actions.saving === item.id}>Complete</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'no_show')} disabled={actions.saving === item.id}>No Show</button>}{actions.canCancel && <button type="button" onClick={() => actions.changeStatus(item, 'cancelled')} disabled={actions.saving === item.id}>Cancel</button>}{actions.canDelete && <button type="button" className="danger" onClick={() => actions.deleteAppointment(item)} disabled={actions.saving === item.id}>Delete</button>}</div>}</div>) : <p className="p-4 text-sm text-slate-500">No appointments.</p>}</div>;
+function AppointmentMiniList({ title, rows, onOpen, actions }: { title: string; rows: any[]; onOpen: (appointment: any) => void; actions?: any }) {
+  return <div className="card divide-y"><h3 className="p-4 text-sm font-bold">{title}</h3>{rows.length ? rows.map(item => <article className="patient-appointment-card p-4 text-sm" key={item.id}><button className="patient-appointment-summary" type="button" onClick={() => onOpen(item)} aria-label={`Open appointment details for ${fmtDate(item.start_at)} at ${fmtTime(item.start_at)}`}><span><b>{fmtDate(item.start_at)}</b><p>{fmtTime(item.start_at)} to {fmtTime(item.end_at)} - {item.doctor?.doctor_name || 'Doctor'}</p><small>{item.doctor?.specialization || 'Specialization'} - {label(item.consultation_type)}</small>{item.psychologist_fee_snapshot != null && <small>Appointment Fee: {psychologistFee(item.psychologist_fee_snapshot)}</small>}{item.remarks && <small>{item.remarks}</small>}</span><EmployeeStatusBadge tone={statusTones[item.status as AppointmentStatus]}>{statusLabels[item.status as AppointmentStatus]}</EmployeeStatusBadge></button>{actions && <div className="patient-appointment-actions">{actions.canUpdate && <button type="button" onClick={() => actions.openForm('edit', item)} disabled={actions.saving === item.id}>Edit</button>}{actions.canReschedule && <button type="button" onClick={() => actions.openForm('reschedule', item)} disabled={actions.saving === item.id}>Reschedule</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'confirmed')} disabled={actions.saving === item.id}>Confirm</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'completed')} disabled={actions.saving === item.id}>Complete</button>}{actions.canUpdateStatus && <button type="button" onClick={() => actions.changeStatus(item, 'no_show')} disabled={actions.saving === item.id}>No Show</button>}{actions.canCancel && <button type="button" onClick={() => actions.changeStatus(item, 'cancelled')} disabled={actions.saving === item.id}>Cancel</button>}{actions.canDelete && <button type="button" className="danger" onClick={() => actions.deleteAppointment(item)} disabled={actions.saving === item.id}>Delete</button>}</div>}</article>) : <p className="p-4 text-sm text-slate-500">No appointments.</p>}</div>;
 }
 
 function DoctorFieldError({ errors, name }: { errors: Record<string, string>; name: string }) {
@@ -570,7 +596,16 @@ function AppointmentGroups({ appointments, onOpen }: { appointments: any[]; onOp
 }
 
 function AppointmentPanel({ appointment, canUpdate, canCancel, canSubmitRecord, saving, onClose, onStatus, onSubmitRecord, onReschedule }: { appointment: any; canUpdate: boolean; canCancel: boolean; canSubmitRecord: boolean; saving: boolean; onClose: () => void; onStatus: (status: AppointmentStatus) => void; onSubmitRecord: () => void; onReschedule: () => void }) {
-  return <div className="doctor-panel-backdrop"><aside className="doctor-panel"><header><div><h2>{appointment.patient?.full_name || 'Client'}</h2><p>{appointment.doctor?.doctor_name || 'Psychologist'} - {fmtDate(appointment.start_at)}</p></div><button type="button" onClick={onClose}>Close</button></header><dl><div><dt>Time</dt><dd>{fmtTime(appointment.start_at)} to {fmtTime(appointment.end_at)}</dd></div><div><dt>Consultation</dt><dd>{label(appointment.consultation_type)}</dd></div><div><dt>Appointment Fee</dt><dd>{appointment.psychologist_fee_snapshot == null ? '-' : psychologistFee(appointment.psychologist_fee_snapshot)}</dd></div><div><dt>Status</dt><dd><EmployeeStatusBadge tone={statusTones[appointment.status as AppointmentStatus]}>{statusLabels[appointment.status as AppointmentStatus]}</EmployeeStatusBadge></dd></div><div><dt>Remarks</dt><dd>{appointment.remarks || '-'}</dd></div></dl><div className="panel-actions">{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('confirmed')}>Confirm</button>}{canUpdate && <button disabled={saving} type="button" onClick={onReschedule}>Reschedule</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('completed')}>Completed</button>}{canSubmitRecord && <button disabled={saving} type="button" onClick={onSubmitRecord}>Submit session record</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('no_show')}>No Show</button>}{canCancel && <button disabled={saving} type="button" className="danger" onClick={() => onStatus('cancelled')}>Cancel</button>}</div></aside></div>;
+  const sessionRecord = linkedRecord(appointment.session_record);
+  const payable = linkedRecord(appointment.payable);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    closeButton.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+  return <div className="doctor-panel-backdrop" role="dialog" aria-modal="true" aria-labelledby="appointment-detail-title"><aside className="doctor-panel"><header><div><h2 id="appointment-detail-title">{appointment.patient?.full_name || 'Client'}</h2><p>{appointment.doctor?.doctor_name || 'Psychologist'} - {fmtDate(appointment.start_at)}</p></div><button type="button" onClick={onClose} aria-label="Close appointment details" ref={closeButton}>Close</button></header><dl><div><dt>Time</dt><dd>{fmtTime(appointment.start_at)} to {fmtTime(appointment.end_at)}</dd></div><div><dt>Duration</dt><dd>{Math.max(1, Math.round((new Date(appointment.end_at).valueOf() - new Date(appointment.start_at).valueOf()) / 60000))} minutes</dd></div><div><dt>Consultation</dt><dd>{label(appointment.consultation_type)}</dd></div><div><dt>Appointment fee</dt><dd>{appointment.psychologist_fee_snapshot == null ? '-' : psychologistFee(appointment.psychologist_fee_snapshot)}</dd></div><div><dt>Appointment status</dt><dd><EmployeeStatusBadge tone={statusTones[appointment.status as AppointmentStatus]}>{statusLabels[appointment.status as AppointmentStatus]}</EmployeeStatusBadge></dd></div><div><dt>Session status</dt><dd>{sessionRecord ? 'Submitted' : appointment.doctor?.clinician_type === 'outsourced' ? 'No separate session record' : 'Not required for staff psychologist'}</dd></div><div className="appointment-payment-state"><dt>Psychologist payment</dt><dd><b>{payableState(appointment)}</b><small>{payableExplanation(appointment)}</small>{payable?.payable_amount != null && <small>{psychologistFee(payable.payable_amount)}</small>}</dd></div><div><dt>Remarks</dt><dd>{appointment.remarks || '-'}</dd></div></dl><div className="panel-actions">{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('confirmed')}>Confirm</button>}{canUpdate && <button disabled={saving} type="button" onClick={onReschedule}>Reschedule</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('completed')}>Completed</button>}{canSubmitRecord && <button disabled={saving} type="button" onClick={onSubmitRecord}>Submit session record</button>}{canUpdate && <button disabled={saving} type="button" onClick={() => onStatus('no_show')}>No Show</button>}{canCancel && <button disabled={saving} type="button" className="danger" onClick={() => onStatus('cancelled')}>Cancel</button>}</div></aside></div>;
 }
 
 function daysForView(cursor: string, view: 'day' | 'week' | 'month') {

@@ -14,4 +14,13 @@ describe('patient appointment profile UI', () => {
     expect(component).toContain('doctorSchedulingRepository.updateAppointment');
     expect(component).toContain('doctorSchedulingRepository.deleteAppointment');
   });
+
+  it('opens the existing appointment detail panel with keyboard semantics and lifecycle context', () => {
+    expect(component).toContain('className="patient-appointment-summary"');
+    expect(component).toContain('aria-label={`Open appointment details');
+    expect(component).toContain('role="dialog"');
+    expect(component).toContain('Session status');
+    expect(component).toContain('Psychologist payment');
+    expect(component).toContain('Staff psychologists are handled through payroll');
+  });
 });

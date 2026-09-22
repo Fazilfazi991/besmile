@@ -150,7 +150,7 @@ export const doctorSchedulingRepository = {
   },
 
   async appointments(filters: { from?: string; to?: string; doctorId?: string; patientId?: string; status?: string } = {}) {
-    let request = db().from('doctor_appointments').select('*,doctor:outsourced_doctors(*),patient:patients(id,full_name,patient_number,phone,slug),activity:doctor_appointment_activity(*)').is('deleted_at', null).order('start_at');
+    let request = db().from('doctor_appointments').select('*,doctor:outsourced_doctors(*),patient:patients(id,full_name,patient_number,phone,slug),activity:doctor_appointment_activity(*),session_record:psychologist_session_records(id,submitted_at),payable:psychologist_session_payables(id,status,payable_amount,due_date,paid_at,finance_transaction_id)').is('deleted_at', null).order('start_at');
     if (filters.from) request = request.gte('start_at', filters.from.includes('T') ? filters.from : dateStart(filters.from));
     if (filters.to) request = request.lte('start_at', filters.to.includes('T') ? filters.to : dateEnd(filters.to));
     if (filters.doctorId) request = request.eq('doctor_id', filters.doctorId);
