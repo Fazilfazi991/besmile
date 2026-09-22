@@ -14,12 +14,13 @@ const gitAuthorEmail = spawnSync('git', ['log', '-1', '--format=%ae'], { encodin
 const authorizedCommitAuthor = approvedDeployAuthorEmails.includes(gitAuthorEmail);
 
 const requiredEnvironment = [
-  'BSMILE_QA_BASE_URL', 'BSMILE_QA_SUPABASE_URL', 'BSMILE_QA_SUPABASE_ANON_KEY', 'BSMILE_QA_PROJECT_REF',
+  'BSMILE_QA_BASE_URL', 'BSMILE_QA_SUPABASE_URL', 'BSMILE_QA_SUPABASE_ANON_KEY', 'BSMILE_QA_SUPABASE_SERVICE_ROLE_KEY', 'BSMILE_QA_PROJECT_REF',
   'BSMILE_QA_ADMIN_EMAIL', 'BSMILE_QA_ADMIN_PASSWORD',
   'BSMILE_QA_GENERAL_MANAGER_EMAIL', 'BSMILE_QA_GENERAL_MANAGER_PASSWORD',
   'BSMILE_QA_DIRECTOR_EMAIL', 'BSMILE_QA_DIRECTOR_PASSWORD',
   'BSMILE_QA_MANAGER_EMAIL', 'BSMILE_QA_MANAGER_PASSWORD',
   'BSMILE_QA_EMPLOYEE_EMAIL', 'BSMILE_QA_EMPLOYEE_PASSWORD',
+  'BSMILE_QA_ASSISTANT_MANAGER_EMAIL', 'BSMILE_QA_ASSISTANT_MANAGER_PASSWORD',
 ];
 const missingEnvironment = requiredEnvironment.filter(name => !process.env[name]);
 const productionRef = 'ksmqzxncdvuxiabypjth';

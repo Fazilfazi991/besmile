@@ -5,10 +5,7 @@ import { assertNoRawDatabaseError, credentials, login, navigateAfterLogin } from
 let fixtureAdmin: SupabaseClient;
 let assistantId: string | undefined;
 let assistantPhotoPath: string | undefined;
-const scopedAssistantCredentials = {
-  email: process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL,
-  password: process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD,
-};
+let assistantOriginalPhoto: string | null = null;
 
 test.beforeAll(async () => {
   const url = process.env.BSMILE_QA_SUPABASE_URL!;
@@ -16,20 +13,14 @@ test.beforeAll(async () => {
   const serviceKey = process.env.BSMILE_QA_SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) throw new Error("QA provisioning credential missing");
   fixtureAdmin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const email = `teams-assistant-${crypto.randomUUID()}@qa.bsmile.local`;
-  const password = `${crypto.randomUUID()}Aa9!`;
-  const created = await fixtureAdmin.auth.admin.createUser({ email, password, email_confirm: true });
-  if (created.error || !created.data.user) throw new Error("Could not provision QA Teams Assistant Manager");
-  assistantId = created.data.user.id;
-  const profile = await fixtureAdmin.from("profiles").upsert({ id: assistantId, email, full_name: "QA Teams Assistant Manager", role: "staff", designation: "Assistant Manager", status: "active", is_employee: true, workforce_visible: true });
-  if (profile.error) throw new Error("Could not provision QA Teams Assistant Manager profile");
-  process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = email;
-  process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = password;
-
   const assistant = createClient(url, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-  const signedIn = await assistant.auth.signInWithPassword({ email, password });
-  if (signedIn.error) throw new Error("Could not sign in QA Teams Assistant Manager");
-  assistantPhotoPath = `${assistantId}/teams-e2-avatar.png`;
+  const signedIn = await assistant.auth.signInWithPassword(credentials("assistant_manager"));
+  if (signedIn.error || !signedIn.data.user) throw new Error("Could not sign in QA Assistant Manager");
+  assistantId = signedIn.data.user.id;
+  const profile = await fixtureAdmin.from("profiles").select("avatar_url").eq("id", assistantId).single();
+  if (profile.error) throw new Error("Could not load the QA Assistant Manager profile");
+  assistantOriginalPhoto = profile.data.avatar_url;
+  assistantPhotoPath = `${assistantId}/teams-e2-avatar-${crypto.randomUUID()}.png`;
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jK1sAAAAASUVORK5CYII=", "base64");
   const uploaded = await assistant.storage.from("profile-photos").upload(assistantPhotoPath, png, { contentType: "image/png", upsert: true });
   if (uploaded.error) throw new Error("Could not upload QA Teams profile photo");
@@ -45,13 +36,11 @@ test.afterAll(async () => {
     const archived = await fixtureAdmin.from("chat_conversations").update({ archived_at: new Date().toISOString(), archived_by: group.group_admin_id }).eq("id", group.id);
     if (archived.error) throw new Error("Disposable Teams group cleanup failed");
   }
-  if (assistantPhotoPath) await fixtureAdmin.storage.from("profile-photos").remove([assistantPhotoPath]);
   if (assistantId) {
-    const removed = await fixtureAdmin.auth.admin.deleteUser(assistantId);
-    if (removed.error) throw new Error("Disposable QA Teams Assistant Manager cleanup failed");
+    const restored = await fixtureAdmin.from("profiles").update({ avatar_url: assistantOriginalPhoto }).eq("id", assistantId);
+    if (restored.error) throw new Error("QA Assistant Manager photo restoration failed");
   }
-  delete process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL;
-  delete process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD;
+  if (assistantPhotoPath) await fixtureAdmin.storage.from("profile-photos").remove([assistantPhotoPath]);
 });
 
 const chatPath = (role: "employee" | "general_manager" | "assistant_manager") => role === "general_manager" ? "/admin/chat" : "/employee/chat";
@@ -101,7 +90,7 @@ test("Assistant Manager receives its authorized signed profile photo in Teams", 
   await page.route("**/storage/v1/object/sign/profile-photos/**", route => route.request().method() === "GET" ? route.abort() : route.continue());
   await page.reload();
   await page.getByRole("button", { name: "Conversation details", exact: true }).click();
-  await expect(page.locator('.chat-member .chat-avatar[data-avatar-source="initials"] [aria-label="QA Teams Assistant Manager initials"]')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.chat-member .chat-avatar[data-avatar-source="initials"] [aria-label="QA Assistant Manager initials"]')).toBeVisible({ timeout: 30_000 });
   await assertNoRawDatabaseError(page);
 });
 
@@ -170,17 +159,7 @@ test("General Manager creates, manages the photo lifecycle, and logically archiv
   const memberContext = await browser.newContext({ baseURL: process.env.BSMILE_QA_BASE_URL, viewport: page.viewportSize()! });
   try {
     const memberPage = await memberContext.newPage();
-    if (!scopedAssistantCredentials.email || !scopedAssistantCredentials.password) throw new Error("Scoped Assistant Manager fixture unavailable");
-    const disposableEmail = process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL;
-    const disposablePassword = process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD;
-    process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = scopedAssistantCredentials.email;
-    process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = scopedAssistantCredentials.password;
-    try {
-      await login(memberPage, "assistant_manager", { reuseState: false });
-    } finally {
-      process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = disposableEmail;
-      process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = disposablePassword;
-    }
+    await login(memberPage, "assistant_manager", { reuseState: false });
     await navigateAfterLogin(memberPage, "/employee/chat");
     await openConversationList(memberPage);
     await memberPage.locator(".chat-conversation").filter({ hasText: marker }).click();
