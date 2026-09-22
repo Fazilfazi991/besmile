@@ -21,6 +21,14 @@ export type CrmDashboardSummary = {
   expenses: number;
 };
 
+export function crmConversionRate(summary: Pick<CrmDashboardSummary, 'periodLeads' | 'converted'>) {
+  return summary.periodLeads ? (summary.converted / summary.periodLeads) * 100 : 0;
+}
+
+export function formatCrmConversionRate(summary: Pick<CrmDashboardSummary, 'periodLeads' | 'converted'>) {
+  return `${Math.round(crmConversionRate(summary))}%`;
+}
+
 const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
 const responseError = 'CRM dashboard data could not be verified. Refresh and try again.';
 

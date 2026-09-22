@@ -11,6 +11,7 @@ import {
   CrmDashboardPeriod,
   CrmDashboardSummary,
   CrmDateRange,
+  formatCrmConversionRate,
   currentCrmBusinessDate,
   crmDashboardPeriodRange,
   formatCrmRangeLabel,
@@ -194,7 +195,7 @@ export default function CrmDashboard() {
     { label: "New Leads", value: summary?.periodLeads, context: rangeLabel },
     { label: "Open Follow-ups", value: summary ? summary.followups.due + summary.followups.overdue : undefined, context: `Current queue · as of ${today}` },
     { label: "Converted Clients", value: summary?.converted, context: rangeLabel },
-    { label: "Conversion Rate", value: summary ? `${summary.periodLeads ? Math.round((summary.converted / summary.periodLeads) * 100) : 0}%` : undefined, context: rangeLabel },
+    { label: "Conversion Rate", value: summary ? formatCrmConversionRate(summary) : undefined, context: rangeLabel },
   ];
 
   return (
