@@ -19,6 +19,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
   const [error, setError] = useState('');
   const [canEdit, setCanEdit] = useState(false);
   const [identityOnly, setIdentityOnly] = useState(false);
+  const [scopeReady, setScopeReady] = useState(false);
 
   const load = async (value = query, identityOnlyOverride = identityOnly) => {
     const fields = identityOnlyOverride
@@ -48,6 +49,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
       setCanEdit(!!results[0].data && !onlyIdentity);
       setIdentityOnly(onlyIdentity);
       await load('', onlyIdentity);
+      setScopeReady(true);
     })();
   }, []);
 
@@ -56,13 +58,13 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
       <div><h1 className="text-2xl font-bold">{title}</h1><p className="text-slate-600">{description}</p></div>
       {canCreate && <a className="rounded bg-slate-900 px-4 py-2 text-white" href="/admin/patients/new">Add client</a>}
     </div>
-    <form className="card flex min-w-0 flex-wrap gap-3 p-4" onSubmit={event => { event.preventDefault(); void load(); }}>
+    <form className="card flex min-w-0 flex-wrap gap-3 p-4" onSubmit={event => { event.preventDefault(); if (scopeReady) void load(query, identityOnly); }}>
       <input aria-label="Search clients" className="min-w-0 rounded border p-2" placeholder="Name, ID, phone or email" value={query} onChange={event => setQuery(event.target.value)} />
       <select aria-label="Source" className="min-w-0 rounded border p-2" value={source} onChange={event => setSource(event.target.value)}>
         <option value="">All sources</option>
         {patientSourceOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}
       </select>
-      <button className="rounded border px-3">Search</button>
+      <button className="rounded border px-3" disabled={!scopeReady}>Search</button>
     </form>
     {error ? <div className="card p-5 text-rose-700">{error}</div> : !patients.length ? <div className="card p-8 text-center text-slate-600">No clients match these filters.</div> : <div className="client-table-scroll card max-w-full min-w-0 overflow-x-auto overscroll-x-contain" role="region" aria-label="Client records" tabIndex={0}><table className="w-full min-w-[1040px] table-fixed text-sm">
       <thead className="border-b text-left text-slate-500"><tr>{['Client ID', 'Client', 'Phone', 'Email', 'Source', ...(identityOnly ? [] : ['Assigned clinician']), 'Status', 'Actions'].map(label => <th scope="col" className="p-3" key={label}>{label}</th>)}</tr></thead>
