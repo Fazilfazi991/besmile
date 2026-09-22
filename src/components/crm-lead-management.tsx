@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
@@ -18,11 +18,15 @@ export default function LeadManagement() {
   const [leads, setLeads] = useState<any[]>([]);
   const [people, setPeople] = useState<any[]>([]);
   const [lookups, setLookups] = useState<any>({ sources: [], statuses: [] });
-  const [error, setError] = useState("");
+  const [pageError, setPageError] = useState("");
+  const [modalError, setModalError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const addDialogRef = useRef<HTMLFormElement>(null);
+  const leadNameRef = useRef<HTMLInputElement>(null);
   const [filters, setFilters] = useState(emptyFilters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -58,9 +62,9 @@ export default function LeadManagement() {
         status_id: currentForm.status_id || options.statuses[0]?.id || "",
         assigned_to: currentForm.assigned_to || current.id,
       }));
-      setError("");
+      setPageError("");
     } catch (caught: any) {
-      setError(caught.message || "CRM data could not be loaded.");
+      setPageError(caught.message || "CRM data could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -69,6 +73,33 @@ export default function LeadManagement() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, []);
+  useEffect(() => {
+    if (!addOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    leadNameRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setAddOpen(false);
+        setModalError("");
+        window.setTimeout(() => addButtonRef.current?.focus(), 0);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = Array.from(addDialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || []);
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [addOpen]);
   const shown = useMemo(
     () =>
       filterCrmLeads(leads, filters, today()).filter(lead =>
@@ -94,15 +125,20 @@ export default function LeadManagement() {
     ...lookups.statuses.map((item: any) => ({ value: item.id as string, label: item.name as string, count: leads.filter(lead => lead.status_id === item.id).length })),
   ];
   const setFilter = (key: string, value: string | boolean) => { setFilters(current => ({ ...current, [key]: value })); setPage(1); };
+  const closeAddLead = () => {
+    setAddOpen(false);
+    setModalError("");
+    window.setTimeout(() => addButtonRef.current?.focus(), 0);
+  };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    setError("");
+    setModalError("");
     if (!form.full_name.trim() || form.phone.replace(/\D/g, "").length < 7) {
-      setError("Enter a lead name and a phone number with at least 7 digits.");
+      setModalError("Enter a lead name and a phone number with at least 7 digits.");
       return;
     }
     if (!isValidCrmLeadDate(form.lead_date)) {
-      setError("Choose a valid Lead Date.");
+      setModalError("Choose a valid Lead Date.");
       return;
     }
     setSubmitting(true);
@@ -140,11 +176,11 @@ export default function LeadManagement() {
         location: "",
         remarks: "",
       }));
-      setAddOpen(false);
+      closeAddLead();
       setNotice("Lead added and assigned successfully.");
       await load();
     } catch (caught: any) {
-      setError(
+      setModalError(
         caught.message || "Lead could not be created. Please try again.",
       );
     } finally {
@@ -153,9 +189,9 @@ export default function LeadManagement() {
   };
   return (
     <section className="compact-module crm-leads-workspace">
-      <CompactPageHeader title="CRM / Leads" description="Find enquiries, prioritize follow-ups, and open the next lead workspace." action={<><Link className="btn border" href="/admin/crm/import">Import</Link><Link className="btn border" href="/admin/crm/sales">Sales</Link><button className="btn btn-primary" onClick={() => { setForm((current: any) => ({ ...current, lead_date: defaultCrmLeadDate() })); setAddOpen(true); }}>Add lead</button></>} />
+      <CompactPageHeader title="CRM / Leads" description="Find enquiries, prioritize follow-ups, and open the next lead workspace." action={<><Link className="btn border" href="/admin/crm/import">Import</Link><Link className="btn border" href="/admin/crm/sales">Sales</Link><button ref={addButtonRef} type="button" className="btn btn-primary" onClick={() => { setForm((current: any) => ({ ...current, lead_date: defaultCrmLeadDate() })); setModalError(""); setAddOpen(true); }}>Add lead</button></>} />
       <div className="module-summary-strip" aria-label="Lead summary"><div><span>Total</span><b>{leads.length}</b></div><div><span>Due today</span><b>{dueToday}</b></div><div><span>Overdue</span><b>{overdue}</b></div><div><span>Converted</span><b>{converted}</b></div></div>
-      {error ? <p role="alert" className="module-alert module-alert-error">{error}</p> : null}
+      {pageError && !addOpen ? <p role="alert" className="module-alert module-alert-error">{pageError}</p> : null}
       {notice ? <p role="status" className="module-alert module-alert-success">{notice}</p> : null}
       <ModuleTabs tabs={statusTabs} value={filters.status} onChange={value => setFilter("status", value)} label="Lead stage" />
       <ModuleToolbar>
@@ -180,29 +216,37 @@ export default function LeadManagement() {
         {!loading ? <Pagination page={paginated.page} pageSize={pageSize} pageSizeOptions={[10, 20, 50]} total={shown.length} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }} /> : null}
       </DataTableShell>
       {addOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
+        <div className="crm-lead-modal-layer fixed inset-0 grid place-items-center bg-slate-950/40 p-4" role="presentation">
           <form
-            className="card max-h-[90vh] w-full max-w-2xl overflow-auto p-6"
+            ref={addDialogRef}
+            className="card max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-auto overscroll-contain p-6"
             onSubmit={submit}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-lead-title"
+            aria-describedby="add-lead-description"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold">Add lead</h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <h2 id="add-lead-title" className="text-lg font-bold">Add lead</h2>
+                <p id="add-lead-description" className="mt-1 text-sm text-slate-500">
                   Create and assign a new customer enquiry.
                 </p>
               </div>
               <button
                 className="text-slate-500 hover:text-slate-950"
                 type="button"
-                onClick={() => setAddOpen(false)}
+                aria-label="Close Add lead dialog"
+                onClick={closeAddLead}
               >
                 Close
               </button>
             </div>
+            {modalError ? <p role="alert" aria-live="assertive" className="module-alert module-alert-error mt-4">{modalError}</p> : null}
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <Field label="Full name" required>
                 <input
+                  ref={leadNameRef}
                   className="input"
                   value={form.full_name}
                   onChange={(event) =>
@@ -315,7 +359,7 @@ export default function LeadManagement() {
               <button
                 className="btn border"
                 type="button"
-                onClick={() => setAddOpen(false)}
+                onClick={closeAddLead}
               >
                 Cancel
               </button>
