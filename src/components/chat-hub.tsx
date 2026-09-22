@@ -19,9 +19,11 @@ import { chatEmojiGroups, insertEmojiAtCursor } from "@/lib/chat-composer";
 import { isChatImageAttachment } from "@/lib/chat-media";
 import { resolveMessageReceipt } from "@/lib/chat-receipt";
 import { employeeAvatarInitials, resolveEmployeeAvatar } from "@/lib/employee-avatar";
+import { applyGroupPhoto, applyLatestConversationMessage, orderConversationsByActivity } from "@/lib/chat-conversation-order";
 import { MessageReceipt } from "./message-receipt";
 import { ChevronLeft } from "lucide-react";
 import "./chat-hub-fixes.css";
+import "./chat-hub-followup.css";
 
 type Tab = "all" | "unread" | "mentions";
 
@@ -94,6 +96,7 @@ export function ChatHub() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [conversationMenuOpen, setConversationMenuOpen] = useState(false);
+  const [groupPhotoBusy, setGroupPhotoBusy] = useState(false);
   const [onlineProfileIds, setOnlineProfileIds] = useState<Set<string>>(new Set());
   const [group, setGroup] = useState({
     title: "",
@@ -104,6 +107,7 @@ export function ChatHub() {
   const [groupMemberProfiles, setGroupMemberProfiles] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const groupPhotoRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const textSelectionRef = useRef({ start: 0, end: 0 });
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -167,6 +171,23 @@ export function ChatHub() {
     }, 0);
     return () => clearTimeout(timer);
   }, [load]);
+  useEffect(() => {
+    const profileId = profile?.id;
+    if (!profileId) return;
+    const refresh = () => void load(activeRef.current?.conversation_id);
+    const channel = supabase
+      ?.channel(`chat-conversation-list-${profileId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (event: any) => {
+        setConversations((rows) => applyLatestConversationMessage(rows, event.new, profileId));
+        refresh();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_message_mentions" }, refresh)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chat_conversations" }, refresh)
+      .subscribe();
+    return () => {
+      if (channel) supabase?.removeChannel(channel);
+    };
+  }, [load, profile?.id]);
   useEffect(() => {
     const conversationId = active?.conversation_id;
     const profileId = profile?.id;
@@ -351,7 +372,7 @@ export function ChatHub() {
 
   const visible = useMemo(
     () =>
-      conversations.filter((item) => {
+      orderConversationsByActivity(conversations.filter((item) => {
         const name = chatName(item, profile?.id).toLowerCase();
         const preview =
           `${item.latest_message?.body || ""} ${item.latest_message?.message_type === "voice" ? "Voice message" : item.latest_message?.attachment_name || ""}`.toLowerCase();
@@ -361,7 +382,7 @@ export function ChatHub() {
             (tab === "mentions" && item.mention_count > 0)) &&
           `${name} ${preview}`.includes(query.toLowerCase())
         );
-      }),
+      })),
     [conversations, tab, query, profile?.id],
   );
   const matchingMessages = useMemo(
@@ -459,6 +480,7 @@ export function ChatHub() {
         mention_profile_ids: mentionProfileIds,
       });
       setMessages((rows) => upsertChatMessage(rows, saved));
+      setConversations((rows) => applyLatestConversationMessage(rows, saved, profile.id));
       setText("");
       setFile(null);
       setReplyingTo(null);
@@ -747,6 +769,47 @@ export function ChatHub() {
     } catch (cause: any) { setError(cause.message || "Group could not be archived."); }
     finally { setArchiveBusy(false); }
   };
+  const patchGroupPhoto = (avatarPath: string | null, photoUrl: string | null) => {
+    if (!active) return;
+    setConversations((rows) => applyGroupPhoto(rows, active.conversation_id, avatarPath, photoUrl));
+    setActive((current: any) => {
+      if (!current || current.conversation_id !== active.conversation_id) return current;
+      const next = applyGroupPhoto([current], active.conversation_id, avatarPath, photoUrl)[0];
+      activeRef.current = next;
+      return next;
+    });
+  };
+  const uploadGroupPhoto = async (nextFile?: File) => {
+    if (!active || !nextFile || groupPhotoBusy) return;
+    setGroupPhotoBusy(true);
+    setError("");
+    try {
+      const result = await employeeRepository.uploadGroupPhoto(
+        active.conversation_id,
+        nextFile,
+        active.chat_conversations.avatar_path,
+      );
+      patchGroupPhoto(result.path, result.photoUrl);
+    } catch (cause: any) {
+      setError(cause.message || "Group photo could not be updated. Please try again.");
+    } finally {
+      setGroupPhotoBusy(false);
+      if (groupPhotoRef.current) groupPhotoRef.current.value = "";
+    }
+  };
+  const removeGroupPhoto = async () => {
+    if (!active || groupPhotoBusy) return;
+    setGroupPhotoBusy(true);
+    setError("");
+    try {
+      await employeeRepository.removeGroupPhoto(active.conversation_id, active.chat_conversations.avatar_path);
+      patchGroupPhoto(null, null);
+    } catch (cause: any) {
+      setError(cause.message || "Group photo could not be removed. Please try again.");
+    } finally {
+      setGroupPhotoBusy(false);
+    }
+  };
   if (loading)
     return (
       <div className="chat-skeleton">
@@ -811,23 +874,12 @@ export function ChatHub() {
             ))}
           </div>
           <div className="chat-conversation-list">
-            {visible.map((item, index) => {
-              const groupItem =
-                item.chat_conversations.conversation_type === "group";
-              const previousGroup =
-                index > 0 &&
-                visible[index - 1].chat_conversations.conversation_type ===
-                  "group";
+            {visible.map((item) => {
               return (
                 <div
                   className="chat-conversation-row"
                   key={item.conversation_id}
                 >
-                  {(index === 0 || groupItem !== previousGroup) && (
-                    <div className="chat-list-section">
-                      <span><SectionIcon group={groupItem} />{groupItem ? "Groups" : "Direct Messages"}</span><i /><em aria-hidden="true">⌄</em>
-                    </div>
-                  )}
                   <button
                     className={`chat-conversation ${item.chat_conversations.is_system_group ? "system" : ""} ${active?.conversation_id === item.conversation_id ? "active" : ""}`}
                     onClick={() => switchConversation(item)}
@@ -874,7 +926,7 @@ export function ChatHub() {
                 {active.chat_conversations.is_system_group ? (
                   <GroupAvatar />
                 ) : isGroup ? (
-                  <Avatar name={chatName(active, profile.id)} />
+                  <Avatar name={chatName(active, profile.id)} imageUrl={active.chat_conversations.photo_url} />
                 ) : (
                   <Avatar name={chatName(active, profile.id)} imageUrl={other(active, profile.id)?.photo_url} />
                 )}
@@ -1150,6 +1202,26 @@ export function ChatHub() {
                 <p>{active.chat_conversations.description || (isGroup ? "No group description." : [other(active, profile.id)?.designation, other(active, profile.id)?.department?.name].filter(Boolean).join(" · ") || "Direct conversation")}</p>
               </div>
             </section>
+            {isGroup && isAdmin && !active.chat_conversations.is_system_group && (
+              <div className="chat-group-photo-controls">
+                <input
+                  ref={groupPhotoRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(event) => void uploadGroupPhoto(event.target.files?.[0])}
+                  aria-label="Choose group photo"
+                />
+                <button type="button" disabled={groupPhotoBusy} onClick={() => groupPhotoRef.current?.click()}>
+                  {groupPhotoBusy ? "Updating…" : active.chat_conversations.avatar_path ? "Change photo" : "Add photo"}
+                </button>
+                {active.chat_conversations.avatar_path && (
+                  <button type="button" className="danger" disabled={groupPhotoBusy} onClick={() => void removeGroupPhoto()}>
+                    Remove photo
+                  </button>
+                )}
+                <small>JPG, PNG, WebP, or GIF · up to 5 MB</small>
+              </div>
+            )}
             {isGroup ? (
               <>
                 <div className="chat-detail-section">
@@ -1483,7 +1555,7 @@ function ConversationAvatar({ item, userId }: { item: any; userId: string }) {
   if (conversation.conversation_type === "group")
     return conversation.is_system_group
       ? <GroupAvatar className="chat-sidebar-group-avatar" />
-      : <Avatar name={chatName(item, userId)} className="chat-sidebar-group-initial" />;
+      : <Avatar name={chatName(item, userId)} imageUrl={conversation.photo_url} className="chat-sidebar-group-initial" />;
   const person = other(item, userId);
   return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.photo_url} />;
 }
@@ -1492,7 +1564,7 @@ function DetailConversationAvatar({ item, userId }: { item: any; userId: string 
   if (conversation.conversation_type === "group")
     return conversation.is_system_group
       ? <GroupAvatar className="chat-detail-summary-avatar chat-detail-system-avatar" />
-      : <Avatar name={chatName(item, userId)} className="chat-detail-summary-avatar" />;
+      : <Avatar name={chatName(item, userId)} imageUrl={conversation.photo_url} className="chat-detail-summary-avatar" />;
   const person = other(item, userId);
   return <Avatar name={person?.full_name || chatName(item, userId)} imageUrl={person?.photo_url} className="chat-detail-summary-avatar" />;
 }

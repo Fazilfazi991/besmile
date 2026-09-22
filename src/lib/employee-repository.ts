@@ -12,6 +12,7 @@ import { taskStatuses, type TaskStatus } from "./task-rules";
 import { operationalEmployeeStatuses } from "./employee-status";
 import { attendanceRpcError } from "./attendance-geofence";
 import { isChatMessageActive } from "./chat-message-state";
+import { compareConversationActivity, orderConversationsByActivity } from "./chat-conversation-order";
 const db = supabase as any;
 const required = () => {
   if (!db) throw new Error("Supabase is not configured.");
@@ -42,15 +43,31 @@ async function signedProfilePhotoMap(client: any, paths: Array<string | null | u
   return signed;
 }
 
+async function signedGroupPhotoMap(client: any, paths: Array<string | null | undefined>) {
+  const uniquePaths = [...new Set(paths.filter((path): path is string => Boolean(path)))];
+  const signed = new Map<string, string>();
+  if (!uniquePaths.length) return signed;
+  const batch = await client.storage.from("group-photos").createSignedUrls(uniquePaths, 300);
+  if (!batch.error) {
+    for (const photo of batch.data || [])
+      if (photo.path && photo.signedUrl) signed.set(photo.path, photo.signedUrl);
+  }
+  return signed;
+}
+
 async function withSignedConversationPhotos(client: any, rows: any[]) {
   const profiles = rows.flatMap((row) =>
     (row.chat_conversations?.chat_members || []).map((member: any) => member.profiles).filter(Boolean),
   );
-  const signed = await signedProfilePhotoMap(client, profiles.map((profile: any) => profile.avatar_url));
+  const [signed, signedGroups] = await Promise.all([
+    signedProfilePhotoMap(client, profiles.map((profile: any) => profile.avatar_url)),
+    signedGroupPhotoMap(client, rows.map((row) => row.chat_conversations?.avatar_path)),
+  ]);
   return rows.map((row) => ({
     ...row,
     chat_conversations: {
       ...row.chat_conversations,
+      photo_url: signedGroups.get(row.chat_conversations?.avatar_path) || null,
       chat_members: (row.chat_conversations?.chat_members || []).map((member: any) => ({
         ...member,
         profiles: member.profiles
@@ -883,7 +900,8 @@ export const employeeRepository = {
     )
       throw ensured.error;
     const summary = await r.rpc("chat_conversation_summaries");
-    if (!summary.error) return withSignedConversationPhotos(r, summary.data || []);
+    if (!summary.error)
+      return withSignedConversationPhotos(r, orderConversationsByActivity(summary.data || []));
     if (
       summary.error.code !== "PGRST202" &&
       !/chat_conversation_summaries|schema cache|could not find/i.test(
@@ -945,15 +963,7 @@ export const employeeRepository = {
           mention_count: mentions,
         };
       })
-      .sort(
-        (a: any, b: any) =>
-          Number(b.chat_conversations?.is_system_group) -
-            Number(a.chat_conversations?.is_system_group) ||
-          Number(b.chat_conversations?.conversation_type === "group") -
-            Number(a.chat_conversations?.conversation_type === "group") ||
-          new Date(b.latest_message?.created_at || 0).getTime() -
-            new Date(a.latest_message?.created_at || 0).getTime(),
-      );
+      .sort(compareConversationActivity);
     return withSignedConversationPhotos(r, rows);
   },
   async chatMessages(conversationId: string) {
@@ -1167,6 +1177,47 @@ export const employeeRepository = {
   async archiveGroupChat(conversationId: string) {
     const { error } = await required().rpc("archive_group_chat", { target_conversation: conversationId });
     if (error) throw error;
+  },
+  async uploadGroupPhoto(conversationId: string, file: File, previousPath?: string | null) {
+    if (!/^image\/(?:jpeg|png|webp|gif)$/i.test(file.type))
+      throw new Error("Choose a JPG, PNG, WebP, or GIF image.");
+    if (file.size > 5 * 1024 * 1024)
+      throw new Error("Group photo must be 5 MB or smaller.");
+    const client = required();
+    const safeName = file.name.replace(/[^a-z0-9._-]+/gi, "-").slice(-80) || "group-photo";
+    const path = `groups/${conversationId}/${crypto.randomUUID()}-${safeName}`;
+    const upload = await client.storage.from("group-photos").upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (upload.error) throw new Error("Group photo could not be uploaded. Please try again.");
+    const saved = await client.from("chat_conversations")
+      .update({ avatar_path: path })
+      .eq("id", conversationId)
+      .eq("conversation_type", "group")
+      .select("avatar_path")
+      .single();
+    if (saved.error) {
+      await client.storage.from("group-photos").remove([path]);
+      throw new Error("Group photo could not be saved. Your previous photo is unchanged.");
+    }
+    const signed = await client.storage.from("group-photos").createSignedUrl(path, 300);
+    if (previousPath?.startsWith(`groups/${conversationId}/`) && previousPath !== path)
+      void client.storage.from("group-photos").remove([previousPath]);
+    return { path, photoUrl: signed.data?.signedUrl || null };
+  },
+  async removeGroupPhoto(conversationId: string, previousPath?: string | null) {
+    const client = required();
+    const saved = await client.from("chat_conversations")
+      .update({ avatar_path: null })
+      .eq("id", conversationId)
+      .eq("conversation_type", "group")
+      .select("avatar_path")
+      .single();
+    if (saved.error)
+      throw new Error("Group photo could not be removed. Please try again.");
+    if (previousPath?.startsWith(`groups/${conversationId}/`))
+      void client.storage.from("group-photos").remove([previousPath]);
   },
   async leaveTypes() {
     const { data, error } = await required()
