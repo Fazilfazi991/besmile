@@ -7,6 +7,8 @@ import { fixtureLogin } from './fixture-auth';
 // all application assertions use its normal password login and browser session.
 let fixtureId: string | undefined;
 let fixtureAdmin: SupabaseClient;
+const originalAssistantManagerEmail = process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL;
+const originalAssistantManagerPassword = process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD;
 test.beforeAll(async () => {
   if (process.env.BSMILE_QA_PROJECT_REF !== 'enylrvmjgbntkrgpqsfe' || new URL(process.env.BSMILE_QA_SUPABASE_URL!).hostname !== 'enylrvmjgbntkrgpqsfe.supabase.co') throw new Error('Polish fixture requires QA');
   const key = process.env.BSMILE_QA_SUPABASE_SERVICE_ROLE_KEY;
@@ -27,8 +29,10 @@ test.afterAll(async () => {
     const removed = await fixtureAdmin.auth.admin.deleteUser(fixtureId);
     if (removed.error) throw new Error('Disposable QA Assistant Manager cleanup failed');
   }
-  delete process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL;
-  delete process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD;
+  if (originalAssistantManagerEmail === undefined) delete process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL;
+  else process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = originalAssistantManagerEmail;
+  if (originalAssistantManagerPassword === undefined) delete process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD;
+  else process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = originalAssistantManagerPassword;
 });
 
 async function accountControls(page: Page) {
