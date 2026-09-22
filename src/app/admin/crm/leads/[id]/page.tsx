@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
-import { clientSafeError } from "@/lib/client-error";
+import { clientSafeError, reportClientError } from "@/lib/client-error";
 import { isValidCrmLeadDate } from "@/lib/crm-lead-date";
+import { leadToPatientConversionError } from "@/lib/lead-to-patient-conversion-error";
 import { employeeRepository } from "@/lib/employee-repository";
 import { LeadToPatientConversion } from "@/components/lead-to-patient-conversion";
 
@@ -31,6 +32,7 @@ export default function LeadDetail() {
     notes: "",
   });
   const [patientConversionOpen, setPatientConversionOpen] = useState(false);
+  const [patientConversionError, setPatientConversionError] = useState("");
   const [canConvertPatient, setCanConvertPatient] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -160,7 +162,7 @@ export default function LeadDetail() {
   };
   const convertPatient = async (patientNumber: string) => {
     setBusy(true);
-    setError("");
+    setPatientConversionError("");
     try {
       const patient = await adminRepository.convertLeadToPatient(
         id,
@@ -173,18 +175,11 @@ export default function LeadDetail() {
       await load();
       return true;
     } catch (caught: any) {
-      const text = String(
-        caught.message || "Client conversion could not be completed.",
-      );
-      setError(
-        /already in use|duplicate|23505/i.test(text)
-          ? "That Client ID is already in use. Choose a different ID."
-          : /already been converted/i.test(text)
-            ? "This lead has already been converted to a client."
-            : /permission/i.test(text)
-              ? "You do not have permission to convert this lead to a client."
-              : text,
-      );
+      reportClientError(caught, {
+        route: "/admin/crm/leads/[id]",
+        action: "convert_lead_to_patient",
+      });
+      setPatientConversionError(leadToPatientConversionError(caught));
       return false;
     } finally {
       setBusy(false);
@@ -214,7 +209,7 @@ export default function LeadDetail() {
             {lead.phone} {lead.location ? `· ${lead.location}` : ""}
           </p>
         </div>
-        {canConvertPatient && !convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setPatientConversionOpen(true); }}>Convert to client</button>}
+        {canConvertPatient && !convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setPatientConversionError(""); setPatientConversionOpen(true); }}>Convert to client</button>}
         {convertedPatient && <Link className="btn border" href={`/admin/patients/${convertedPatient.slug || convertedPatient.id}`}>Open client</Link>}
         <button
           className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-700"
@@ -471,7 +466,8 @@ export default function LeadDetail() {
       <LeadToPatientConversion
         open={patientConversionOpen}
         busy={busy}
-        onClose={() => setPatientConversionOpen(false)}
+        error={patientConversionError}
+        onClose={() => { setPatientConversionError(""); setPatientConversionOpen(false); }}
         onSubmit={convertPatient}
       />
     </section>

@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 type LeadToPatientConversionProps = {
   open: boolean;
   busy: boolean;
+  error?: string;
   onClose: () => void;
   onSubmit: (patientNumber: string) => Promise<boolean>;
 };
@@ -12,6 +13,7 @@ type LeadToPatientConversionProps = {
 export function LeadToPatientConversion({
   open,
   busy,
+  error,
   onClose,
   onSubmit,
 }: LeadToPatientConversionProps) {
@@ -56,6 +58,11 @@ export function LeadToPatientConversion({
           The Client ID must be unique. Validation errors keep your entered
           value.
         </p>
+        {error ? (
+          <p className="mt-3 rounded bg-rose-50 p-3 text-sm text-rose-800" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <button
             className="btn border"
