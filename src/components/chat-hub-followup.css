@@ -1,0 +1,69 @@
+/* Group photos reuse the protected avatar surface and remain compact in details. */
+.chat-hub .chat-group-photo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 15px 0;
+  padding: 0 2px;
+}
+.chat-hub .chat-group-photo-controls input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.chat-hub .chat-group-photo-controls button {
+  min-height: 40px;
+  border: 1px solid #9fd4c7;
+  border-radius: 9px;
+  background: #fff;
+  padding: 8px 12px;
+  color: #087a64;
+  font-size: 11px;
+  font-weight: 780;
+  cursor: pointer;
+}
+.chat-hub .chat-group-photo-controls button:hover:not(:disabled),
+.chat-hub .chat-group-photo-controls button:focus-visible {
+  border-color: #087a64;
+  background: #edf8f5;
+  outline: 0;
+}
+.chat-hub .chat-group-photo-controls button.danger {
+  border-color: #efc2bd;
+  color: #b42318;
+}
+.chat-hub .chat-group-photo-controls button.danger:hover:not(:disabled),
+.chat-hub .chat-group-photo-controls button.danger:focus-visible {
+  border-color: #d92d20;
+  background: #fff1f0;
+}
+.chat-hub .chat-group-photo-controls button:disabled {
+  cursor: wait;
+  opacity: .62;
+}
+.chat-hub .chat-group-photo-controls small {
+  flex-basis: 100%;
+  color: #75817c;
+  font-size: 10px;
+}
+.chat-hub .chat-group-photo-controls + .chat-detail-section {
+  margin-top: 18px;
+}
+@media (max-width: 760px) {
+  .chat-hub .chat-group-photo-controls { margin-inline: 12px; }
+  .chat-hub .chat-group-photo-controls button { min-height: 44px; flex: 1 1 auto; }
+}
+html[data-theme="colorful"] .chat-hub .chat-group-photo-controls button {
+  border-color: #3b6570;
+  background: #202a55;
+  color: #67e0d5;
+}
+html[data-theme="colorful"] .chat-hub .chat-group-photo-controls button.danger {
+  border-color: #7b4c58;
+  color: #ffaaa4;
+}
+html[data-theme="colorful"] .chat-hub .chat-group-photo-controls small { color: #b9c5e6; }

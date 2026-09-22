@@ -127,7 +127,11 @@ test("General Manager creates, reloads, and logically archives a custom group", 
   await persisted.click();
   await expect(page.getByRole("heading", { name: marker, exact: true })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Conversation details", exact: true }).click();
+  const addPhoto = page.getByRole("button", { name: "Add photo", exact: true });
+  await expect(addPhoto).toBeVisible();
+  if (page.viewportSize()!.width <= 760) expect((await addPhoto.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expect(page.locator(".chat-member").filter({ hasText: "Admin" })).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
 
   for (const theme of ["standard", "colorful"] as const) {
@@ -164,6 +168,11 @@ test("system group never exposes custom-group archive controls", async ({ page }
   const system = page.locator(".chat-conversation.system").first();
   await expect(system).toBeVisible();
   await system.click();
+  await page.getByRole("button", { name: "Conversation details", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Add photo", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Change photo", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove photo", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
   await page.getByRole("button", { name: "More conversation options", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Delete group", exact: true })).toHaveCount(0);
   await assertNoRawDatabaseError(page);
