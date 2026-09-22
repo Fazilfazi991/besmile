@@ -28,7 +28,7 @@ describe("Teams mixed recency migration", () => {
 describe("group photo security and lifecycle", () => {
   it("stores only group-scoped paths and authorizes upload/delete by existing group admin", () => {
     expect(migration).toContain("'group-photos'");
-    expect(migration).toContain("false,\n  5242880");
+    expect(migration).toMatch(/false,\r?\n  5242880/);
     expect(migration).toContain("avatar_path like 'groups/' || id::text || '/%'");
     expect(migration).toContain("conversation.group_admin_id = (select auth.uid())");
     expect(migration).toContain('create policy "group photo member view"');
