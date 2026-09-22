@@ -47,10 +47,22 @@ create policy "group photo member view" on storage.objects
 for select to authenticated
 using (
   bucket_id = 'group-photos'
-  and exists (
-    select 1 from public.chat_conversations conversation
-    where conversation.avatar_path = name
-      and public.is_chat_member(conversation.id)
+  and (
+    exists (
+      select 1 from public.chat_conversations conversation
+      where conversation.avatar_path = name
+        and public.is_chat_member(conversation.id)
+    )
+    or (
+      (storage.foldername(name))[1] = 'groups'
+      and exists (
+        select 1 from public.chat_conversations conversation
+        where conversation.id::text = (storage.foldername(name))[2]
+          and conversation.conversation_type = 'group'
+          and conversation.group_admin_id = (select auth.uid())
+          and conversation.archived_at is null
+      )
+    )
   )
 );
 

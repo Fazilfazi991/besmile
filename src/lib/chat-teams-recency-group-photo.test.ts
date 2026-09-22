@@ -33,6 +33,8 @@ describe("group photo security and lifecycle", () => {
     expect(migration).toContain("conversation.group_admin_id = (select auth.uid())");
     expect(migration).toContain('create policy "group photo member view"');
     expect(migration).toContain("public.is_chat_member(conversation.id)");
+    expect(migration).toContain("conversation.id::text = (storage.foldername(name))[2]");
+    expect(migration).toContain("conversation.group_admin_id = (select auth.uid())");
     expect(migration).not.toContain("service_role");
     expect(repository).toContain('storage.from("group-photos")');
   });
