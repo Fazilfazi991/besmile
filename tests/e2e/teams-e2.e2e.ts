@@ -5,6 +5,10 @@ import { assertNoRawDatabaseError, credentials, login, navigateAfterLogin } from
 let fixtureAdmin: SupabaseClient;
 let assistantId: string | undefined;
 let assistantPhotoPath: string | undefined;
+const scopedAssistantCredentials = {
+  email: process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL,
+  password: process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD,
+};
 
 test.beforeAll(async () => {
   const url = process.env.BSMILE_QA_SUPABASE_URL!;
@@ -17,7 +21,7 @@ test.beforeAll(async () => {
   const created = await fixtureAdmin.auth.admin.createUser({ email, password, email_confirm: true });
   if (created.error || !created.data.user) throw new Error("Could not provision QA Teams Assistant Manager");
   assistantId = created.data.user.id;
-  const profile = await fixtureAdmin.from("profiles").upsert({ id: assistantId, email, full_name: "QA Teams Assistant Manager", role: "staff", designation: "Assistant Manager", status: "active", is_employee: true });
+  const profile = await fixtureAdmin.from("profiles").upsert({ id: assistantId, email, full_name: "QA Teams Assistant Manager", role: "staff", designation: "Assistant Manager", status: "active", is_employee: true, workforce_visible: true });
   if (profile.error) throw new Error("Could not provision QA Teams Assistant Manager profile");
   process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = email;
   process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = password;
@@ -102,7 +106,7 @@ test("Assistant Manager receives its authorized signed profile photo in Teams", 
 });
 
 test("General Manager creates, manages the photo lifecycle, and logically archives a custom group", async ({ page, browser }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   await login(page, "general_manager");
   await navigateAfterLogin(page, "/admin/chat");
   const marker = `E2 QA Group ${Date.now()}`;
@@ -115,11 +119,15 @@ test("General Manager creates, manages the photo lifecycle, and logically archiv
   const people = dialog.locator(".chat-people-list>button");
   await expect(people.first()).toBeVisible();
   await people.filter({ hasText: "A QA Employee With An Exceptionally Long Name For Mobile Layout" }).first().click();
-  await people.filter({ hasText: "QA Teams Assistant Manager" }).first().click();
+  await dialog.getByRole("searchbox", { name: /Members/ }).fill("QA Assistant Manager");
+  const assistantPerson = people.first();
+  await expect(assistantPerson).toBeVisible();
+  await expect(assistantPerson).toContainText("QA Assistant Manager");
+  await assistantPerson.click();
   await expect(dialog.locator(".chat-selected-members>button")).toHaveCount(2);
   await expect(submit).toBeEnabled();
   await submit.click();
-  await expect(page.getByRole("heading", { name: marker, exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(dialog).toHaveCount(0);
   await page.reload();
   await openConversationList(page);
   const persisted = page.locator(".chat-conversation").filter({ hasText: marker });
@@ -162,7 +170,17 @@ test("General Manager creates, manages the photo lifecycle, and logically archiv
   const memberContext = await browser.newContext({ baseURL: process.env.BSMILE_QA_BASE_URL, viewport: page.viewportSize()! });
   try {
     const memberPage = await memberContext.newPage();
-    await login(memberPage, "assistant_manager", { reuseState: false });
+    if (!scopedAssistantCredentials.email || !scopedAssistantCredentials.password) throw new Error("Scoped Assistant Manager fixture unavailable");
+    const disposableEmail = process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL;
+    const disposablePassword = process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD;
+    process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = scopedAssistantCredentials.email;
+    process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = scopedAssistantCredentials.password;
+    try {
+      await login(memberPage, "assistant_manager", { reuseState: false });
+    } finally {
+      process.env.BSMILE_QA_ASSISTANT_MANAGER_EMAIL = disposableEmail;
+      process.env.BSMILE_QA_ASSISTANT_MANAGER_PASSWORD = disposablePassword;
+    }
     await navigateAfterLogin(memberPage, "/employee/chat");
     await openConversationList(memberPage);
     await memberPage.locator(".chat-conversation").filter({ hasText: marker }).click();

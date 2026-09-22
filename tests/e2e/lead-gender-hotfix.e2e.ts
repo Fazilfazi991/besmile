@@ -30,13 +30,13 @@ async function signedIn(role: string) {
   return { db, id: auth.data.user.id };
 }
 
-async function createLead(gender: string | null, assignedTo: string, createdBy = gmId) {
+async function createLead(gender: string | null, assignedTo: string, createdBy = gmId, writer = gm) {
   const [source, status] = await Promise.all([
     root.from('crm_lead_sources').select('id').eq('is_active', true).limit(1).single(),
     root.from('crm_lead_statuses').select('id').eq('is_active', true).order('sort_order').limit(1).single(),
   ]);
   const marker = crypto.randomUUID();
-  const created = await root.from('crm_leads').insert({
+  const created = await writer.from('crm_leads').insert({
     full_name: `QA Gender Hotfix ${marker}`,
     phone: `971${Date.now()}${Math.floor(Math.random() * 1000)}`,
     gender,
@@ -76,6 +76,10 @@ test.beforeAll(async () => {
   assistantId = created.data.user.id;
   const profile = await root.from('profiles').upsert({ id: assistantId, email, full_name: 'QA Gender Assistant Manager', role: 'staff', designation: 'Assistant Manager', status: 'active', is_employee: true, workforce_visible: true });
   if (profile.error) throw profile.error;
+  const conversionPermissions = await root.from('permissions').select('id,code').in('code', ['crm.view_assigned', 'patients.create', 'leads.convert_to_patient']);
+  if (conversionPermissions.error || conversionPermissions.data.length !== 3) throw conversionPermissions.error || new Error('Conversion fixture permissions unavailable');
+  const grants = await root.from('user_permission_grants').insert(conversionPermissions.data.map(permission => ({ profile_id: assistantId, permission_id: permission.id, reason: 'Disposable QA Diya-equivalent gender conversion fixture' })));
+  if (grants.error) throw grants.error;
   assistant = createClient(url, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
   const assistantLogin = await assistant.auth.signInWithPassword({ email, password });
   if (assistantLogin.error || !assistantLogin.data.user) throw assistantLogin.error || new Error('Assistant Manager login failed');
@@ -152,7 +156,7 @@ test('preserves already-converted and unauthorized protections', async () => {
 });
 
 test('converts in Assistant Manager and Psychologist intended scopes', async () => {
-  const assistantLead = await createLead(' Female ', assistantId, assistantId);
+  const assistantLead = await createLead(' Female ', assistantId, gmId, gm);
   expect((await convert(assistant, assistantLead, 'assistant')).patient.gender).toBe('female');
   const psychologistLead = await createLead(' Male ', psychologistId, gmId);
   expect((await convert(psychologist, psychologistLead, 'psychologist')).patient.gender).toBe('male');
