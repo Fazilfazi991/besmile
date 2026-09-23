@@ -298,7 +298,7 @@ export function employeeRouteRequirement(
   if (path.startsWith("/employee/doctor-scheduling"))
     return anyOf("doctor_scheduling.view");
   if (path === "/employee/documents/generate")
-    return anyOf("documents.manage", "documents.employee.manage", "documents.official.generate");
+    return anyOf("documents.manage", "documents.employee.manage", "documents.official.generate", "documents.mom.upload");
   if (path.startsWith("/employee/documents"))
     return anyOf(
       "documents.view",

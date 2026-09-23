@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { documentFileAccept, documentFileValidationMessage } from '@/lib/document-file-rules';
 import { officialMomLabel, officialMomType } from '@/lib/official-mom';
 import { supabase } from '@/lib/supabase';
@@ -11,6 +11,16 @@ export default function OfficialMomUpload({ onUploaded }: { onUploaded: () => Pr
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const submitting = useRef(false);
+
+  useEffect(() => {
+    if (window.location.hash === '#mom-upload') {
+      const timer = window.setTimeout(() => {
+        setOpen(true);
+        document.getElementById('mom-upload')?.scrollIntoView({ block: 'start' });
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
 
   const upload = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -50,7 +60,7 @@ export default function OfficialMomUpload({ onUploaded }: { onUploaded: () => Pr
     }
   };
 
-  return <div className="space-y-3">
+  return <div id="mom-upload" className="space-y-3 scroll-mt-6">
     <button type="button" className="btn border" aria-expanded={open} aria-controls="official-mom-upload" onClick={() => setOpen(!open)}>Upload Document</button>
     {open && <form id="official-mom-upload" className="card official-step official-mom-upload min-w-0" onSubmit={upload}>
       <h2 className="font-bold">Upload Document</h2>

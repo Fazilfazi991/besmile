@@ -8,7 +8,7 @@ export async function GET() {
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const access = await officialDocumentAccess(db);
-  if (!access.allowedTypes.length) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  if (!access.allowedTypes.length && !access.canUploadMom) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
 
   let historyQuery = db.from('documents').select('id,title,category,file_name,created_at,storage_path,document_type,source_type,uploaded_by')
     .like('category', 'Official:%');

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { currentProfile } from '@/lib/auth';
 import { employeeRepository } from '@/lib/employee-repository';
+import { supabase } from '@/lib/supabase';
+import { OfficialDocumentActions } from '@/components/official-document-actions';
 import { documentFileAccept, documentFileValidationMessage } from '@/lib/document-file-rules';
 import { EmployeeBanner, EmployeeEmptyState, EmployeeLoading, EmployeeMetric, EmployeeMetricGrid, EmployeePageHeader, EmployeeSection, EmployeeStatusBadge } from '@/components/employee-ui';
 
@@ -17,18 +18,21 @@ export default function DocumentsPage() {
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [canCreate, setCanCreate] = useState(false);
+  const [canUploadMom, setCanUploadMom] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
       const employee = (await currentProfile()) as any;
       if (!employee) throw Error('Your session has expired.');
-      const [company, assigned, creator] = await Promise.all([
+      const [company, assigned, creator, momAccess] = await Promise.all([
         employeeRepository.companyDocuments(),
         employeeRepository.documentRequests(employee.id),
         employeeRepository.hasPermission('documents.official.generate'),
+        supabase.rpc('official_mom_upload_allowed'),
       ]);
-      setProfile(employee); setDocuments(company); setRequests(assigned); setCanCreate(creator); setError('');
+      setProfile(employee); setDocuments(company); setRequests(assigned); setCanCreate(creator);
+      setCanUploadMom(!momAccess.error && momAccess.data === true); setError('');
     } catch (caught: any) { setError(caught.message || 'Unable to load documents.'); }
     finally { setLoading(false); }
   };
@@ -56,7 +60,7 @@ export default function DocumentsPage() {
 
   return <section className="space-y-4">
     <EmployeePageHeader title="Official Documents" subtitle="Company resources, policies and requested documents." />
-    {canCreate && <div className="flex justify-start"><Link className="btn btn-primary" href="/employee/documents/generate">Create Document</Link></div>}
+    <OfficialDocumentActions canCreate={canCreate} canUploadMom={canUploadMom} />
     <EmployeeMetricGrid columns={3}><EmployeeMetric label="Policies" value={policies.length} /><EmployeeMetric label="Requested from you" value={requested} tone="pending" /><EmployeeMetric label="In review" value={submitted} tone="info" /></EmployeeMetricGrid>
     {notice && <EmployeeBanner tone="success">{notice}</EmployeeBanner>}{error && <EmployeeBanner>{error}</EmployeeBanner>}
     <div className="grid items-start gap-4 lg:grid-cols-2">

@@ -53,7 +53,7 @@ export default function OfficialDocumentGeneratorPage() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Unable to load the document generator.');
     setContext(data);
-    setForm((current) => ({
+    if (data.allowedTypes.length) setForm((current) => ({
       ...current,
       documentType: data.allowedTypes.includes(current.documentType) ? current.documentType : data.allowedTypes[0],
       body: data.allowedTypes.includes(current.documentType) ? current.body : templateBody(data.allowedTypes[0]),
@@ -187,13 +187,13 @@ export default function OfficialDocumentGeneratorPage() {
 
   return <section className="official-generator space-y-5">
     <header className="official-generator-header">
-      <div><p className="eyebrow">DOCUMENT MANAGEMENT</p><h1>Official Document Generator</h1><p>Create sharp, searchable A4 PDFs on the approved BSmile letterhead.</p></div>
+      <div><p className="eyebrow">OFFICIAL DOCUMENTS</p><h1>{context.allowedTypes.length ? 'Official Document Generator' : 'Minutes of Meeting'}</h1><p>{context.allowedTypes.length ? 'Create sharp, searchable A4 PDFs on the approved BSmile letterhead.' : 'Upload approved Minutes of Meeting to the official document history.'}</p></div>
       <span>Authorized users only</span>
     </header>
     {(error || notice) && <div role="status" aria-live="polite" className={`official-generator-message ${error ? 'is-error' : 'is-success'}`}>{error || notice}</div>}
     {context.canUploadMom && <OfficialMomUpload onUploaded={loadContext} />}
 
-    <div className="official-generator-layout">
+    {context.allowedTypes.length > 0 && <div className="official-generator-layout">
       <div className="official-generator-form space-y-4">
         <article className="card official-step"><Step number="1" title="Select document type" /><label>Document type<select className="input" value={form.documentType} onChange={(event) => changeType(event.target.value as OfficialDocumentType)}>{availableTypes.map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}</select></label><div className="official-auto-heading"><small>Automatic heading</small><b>{form.documentType === 'custom_official_document' ? form.customHeading || 'Enter a custom heading below' : config.heading}</b></div>{form.documentType === 'custom_official_document' && <label>Custom heading<input required className="input" maxLength={80} value={form.customHeading || ''} onChange={(event) => update('customHeading', event.target.value)} /></label>}</article>
 
@@ -205,7 +205,7 @@ export default function OfficialDocumentGeneratorPage() {
       </div>
 
       <aside className="official-preview-column"><div className="official-preview-toolbar"><div><b>A4 PDF preview</b><small>{previewPages ? `${previewPages} page${previewPages === 1 ? '' : 's'}` : 'No preview generated'}</small></div>{previewUrl && <a className="btn border" href={previewUrl} target="_blank" rel="noreferrer">Open</a>}</div><div className="official-preview-frame">{previewUrl ? <iframe title="Official document PDF preview" src={previewUrl} /> : <div><img src="/documents/letterhead/BSmile_Letterhead_Blank_A4_300dpi.png" alt="BSmile official letterhead preview" /><span>Select your content, then preview the PDF.</span></div>}</div></aside>
-    </div>
+    </div>}
 
     <article className="card official-history"><div><h2>Official document history</h2><p>Private copies stored through the existing Documents storage controls.</p></div>{context.history.length ? <div>{context.history.map((item) => <button type="button" key={item.id} onClick={() => void openHistory(item)}><span className="min-w-0 break-words"><b>{item.title}</b><small>{item.category.replace('Official:', '')} - {new Date(item.created_at).toLocaleString()}</small></span><strong className="shrink-0">Open / download</strong></button>)}</div> : <p className="official-history-empty">No official documents yet.</p>}</article>
   </section>;
