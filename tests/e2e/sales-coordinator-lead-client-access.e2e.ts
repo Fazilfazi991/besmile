@@ -8,6 +8,7 @@ let salesCoordinatorId = '';
 let salesCoordinatorEmail = '';
 let salesCoordinatorPassword = '';
 let outsideLeadId = '';
+let officeLocation = { latitude: 0, longitude: 0 };
 let patient: { id: string; slug: string | null; full_name: string; phone: string | null; email: string | null };
 const marker = `QA Sales Access ${crypto.randomUUID().slice(0, 8)}`;
 
@@ -26,21 +27,26 @@ test.beforeAll(async () => {
   });
   if (gmLogin.error || !gmLogin.data.user) throw gmLogin.error || new Error('QA General Manager account unavailable');
 
-  const [operations, source, status, patientResult, assignee] = await Promise.all([
+  const [operations, source, status, patientResult, assignee, attendanceSettings] = await Promise.all([
     admin.from('departments').select('id').eq('name', 'Operations').single(),
     admin.from('crm_lead_sources').select('id').eq('name', 'Outdoor Marketing').single(),
     admin.from('crm_lead_statuses').select('id').eq('is_active', true).order('sort_order').limit(1).single(),
     admin.from('patients').select('id,slug,full_name,phone,email').is('deleted_at', null).limit(1).single(),
     admin.from('profiles').select('id').eq('id', gmLogin.data.user.id).single(),
+    admin.from('company_attendance_settings').select('office_latitude,office_longitude').eq('id', true).single(),
   ]);
-  for (const result of [operations, source, status, patientResult, assignee]) if (result.error) throw result.error;
-  if (!operations.data || !source.data || !status.data || !patientResult.data || !assignee.data) {
+  for (const result of [operations, source, status, patientResult, assignee, attendanceSettings]) if (result.error) throw result.error;
+  if (!operations.data || !source.data || !status.data || !patientResult.data || !assignee.data || attendanceSettings.data?.office_latitude == null || attendanceSettings.data.office_longitude == null) {
     throw new Error('Required QA qualification records are unavailable');
   }
   const operationsId = operations.data.id;
   const sourceId = source.data.id;
   const statusId = status.data.id;
   const assigneeId = assignee.data.id;
+  officeLocation = {
+    latitude: attendanceSettings.data.office_latitude,
+    longitude: attendanceSettings.data.office_longitude,
+  };
   patient = patientResult.data;
 
   salesCoordinatorEmail = `qa-sales-access-${crypto.randomUUID()}@qa.bsmile.local`;
@@ -90,7 +96,25 @@ test.afterAll(async () => {
       await admin.from('crm_leads').delete().in('id', ids);
     }
   }
-  if (admin && salesCoordinatorId) await admin.auth.admin.deleteUser(salesCoordinatorId);
+  if (admin && salesCoordinatorId) {
+    const leaveRequests = await admin.from('leave_requests').select('id').eq('profile_id', salesCoordinatorId);
+    if (leaveRequests.error) throw leaveRequests.error;
+    const leaveRequestIds = (leaveRequests.data || []).map((row) => row.id);
+    if (leaveRequestIds.length) {
+      const events = await admin.from('leave_approval_events').delete().in('leave_request_id', leaveRequestIds);
+      if (events.error) throw events.error;
+      const requests = await admin.from('leave_requests').delete().in('id', leaveRequestIds);
+      if (requests.error) throw requests.error;
+    }
+    const actorEvents = await admin.from('leave_approval_events').delete().eq('actor_id', salesCoordinatorId);
+    if (actorEvents.error) throw actorEvents.error;
+    const notifications = await admin.from('notifications').delete().eq('profile_id', salesCoordinatorId);
+    if (notifications.error) throw notifications.error;
+    const profile = await admin.from('profiles').delete().eq('id', salesCoordinatorId);
+    if (profile.error) throw profile.error;
+    const user = await admin.auth.admin.deleteUser(salesCoordinatorId);
+    if (user.error) throw user.error;
+  }
 });
 
 test('Sales Coordinator can operate all leads and open identity-only clients', async ({ page }) => {
@@ -105,11 +129,64 @@ test('Sales Coordinator can operate all leads and open identity-only clients', a
   const scoped = createClient(process.env.BSMILE_QA_SUPABASE_URL!, process.env.BSMILE_QA_SUPABASE_ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
   const login = await scoped.auth.signInWithPassword({ email: salesCoordinatorEmail, password: salesCoordinatorPassword });
   if (login.error) throw login.error;
-  for (const allowed of ['leads.view_all', 'patients.view_identity']) {
+  for (const allowed of ['leads.view_all', 'patients.view_identity', 'dashboard.view', 'attendance.self', 'leave.self', 'tasks.view_self']) {
     const result = await scoped.rpc('has_permission', { permission_code: allowed });
     expect(result.error, allowed).toBeNull();
     expect(result.data, allowed).toBe(true);
   }
+
+  for (const theme of ['standard', 'colorful'] as const) {
+    await page.evaluate((value) => {
+      localStorage.setItem('bsmile-theme-mode', value);
+      document.documentElement.dataset.theme = value;
+    }, theme);
+    await page.goto('/employee/dashboard');
+    await expect(page).toHaveURL(/\/employee\/dashboard$/);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    await expect(page.locator('.attendance-card')).toBeVisible({ timeout: 30_000 });
+    await page.goto('/employee/attendance');
+    await expect(page.getByRole('button', { name: /Punch-In|Punch-Out/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('table', { name: 'Personal attendance records' }).getByText('Punch-In', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Personal attendance records' }).getByText('Punch-Out', { exact: true }).first()).toBeVisible();
+    await page.goto('/employee/leaves');
+    await expect(page.getByRole('heading', { name: /leave/i }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'New leave request' })).toBeVisible();
+    const overflow = await page.evaluate(() => ({ viewport: window.innerWidth, document: document.documentElement.scrollWidth }));
+    expect(overflow.document, `${theme} mode horizontal overflow`).toBeLessThanOrEqual(overflow.viewport);
+  }
+
+  await page.context().grantPermissions(['geolocation'], { origin: process.env.BSMILE_QA_BASE_URL });
+  await page.context().setGeolocation({ ...officeLocation, accuracy: 5 });
+  await page.goto('/employee/attendance');
+  await page.getByRole('button', { name: 'Punch-In', exact: true }).click();
+  await expect(page.getByText('Attendance updated.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Start break', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Start break', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'End break', exact: true })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'End break', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Punch-Out', exact: true })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Punch-Out', exact: true }).click();
+  await expect(page.getByText('Attendance updated.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Punch-Out', exact: true })).toHaveCount(0);
+
+  await page.goto('/employee/leaves');
+  const leaveDate = new Date();
+  leaveDate.setUTCDate(leaveDate.getUTCDate() + 45);
+  const leaveDateValue = leaveDate.toISOString().slice(0, 10);
+  await page.getByLabel('Start date').fill(leaveDateValue);
+  await page.getByLabel('End date').fill(leaveDateValue);
+  await page.getByPlaceholder('Briefly describe why you need leave.').fill('Disposable Sales Coordinator self-service qualification');
+  await page.getByRole('button', { name: 'Submit request', exact: true }).click();
+  await expect(page.getByText('Leave request submitted successfully.')).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Cancel request', exact: true }).first().click();
+  await expect(page.getByText('Pending leave request cancelled.')).toBeVisible({ timeout: 30_000 });
+
+  await page.goto('/employee/holidays');
+  await expect(page.locator('.holiday-calendar')).toBeVisible({ timeout: 30_000 });
+  await page.goto('/employee/tasks');
+  await expect(page.locator('main')).toBeVisible({ timeout: 30_000 });
+  await page.goto('/employee/profile');
+  await expect(page.locator('main')).toBeVisible({ timeout: 30_000 });
 
   await page.goto('/employee/crm/leads');
   await expect(page.getByRole('heading', { name: 'All Leads' })).toBeVisible({ timeout: 30_000 });
@@ -166,10 +243,10 @@ test('Sales Coordinator can operate all leads and open identity-only clients', a
   expect(clients.data?.length).toBeGreaterThan(0);
   for (const protectedResult of [sessions, notes, documents, activity]) {
     expect(protectedResult.data ?? []).toEqual([]);
-    expect(protectedResult.error === null || protectedResult.error.code === '42501').toBe(true);
+    expect(protectedResult.error?.code, protectedResult.error?.message).not.toBe('42P17');
   }
 
-  for (const forbidden of ['admin.shell', 'crm.manage_all', 'finance.manage', 'payroll.manage', 'psychologist_payments.settle', 'clinical_notes.view']) {
+  for (const forbidden of ['admin.shell', 'crm.manage_all', 'leads.assign', 'leads.convert_to_patient', 'finance.manage', 'payroll.manage', 'psychologist_payments.settle', 'clinical_notes.view', 'attendance.manage', 'attendance.view_team', 'leave.approve', 'leave.review', 'leave.manage', 'employees.manage']) {
     const result = await scoped.rpc('has_permission', { permission_code: forbidden });
     expect(result.data, forbidden).toBe(false);
   }

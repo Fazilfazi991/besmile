@@ -1,7 +1,8 @@
 -- Give the Operations / Sales Coordinator designation full operational lead
--- coverage without granting CRM administration. Client access is deliberately
--- limited to identity and contact data; clinical workspace policies continue
--- to require a care-scoped permission.
+-- coverage and the ordinary employee self-service baseline without granting
+-- CRM, attendance, leave, HR, payroll, or finance administration. Client access
+-- is deliberately limited to identity and contact data; clinical workspace
+-- policies continue to require a care-scoped permission.
 insert into public.permissions(code, description) values
   ('leads.view_all', 'View all active CRM leads without CRM administration'),
   ('patients.view_identity', 'View active client identity and contact information only')
@@ -25,31 +26,23 @@ cross join public.permissions permission
 where bundle.department_name = 'Operations'
   and bundle.designation = 'Sales Coordinator'
   and bundle.is_active
-  and permission.code = any(array['leads.view_all', 'patients.view_identity'])
+  and permission.code = any(array[
+    'leads.view_all',
+    'patients.view_identity',
+    'dashboard.view',
+    'attendance.self',
+    'leave.self',
+    'tasks.view_self'
+  ])
 on conflict do nothing;
 
--- The one-argument overload remains the update-policy compatibility helper;
--- the two-argument overload is the current list/detail read source of truth.
-create or replace function public.crm_lead_can_view(target uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select public.has_permission('crm.manage_all')
-    or public.has_permission('leads.view_all')
-    or (public.has_permission('crm.view_team') and public.in_management_tree(target))
-    or (
-      target = auth.uid()
-      and (
-        public.has_permission('crm.view_assigned')
-        or public.has_permission('leads.view')
-      )
-    )
-$$;
-
-create or replace function public.crm_lead_can_view(target uuid, clinical_client uuid)
+-- Production exposes the two-argument helper with DEFAULT NULL. Keep that
+-- callable contract and consolidate the legacy one-argument update-policy
+-- helper onto it so one-UUID calls are not ambiguous.
+create or replace function public.crm_lead_can_view(
+  target uuid,
+  clinical_client uuid default null
+)
 returns boolean
 language sql
 stable
@@ -68,6 +61,14 @@ as $$
     )
     or (target = auth.uid() and public.has_permission('leads.view'))
 $$;
+
+drop policy if exists "crm leads scoped update" on public.crm_leads;
+create policy "crm leads scoped update"
+on public.crm_leads for update to authenticated
+using (public.crm_lead_can_view(assigned_to, null::uuid))
+with check (public.crm_lead_can_view(assigned_to, null::uuid));
+
+drop function if exists public.crm_lead_can_view(uuid);
 
 create or replace function public.crm_lead_can_edit(target uuid)
 returns boolean
@@ -226,6 +227,7 @@ on public.patient_documents for insert to authenticated
 with check (
   public.patient_care_access(patient_id)
   and public.has_permission('patient_documents.upload')
+  and uploaded_by = auth.uid()
 );
 
 drop policy if exists "patient documents change" on public.patient_documents;
