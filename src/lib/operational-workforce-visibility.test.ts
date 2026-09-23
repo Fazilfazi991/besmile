@@ -46,9 +46,15 @@ describe('operational workforce visibility', () => {
     'src/components/patient-ui.tsx',
     'src/lib/idea-repository.ts',
     'src/components/operational-reports.tsx',
-    'src/app/admin/employees/new/page.tsx',
   ])('applies visibility to operational selectors in %s', path => {
     expect(read(path)).toContain('workforce_visible');
+  });
+
+  it('uses the visibility-filtered organization directory for employee reporting managers', () => {
+    expect(read('src/app/admin/employees/new/page.tsx')).toContain("db.rpc('organization_directory')");
+    const directory = read('supabase/migrations/20260923185924_dynamic_organization_chart.sql').split('-- Only the current avatar')[0];
+    expect(directory).toContain('p.is_employee and p.workforce_visible');
+    expect(directory).toContain("p.status='active' and p.removed_at is null");
   });
 
   it('keeps hidden QA/vendor profiles out of the default employee directory view', () => {
