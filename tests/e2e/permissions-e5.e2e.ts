@@ -135,12 +135,22 @@ test.afterAll(async () => {
   if (generatedOfferId) await fixtureAdmin.from('documents').delete().eq('id', generatedOfferId);
   if (generatedOfferPath) await fixtureAdmin.storage.from('employee-documents').remove([generatedOfferPath]);
   if (leadId) {
+    const sales = await fixtureAdmin.from('crm_sales').select('id').eq('lead_id', leadId);
+    const saleIds = (sales.data || []).map(sale => sale.id);
+    if (saleIds.length) {
+      await fixtureAdmin.from('finance_invoice_payments').delete().in('conversion_sale_id', saleIds);
+      await fixtureAdmin.from('finance_transactions').delete().in('sale_id', saleIds);
+      await fixtureAdmin.from('finance_invoices').delete().in('sale_id', saleIds);
+    }
     await fixtureAdmin.from('crm_sales').delete().eq('lead_id', leadId);
     await fixtureAdmin.from('crm_lead_followups').delete().eq('lead_id', leadId);
     await fixtureAdmin.from('crm_leads').delete().eq('id', leadId);
   }
+  const disposableProfileIds = [assistantId, psychologistId].filter(Boolean);
+  if (disposableProfileIds.length) await fixtureAdmin.from('user_permission_grants').delete().in('profile_id', disposableProfileIds);
   if (assistantId) await fixtureAdmin.auth.admin.deleteUser(assistantId);
   if (psychologistId) await fixtureAdmin.auth.admin.deleteUser(psychologistId);
+  if (disposableProfileIds.length) await fixtureAdmin.from('profiles').delete().in('id', disposableProfileIds);
   restoreEnvironment('BSMILE_QA_ASSISTANT_MANAGER_EMAIL', originalAssistantManagerEmail);
   restoreEnvironment('BSMILE_QA_ASSISTANT_MANAGER_PASSWORD', originalAssistantManagerPassword);
   restoreEnvironment('BSMILE_QA_PSYCHOLOGIST_EMAIL', originalPsychologistEmail);
