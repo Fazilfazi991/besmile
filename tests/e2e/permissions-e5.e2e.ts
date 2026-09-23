@@ -152,9 +152,10 @@ test('Assistant Manager converts Lead to Sale with a persistent amount and sees 
   await login(page, 'assistant_manager');
   await navigateAfterLogin(page, `/admin/crm/leads/${leadId}`);
   await expect(page.getByRole('heading', { name: 'Sale conversion' })).toBeVisible();
-  const amount = page.getByRole('spinbutton', { name: 'Sale value' });
+  const amount = page.getByRole('spinbutton', { name: 'Sale amount' });
   await expect(amount).toBeVisible();
   await amount.fill('5432.10');
+  await page.getByLabel('Invoice due date *').fill(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   await page.getByRole('button', { name: 'Convert to sale', exact: true }).click();
   await expect(page.getByText('Lead converted to a sale.')).toBeVisible({ timeout: 30_000 });
   await page.reload();
