@@ -118,7 +118,7 @@ test.afterAll(async () => {
 });
 
 test('Sales Coordinator can operate all leads and open identity-only clients', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   await page.goto('/sign-in');
   await page.getByLabel('Email').fill(salesCoordinatorEmail);
   await page.getByLabel('Password').fill(salesCoordinatorPassword);
@@ -150,6 +150,7 @@ test('Sales Coordinator can operate all leads and open identity-only clients', a
     await expect(page.getByRole('table', { name: 'Personal attendance records' }).getByText('Punch-Out', { exact: true }).first()).toBeVisible();
     await page.goto('/employee/leaves');
     await expect(page.getByRole('heading', { name: /leave/i }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Leave balance', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'New leave request' })).toBeVisible();
     const overflow = await page.evaluate(() => ({ viewport: window.innerWidth, document: document.documentElement.scrollWidth }));
     expect(overflow.document, `${theme} mode horizontal overflow`).toBeLessThanOrEqual(overflow.viewport);

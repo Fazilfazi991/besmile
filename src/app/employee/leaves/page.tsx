@@ -40,6 +40,7 @@ export default function LeavesPage() {
   const requestId = searchParams.get('request') || '';
   const [profile, setProfile] = useState<any>();
   const [types, setTypes] = useState<any[]>([]);
+  const [balances, setBalances] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,12 +60,14 @@ export default function LeavesPage() {
     try {
       const employee = (await currentProfile()) as any;
       if (!employee) throw Error('Your session has expired.');
-      const [leaveTypes, leaveHistory] = await Promise.all([
+      const [leaveTypes, leaveBalances, leaveHistory] = await Promise.all([
         employeeRepository.leaveTypes(),
+        employeeRepository.leaveBalances(employee.id),
         employeeRepository.leaveHistory(employee.id),
       ]);
       setProfile(employee);
       setTypes(leaveTypes);
+      setBalances(leaveBalances);
       setRequests(
         leaveHistory.filter((request: any) =>
           ['pending', 'approved', 'rejected'].includes(request.status),
@@ -196,6 +199,26 @@ export default function LeavesPage() {
           </div>
         ))}
       </div>
+
+      <section className="card p-4 md:p-5" aria-labelledby="leave-balance-heading">
+        <div>
+          <h2 className="font-bold" id="leave-balance-heading">Leave balance</h2>
+          <p className="mt-1 text-sm text-slate-500">Your available balance for {new Date().getFullYear()}.</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {types.filter((type) => type.balance_required).map((type) => {
+            const balance = balances.find((item) => item.leave_type_id === type.id);
+            const allocated = Number(balance?.allocated_days || 0);
+            const used = Number(balance?.used_days || 0);
+            const available = Math.max(0, allocated - used);
+            return <div className="rounded-xl border border-slate-200 p-3" key={type.id}>
+              <span className="block text-sm text-slate-600">{type.name}</span>
+              <b className="mt-1 block text-xl text-slate-900">{available} days</b>
+              <small className="mt-1 block text-slate-500">{used} used of {allocated}</small>
+            </div>;
+          })}
+        </div>
+      </section>
 
       {notice && (
         <p
