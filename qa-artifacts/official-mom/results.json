@@ -1,0 +1,41 @@
+{
+  "qaProject": "enylrvmjgbntkrgpqsfe",
+  "results": [
+    {
+      "name": "DIRECTOR: real upload, history, persistence, signed view/download and security",
+      "status": "PASS"
+    },
+    {
+      "name": "GENERAL_MANAGER: real upload, history, persistence, signed view/download and security",
+      "status": "PASS"
+    },
+    {
+      "name": "ASSISTANT_MANAGER: real upload, history, persistence, signed view/download and security",
+      "status": "PASS"
+    },
+    {
+      "name": "ADMIN: real upload, history, persistence, signed view/download and security",
+      "status": "PASS"
+    },
+    {
+      "name": "ordinary employee: route, direct finalize, direct MOM Storage upload blocked",
+      "status": "PASS"
+    },
+    {
+      "name": "cleanup 3c6c2d30-fb8f-422c-83dc-9b79133716b2",
+      "status": "PASS"
+    },
+    {
+      "name": "cleanup 3e6b8de6-aa39-4157-a1e3-4e775bd38861",
+      "status": "PASS"
+    },
+    {
+      "name": "cleanup 1626e5da-9602-45f6-a038-ba6c6f6feded",
+      "status": "PASS"
+    },
+    {
+      "name": "cleanup 769a43bf-a40c-43ed-b3dd-17d89bb492a9",
+      "status": "PASS"
+    }
+  ]
+}

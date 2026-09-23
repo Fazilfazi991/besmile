@@ -15,6 +15,8 @@ export async function officialDocumentAccess(db: any) {
   return {
     manager,
     operational,
+    // A MOM-only capability; this does not confer general upload/manage access.
+    canUploadMom: manager || operational,
     allowedTypes: manager
       ? officialDocumentTypes.map((type) => type.key)
       : operational ? [...operationalOfficialDocumentTypes] : [],

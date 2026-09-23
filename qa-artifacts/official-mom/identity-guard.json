@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "immutableFields": [
+    "uploaded_by",
+    "document_type",
+    "source_type",
+    "storage_path"
+  ],
+  "managerTitleEdit": "PASS",
+  "cleanup": "PASS"
+}

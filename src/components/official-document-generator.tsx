@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { officialDocumentTypes, type OfficialDocumentInput, type OfficialDocumentType } from '@/lib/official-document-types';
+import OfficialMomUpload from '@/components/official-mom-upload';
+import { officialMomType } from '@/lib/official-mom';
 
 type Employee = { id: string; full_name: string; designation?: string | null; joining_date?: string | null; department?: { name?: string } | null };
-type HistoryItem = { id: string; title: string; category: string; file_name: string; created_at: string; storage_path: string };
-type Context = { profile: { full_name?: string; designation?: string }; history: HistoryItem[]; allowedTypes: OfficialDocumentType[] };
+type HistoryItem = { id: string; title: string; category: string; file_name: string; created_at: string; storage_path: string; document_type?: string; source_type?: string };
+type Context = { profile: { full_name?: string; designation?: string }; history: HistoryItem[]; allowedTypes: OfficialDocumentType[]; canUploadMom: boolean };
 
 const today = new Date().toISOString().slice(0, 10);
 const initialForm: OfficialDocumentInput = {
@@ -173,7 +175,7 @@ export default function OfficialDocumentGeneratorPage() {
   const openHistory = async (item: HistoryItem) => {
     setError('');
     try {
-      await fetch('/api/documents/official/audit-download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documentId: item.id }) });
+      if (item.document_type !== officialMomType) await fetch('/api/documents/official/audit-download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documentId: item.id }) });
       const { employeeRepository } = await import('@/lib/employee-repository');
       const url = await employeeRepository.signedDocumentUrl(item.storage_path);
       window.open(url, '_blank', 'noopener,noreferrer');
@@ -189,6 +191,7 @@ export default function OfficialDocumentGeneratorPage() {
       <span>Authorized users only</span>
     </header>
     {(error || notice) && <div role="status" aria-live="polite" className={`official-generator-message ${error ? 'is-error' : 'is-success'}`}>{error || notice}</div>}
+    {context.canUploadMom && <OfficialMomUpload onUploaded={loadContext} />}
 
     <div className="official-generator-layout">
       <div className="official-generator-form space-y-4">
@@ -204,7 +207,7 @@ export default function OfficialDocumentGeneratorPage() {
       <aside className="official-preview-column"><div className="official-preview-toolbar"><div><b>A4 PDF preview</b><small>{previewPages ? `${previewPages} page${previewPages === 1 ? '' : 's'}` : 'No preview generated'}</small></div>{previewUrl && <a className="btn border" href={previewUrl} target="_blank" rel="noreferrer">Open</a>}</div><div className="official-preview-frame">{previewUrl ? <iframe title="Official document PDF preview" src={previewUrl} /> : <div><img src="/documents/letterhead/BSmile_Letterhead_Blank_A4_300dpi.png" alt="BSmile official letterhead preview" /><span>Select your content, then preview the PDF.</span></div>}</div></aside>
     </div>
 
-    <article className="card official-history"><div><h2>Generated document history</h2><p>Private copies stored through the existing Documents storage controls.</p></div>{context.history.length ? <div>{context.history.map((item) => <button type="button" key={item.id} onClick={() => void openHistory(item)}><span><b>{item.title}</b><small>{item.category.replace('Official:', '')} - {new Date(item.created_at).toLocaleString()}</small></span><strong>Open</strong></button>)}</div> : <p className="official-history-empty">No official documents have been generated yet.</p>}</article>
+    <article className="card official-history"><div><h2>Official document history</h2><p>Private copies stored through the existing Documents storage controls.</p></div>{context.history.length ? <div>{context.history.map((item) => <button type="button" key={item.id} onClick={() => void openHistory(item)}><span className="min-w-0 break-words"><b>{item.title}</b><small>{item.category.replace('Official:', '')} - {new Date(item.created_at).toLocaleString()}</small></span><strong className="shrink-0">Open / download</strong></button>)}</div> : <p className="official-history-empty">No official documents yet.</p>}</article>
   </section>;
 }
 
