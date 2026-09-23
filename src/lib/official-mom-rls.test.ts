@@ -37,6 +37,9 @@ beforeAll(async () => {
     create function storage.filename(text) returns text language sql immutable as $$ select (string_to_array($1,'/'))[array_length(string_to_array($1,'/'),1)] $$;
     create function storage.extension(text) returns text language sql immutable as $$ select reverse(split_part(reverse($1),'.',1)) $$;
     create function storage.allow_only_operation(text) returns boolean language sql stable as $$ select coalesce(current_setting('storage.operation',true),'') = $1 $$;
+    create table public.profiles(id uuid primary key, status text);
+    create table public.permissions(id uuid primary key default gen_random_uuid(), code text unique, description text);
+    create table public.user_permission_grants(profile_id uuid, permission_id uuid, reason text, starts_at timestamptz default now(), expires_at timestamptz, revoked_at timestamptz);
     create table public.test_permissions(profile_id uuid, code text);
     create function public.has_permission(permission_code text) returns boolean language sql stable as $$ select exists(select 1 from public.test_permissions where profile_id=auth.uid() and code=permission_code) $$;
     create function public.current_role() returns text language sql stable as $$ select 'staff'::text $$;
@@ -66,22 +69,70 @@ beforeAll(async () => {
   if (!generationPolicies?.length) throw Error('Missing baseline generation policies');
   for (const sql of generationPolicies) await db.exec(sql);
   await db.exec(source('20260923105301_official_mom_upload.sql'));
+  await db.exec(source('20260923114731_official_mom_explicit_access.sql'));
+  await db.exec(`insert into public.profiles values ('${creator}','active'),('${manager}','active'),('${otherCreator}','active'),('${employee}','active');`);
 }, 60000);
 beforeEach(async () => {
   await db.exec('reset role; truncate public.documents,public.document_shares,public.audit_logs,storage.objects');
   await db.query("select set_config('storage.operation','',false)");
+  await db.exec(`truncate public.user_permission_grants;
+    update public.profiles set status='active';
+    insert into public.user_permission_grants(profile_id,permission_id)
+    select profile.id,permission.id from public.profiles profile cross join public.permissions permission
+    where profile.id in ('${creator}','${manager}') and permission.code='documents.mom.upload';`);
   await asUser(creator);
 });
 afterAll(async () => { await db?.close(); });
 
 describe('MOM PostgreSQL authorization', () => {
-  it('allows generation-only MOM upload and INSERT RETURNING without manager grants', async () => {
+  it('blocks another generation-only user without an explicit MOM grant', async () => {
+    await asUser(otherCreator);
+    await expect(object(otherCreator)).rejects.toThrow(/row-level security/);
+    await expect(record({ uploaded_by: otherCreator, storage_path: path(otherCreator) })).rejects.toThrow(/row-level security/);
+    // Existing generation permission and its Storage path remain available.
+    await object(otherCreator, `company/${otherCreator}/official/letter.pdf`);
+  });
+  it('blocks managers without a MOM grant despite permissive baseline policies', async () => {
+    await db.exec('reset role');
+    await db.query('delete from public.user_permission_grants where profile_id=$1', [manager]);
+    await asUser(manager);
+    await expect(object(manager)).rejects.toThrow(/row-level security/);
+    await expect(record({ uploaded_by: manager, storage_path: path(manager) })).rejects.toThrow(/row-level security/);
+    await object(manager, `company/${manager}/official/policy.pdf`);
+    await object(manager, `${manager}/request/mom/personal.pdf`);
+    await record({ uploaded_by: manager, storage_path: `company/${manager}/official/policy.pdf`, document_type: 'policy', category: 'Policy' });
+  });
+  it.each(['revoked_at=now()', "expires_at=now()-interval '1 day'", "starts_at=now()+interval '1 day'"])(
+    'rejects a grant with %s immediately', async mutation => {
+      await db.exec('reset role');
+      await db.exec(`update public.user_permission_grants set ${mutation}`);
+      await asUser(creator);
+      await expect(object()).rejects.toThrow(/row-level security/);
+      await expect(record()).rejects.toThrow(/row-level security/);
+    });
+  it('rejects inactive accounts even with an explicit grant', async () => {
+    await db.exec("reset role; update public.profiles set status='inactive'");
+    await asUser(creator);
+    await expect(object()).rejects.toThrow(/row-level security/);
+  });
+  it('does not let implicit all-permission administrators bypass explicit MOM grants', async () => {
+    await db.exec('reset role');
+    const original = (await db.query<{ definition: string }>("select pg_get_functiondef('public.has_permission(text)'::regprocedure) as definition")).rows[0].definition;
+    try {
+      await db.exec('create or replace function public.has_permission(permission_code text) returns boolean language sql stable as $$ select true $$');
+      await asUser(employee);
+      expect((await db.query('select public.official_mom_upload_allowed() as allowed')).rows).toEqual([{ allowed: false }]);
+      await expect(object(employee)).rejects.toThrow(/row-level security/);
+      await expect(record({ uploaded_by: employee, storage_path: path(employee) })).rejects.toThrow(/row-level security/);
+    } finally { await db.exec('reset role'); await db.exec(original); }
+  });
+  it('allows explicitly approved generation-only MOM upload without manager grants', async () => {
     expect((await object()).rows).toHaveLength(1);
     expect((await record()).rows).toHaveLength(1);
     expect((await db.query('select * from public.documents')).rows).toHaveLength(1);
     expect((await db.query("select public.has_permission('documents.manage') as allowed")).rows).toEqual([{ allowed: false }]);
   });
-  it('retains existing manager upload and read access', async () => {
+  it('allows an explicitly approved manager upload and existing read access', async () => {
     await record(); await asUser(manager);
     expect((await db.query('select * from public.documents')).rows).toHaveLength(1);
     await object(manager); await record({ uploaded_by: manager, storage_path: path(manager) });

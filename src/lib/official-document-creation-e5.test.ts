@@ -17,11 +17,13 @@ describe('E5 operational official-document creation correction', () => {
   });
 
   it('limits the creator to operational types while managers keep the existing catalogue', async () => {
-    const operational = await officialDocumentAccess({ rpc: async (_: string, { permission_code }: { permission_code: string }) => ({ data: permission_code === 'documents.official.generate' }) });
+    const operational = await officialDocumentAccess({ rpc: async (_: string, { permission_code }: { permission_code?: string } = {}) => ({ data: permission_code === 'documents.official.generate' }) });
+    expect(operational.canUploadMom).toBe(false);
     expect(operational.allowedTypes).toEqual(operationalOfficialDocumentTypes);
     expect(operational.allowedTypes).toContain('offer_letter');
     for (const type of ['salary_slip', 'payment_statement', 'invoice', 'performance_report', 'policy']) expect(operational.allowedTypes).not.toContain(type);
-    const manager = await officialDocumentAccess({ rpc: async (_: string, { permission_code }: { permission_code: string }) => ({ data: permission_code === 'documents.manage' }) });
+    const manager = await officialDocumentAccess({ rpc: async (_: string, { permission_code }: { permission_code?: string } = {}) => ({ data: permission_code === 'documents.manage' }) });
+    expect(manager.canUploadMom).toBe(false);
     expect(manager.allowedTypes.length).toBeGreaterThan(operational.allowedTypes.length);
     expect(manager.allowedTypes).toContain('salary_slip');
   });

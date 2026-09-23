@@ -2,6 +2,10 @@
   "qaProject": "enylrvmjgbntkrgpqsfe",
   "results": [
     {
+      "name": "Unapproved managers and generation-only fixture blocked before explicit grants",
+      "status": "PASS"
+    },
+    {
       "name": "DIRECTOR: real upload, history, persistence, signed view/download and security",
       "status": "PASS"
     },
@@ -14,27 +18,27 @@
       "status": "PASS"
     },
     {
-      "name": "ADMIN: real upload, history, persistence, signed view/download and security",
+      "name": "unapproved EMPLOYEE: UI, finalize, direct MOM upload blocked",
       "status": "PASS"
     },
     {
-      "name": "ordinary employee: route, direct finalize, direct MOM Storage upload blocked",
+      "name": "unapproved ADMIN: UI, finalize, direct MOM upload blocked",
       "status": "PASS"
     },
     {
-      "name": "cleanup 3c6c2d30-fb8f-422c-83dc-9b79133716b2",
+      "name": "cleanup 9f7727b8-dc6b-485f-badb-5d7a33b79a1d",
       "status": "PASS"
     },
     {
-      "name": "cleanup 3e6b8de6-aa39-4157-a1e3-4e775bd38861",
+      "name": "cleanup a21fa220-7f27-4bc5-8982-b9de91e21c5c",
       "status": "PASS"
     },
     {
-      "name": "cleanup 1626e5da-9602-45f6-a038-ba6c6f6feded",
+      "name": "cleanup 857da812-dfed-4826-b434-5418a732769b",
       "status": "PASS"
     },
     {
-      "name": "cleanup 769a43bf-a40c-43ed-b3dd-17d89bb492a9",
+      "name": "Temporary explicit QA grants cleaned",
       "status": "PASS"
     }
   ]

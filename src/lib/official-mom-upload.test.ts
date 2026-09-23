@@ -16,7 +16,7 @@ function request(overrides: Record<string, string | File | undefined> = {}) {
   return new Request('http://localhost/api/documents/official/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
 }
 function permissions(codes: string[]) {
-  state.db.rpc = vi.fn(async (_: string, { permission_code }: { permission_code: string }) => ({ data: codes.includes(permission_code) }));
+  state.db.rpc = vi.fn(async (name: string, args?: { permission_code: string }) => ({ data: codes.includes(name === 'official_mom_upload_allowed' ? 'documents.mom.upload' : args!.permission_code) }));
 }
 
 beforeEach(() => {
@@ -24,12 +24,14 @@ beforeEach(() => {
   insert = vi.fn(() => ({ select: () => ({ single: async () => ({ data: { id: 'saved' }, error: null }) }) }));
   const lookup: any = { eq: () => lookup, maybeSingle: async () => ({ data: null, error: null }) };
   state.db = { auth: { getUser: async () => ({ data: { user: { id: 'uploader' } } }) }, storage: { from: vi.fn(() => storage) }, from: vi.fn(() => ({ insert, select: () => lookup })) };
-  permissions(['documents.official.generate']);
+  permissions(['documents.official.generate', 'documents.mom.upload']);
 });
 
 describe('MOM upload authorization and endpoint', () => {
-  it.each(['documents.manage', 'documents.employee.manage', 'documents.official.generate'])('inherits %s without granting manager access', async code => {
+  it.each(['documents.manage', 'documents.employee.manage', 'documents.official.generate'])('requires an explicit MOM grant alongside %s', async code => {
     permissions([code]);
+    expect((await POST(request())).status).toBe(403);
+    permissions([code, 'documents.mom.upload']);
     const access = await officialDocumentAccess(state.db);
     expect(access.canUploadMom).toBe(true);
     expect(access.manager).toBe(code !== 'documents.official.generate');

@@ -12,11 +12,13 @@ export async function officialDocumentAccess(db: any) {
   const checks = await Promise.all(permissions.map((permission_code) => db.rpc('has_permission', { permission_code })));
   const manager = checks.slice(0, officialDocumentPermissions.length).some((result) => result.data === true);
   const operational = checks[officialDocumentPermissions.length].data === true;
+  // Explicit MOM grants only; has_permission alone has a super-admin bypass.
+  const mom = await db.rpc('official_mom_upload_allowed');
   return {
     manager,
     operational,
     // A MOM-only capability; this does not confer general upload/manage access.
-    canUploadMom: manager || operational,
+    canUploadMom: !mom.error && mom.data === true,
     allowedTypes: manager
       ? officialDocumentTypes.map((type) => type.key)
       : operational ? [...operationalOfficialDocumentTypes] : [],

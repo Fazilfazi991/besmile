@@ -1,110 +1,98 @@
-# MOM upload — implementation and verification
+# MOM upload — final owner scope and verification
 
-## Baseline and delivery
+## Delivery and baseline
 
-- Baseline: `ab00044cb28a94599589a434cb47351dd3aa169c`.
-- Verified against fetched `origin/production-readiness`, live `/api/version`, and Vercel Production deployment `dpl_H56GZZm5K1EdMTY26VU6gsLBWgq5` on 2026-09-23, again immediately before implementation.
-- Isolated branch: `codex/bs-official-documents-mom-upload`.
+- Branch: `codex/bs-official-documents-mom-upload`.
 - Worktree: `C:/Users/User/.codex/worktrees/bs-official-documents-mom-upload/Bsmile`.
-- Production database, Storage, permissions, application deployment, and `production-readiness` checkout were not modified. Production database access was SELECT-only.
+- Original verified Production baseline: `ab00044cb28a94599589a434cb47351dd3aa169c`; Vercel deployment `dpl_H56GZZm5K1EdMTY26VU6gsLBWgq5`.
+- Production database access was SELECT-only. No Production migration, permission grant, Storage write, application deployment, or integration-branch change was performed.
+- Final commit SHA is supplied in the delivery response.
+
+## Identity audit: three unique authorized active accounts
+
+The final owner instruction supersedes the earlier inherited-access design.
+
+Read-only Production queries on 2026-09-23, including normalized designation spelling variants and all account statuses, confirm **Diya Anthikat IS the active Assistant Manager account** in Administration. There is no separate active Assistant Manager. An older Diya account is inactive and receives nothing.
+
+| Owner-intended account | Verified designation | Release authorization |
+| --- | --- | --- |
+| General Manager | General Manager | One explicit MOM grant |
+| Director | Director | One explicit MOM grant |
+| Diya Anthikat / Assistant Manager | Assistant Manager | One explicit MOM grant |
+| Chairman | Chairman (uses the same director role code) | No MOM upload grant |
+| Other managers, generators, administrators, employees | Any | Blocked without separately approved explicit MOM grant |
+| Older inactive Diya / GM / Chairman accounts | Inactive | Blocked |
+
+**Unique authorized count: 3.** No fourth assignment was manufactured.
+
+[Production read-only identity query](https://supabase.com/dashboard/project/ksmqzxncdvuxiabypjth/sql/b38bbebb-295d-413b-88e5-20c45af793d0)
 
 ## Exact permission model
 
-Existing permissions: `documents.manage`, `documents.employee.manage`, `documents.official.generate`.
+`documents.mom.upload` is stored in the existing permissions and user_permission_grants architecture. Only a current, unrevoked direct grant for an active profile authorizes MOM upload. Start time and expiry are enforced on each check.
 
-`officialDocumentAccess().canUploadMom` and the SECURITY INVOKER database helper `official_mom_upload_allowed()` derive the MOM-only capability from those existing effective permissions. No role/user grants are copied, no names or emails are embedded, and no new broad permission is granted. A separate permission row is unnecessary: eligibility follows the existing permission architecture, including designation bundles, direct grants, revocations, and inactive-account checks.
+The release migration seeds only the three audited stable Production profile IDs. IDs appear only as migration data, never as runtime application allowlists. No names/emails are hard-coded in authorization. New users with the same role/designation do not inherit a grant. No role or designation bundle receives this permission.
 
-Managers retain existing document access. Generation-only users may insert/read their own uploaded MOM records and own MOM files only. They gain no general upload, document administration, saved-document update/delete, sharing, or directory-listing permission. The only new DELETE policy removes unreferenced files after failed uploads; it rejects deletion once a document references the object.
+`official_mom_upload_allowed()` is a narrowly scoped SECURITY DEFINER current-user boolean lookup because grant rows are security-admin-only. It has no subject argument, returns no private data, pins an empty search path, and is executable only by authenticated users. It deliberately bypasses neither explicit-grant requirements nor active-account checks. Unlike generic has_permission, it does not implicitly authorize super-admins.
 
-Existing manager and explicit document-share visibility policies are unchanged. No default share-with-everyone row is created. Ordinary employees cannot upload MOM or read unshared MOM; pre-existing explicit sharing still works.
+The UI, finalize API, metadata RLS, and Storage RLS use the same helper. Restrictive metadata INSERT validation overrides permissive manager policies for MOM. Restrictive Storage INSERT/UPDATE policies prevent general company-file permissions from bypassing the MOM namespace boundary.
 
-## Production authorized population audit
+General document upload/manage/delete permissions, admin shell, HR, finance, CRM and clinical access remain unchanged. Existing Official Documents generation and viewing/sharing rules remain unchanged. Explicitly approved generation-only users gain no general management or saved-document deletion rights. Failed-upload cleanup is limited to their own unreferenced MOM object.
 
-Read-only `has_permission(code, profile.id)` checks across ALL production profiles/statuses found **four eligible users**, not the anticipated five plus GM/Director. No account was activated or granted access to match the expectation.
+## Implementation
 
-| Existing role | Designation | Count | documents.manage | documents.employee.manage | documents.official.generate |
-| --- | --- | --- | --- | --- | --- |
-| director | Chairman | 1 | true | false | false |
-| director | Director | 1 | true | false | false |
-| general_manager | General Manager | 1 | true | true | false |
-| staff | Assistant Manager | 1 | false | false | true |
+- A collapsible Upload Document form on both existing Official Documents pages offers Minutes of Meeting (MOM), separately from PDF generation.
+- Canonical type `minutes_of_meeting`, category `Official:Minutes of Meeting (MOM)`, source `uploaded`.
+- Existing metadata columns store title, optional description, filename, MIME, size, authenticated uploader and creation time.
+- Private `employee-documents` bucket; own `company/<uid>/mom/<UUID>-<filename>` path; no upsert.
+- Direct browser-to-Storage upload preserves the existing 10 MiB limit. The authenticated JSON finalize endpoint re-reads the object, validates actual size and declared MIME, derives uploader server-side and is idempotent per Storage path.
+- Existing supported files: PDF, JPEG/JPG, PNG, WebP; nonempty, at most 10 MiB, safe filename and matching MIME/extension. DOC/DOCX remain unsupported.
+- History shows uploaded MOM; signed view/download uses existing 60-second URLs and existing visibility. No new shared audience.
+- Upload audit records authenticated actor. MOM uploader, type, source and Storage path cannot be reassigned even by a document manager; existing title edits remain allowed.
+- Generated catalogue, Meeting Notes, PDF heading engine and Operational Documents catalogue remain unchanged.
+- No existing filter/search on the Official Documents history page; none added. Existing 20-row limit retained.
+- Colorful Mode contrast adjustment is scoped to the new form.
 
-All four are active. Psychologist, Intern, and Sales Coordinator lack all three permissions. The all-status census found no additional eligible inactive/system accounts and no users possessing only `documents.employee.view`. The authorized population remains dynamic; equivalent existing permissions confer MOM automatically.
+## Migrations and release
 
-Production audit query: https://supabase.com/dashboard/project/ksmqzxncdvuxiabypjth/sql/85223ce1-c3a8-42bd-9cec-3c0af7ed59e1
+Apply BOTH candidate migrations before deploying the feature:
 
-QA equivalents tested: Director, General Manager, Assistant Manager, Super Admin, and an unauthorized ordinary employee. Chairman uses the same actual role and permission combination as the Director equivalent; no name-specific fixture is required by the implementation.
+1. `20260923105301_official_mom_upload.sql`: MOM infrastructure, validation, six scoped policies, audit and identity triggers.
+2. `20260923114731_official_mom_explicit_access.sql`: supersedes inherited eligibility with explicit MOM grants; seeds the three audited active Production identities; adds restrictive Storage INSERT/UPDATE policies.
 
-## Architecture and implementation
+Both definitions were applied to **QA `enylrvmjgbntkrgpqsfe` only**. The Production grant IDs do not match QA accounts and therefore create no QA grants. The browser harness temporarily grants only its three approved equivalents, then cleans those grants. It does not select all QA users by designation.
 
-- Official Documents uses `/admin/documents/generate` and `/employee/documents/generate`, sharing `official-document-generator.tsx`.
-- The baseline Official Documents page generated PDFs but had no upload flow. A small collapsible Upload Document form now offers `Minutes of Meeting (MOM)` separately from generation.
-- `/admin/documents` remains the separate Operational Documents form. Its Policy/Form/Notice/HR/Finance/Other catalogue and sharing workflow are unchanged.
-- Canonical MOM type: `minutes_of_meeting`; category: `Official:Minutes of Meeting (MOM)`; source: `uploaded`, never `official_generated`.
-- Existing metadata in `public.documents`: title, optional description, category/type, original filename, MIME, size, authenticated uploader, existing creation timestamp. No new metadata columns.
-- Private bucket: `employee-documents`. Safe path: `company/<authenticated user id>/mom/<UUID>-<filename>`. Uploads use `upsert: false`; a MOM-only unique index prevents duplicate metadata for one Storage path.
-- Browser sends bytes directly to private Supabase Storage under the current session/RLS. This preserves the existing 10 MiB limit despite Vercel's 4.5 MB function-request limit. The authenticated finalize endpoint re-reads the stored object to verify actual size and declared MIME, and derives uploader identity server-side.
-- Allowed files unchanged: PDF, JPEG/JPG, PNG, WebP; nonempty, at most 10 MiB, matching MIME/extension, safe filename. DOC/DOCX remain unsupported.
-- The existing history includes uploaded MOM. Managers see their existing authorized records; generation-only users retain own-document scope. Existing 20-record history limit is unchanged.
-- View/download uses existing 60-second signed URLs. Existing generated-download auditing stays intact; MOM uploads receive an authenticated upload audit event via a non-callable protected trigger.
-- No existing type filter/search exists on this page; neither was added.
-- Generated type catalogue, PDF engine, canonical heading behavior, and Meeting Notes were not changed.
-- Colorful Mode label contrast is scoped to the new form only.
-
-## Migration
-
-`supabase/migrations/20260923105301_official_mom_upload.sql`
-
-Required for the owner's approved generation-only MOM scope, not for a type lookup. It adds one MOM-only unique index, two SECURITY INVOKER helpers, six narrowly scoped policies (including restrictive metadata/attribution validation), a protected upload-audit trigger, and a SECURITY INVOKER identity-preservation trigger. Existing policies, buckets, role/designation/user grants, and generated-document functions are not replaced.
-
-Applied through the dashboard SQL editor to **QA project `enylrvmjgbntkrgpqsfe` only**. The matching committed migration must be applied through the integration release workflow before deploying this feature to Production. No production migration was applied.
+No Production release is authorized or performed in this task. Before release, verify the three audited identities remain active and apply both migrations through the integration workflow; do not deploy the superseded first commit alone.
 
 ## Verification
 
-- Focused endpoint tests: 27 passed. Authentication/authorization, type restriction, invalid/oversized/empty files, MIME mismatch, unsafe filenames, forged metadata, foreign paths, Storage failures, duplicate finalization, and existing allowed formats.
-- PostgreSQL RLS tests: 32 passed using PGlite with the existing permissive document/Storage policies plus the actual MOM migration. Tests execute real SQL as `authenticated`, including manager access, generation-only scope, employee/cross-creator denial, existing explicit shares, restrictive attribution, unsafe/general Storage paths, no saved-object update/delete, orphan-only cleanup, no directory listing, existing generated PDFs, and audit protection.
-- Full Vitest: **204 files / 936 tests passed**.
-- TypeScript: PASS.
-- ESLint: PASS, zero errors; 25 existing warnings. New files and QA script also lint cleanly.
-- Production build: PASS, rebuilt after the scoped Colorful Mode contrast adjustment.
-- Supabase QA security advisor: zero errors; existing database warnings remain outside this task's scope.
-- Authenticated browser QA: PASS for Director, GM, Assistant Manager, and Admin. Each completed real upload, listing, reload persistence, popup creation, signed download with exact byte comparison, ordinary-employee read denial, and collision rejection.
-- Manager identity guard live checks: uploader, storage path, document type, and source changes rejected; title edits allowed; disposable record/file cleaned.
-- Assistant Manager live checks: general company upload denied; forged uploader rejected; saved MOM metadata/file deletion denied; general manage/administration permissions remain false.
-- Ordinary employee live checks: upload UI unavailable, finalize endpoint 403, direct MOM Storage upload denied, metadata and file reads denied.
-- Mobile 390×844 and desktop 1366×768: PASS in Standard and Colorful Mode, for all four QA account types. No document-width overflow or clipped form controls; upload action visible.
-- The full 10 MiB limit passed real browser upload, persistence, and download using Admin.
-- Existing generated documents: all six required types returned valid PDFs through authenticated preview; General Report also passed authenticated generate/store/signed-download with byte comparison. Single-canonical-heading engine tests passed in the full suite.
-- Existing uploaded type: Policy PNG passed authenticated Storage upload, normal document metadata insertion and exact-byte download under existing management policies; no MOM type or policy was needed for this regression.
-- All disposable MOM, generated-report, and Policy regression metadata/files were cleaned. QA audit attribution records intentionally remain as existing audit history.
-- Final live `/api/version` and fetched `origin/production-readiness` remained at the baseline SHA at 2026-09-23 11:32 UTC.
+- Endpoint/access tests: 27 passed, including denial when general manager/generation permissions exist without explicit MOM permission.
+- Real PostgreSQL RLS tests: 39 passed using PGlite with existing permissive policies and both actual migrations. Covers unapproved managers/generators, implicit all-permission admin bypass, revoked/expired/future grants, inactive accounts, attribution, cross-user access, explicit sharing, orphan cleanup and ordinary document/generation regression.
+- Full Vitest: **204 files / 943 tests passed**.
+- QA security advisor: zero errors, 138 warnings. One new warning identifies the authenticated SECURITY DEFINER eligibility helper; reviewed and intentional because it returns only the current user's authorization boolean from protected grant rows. All other warnings predate this correction.
+- TypeScript: PASS. ESLint: zero errors, 25 pre-existing warnings. Production build: PASS.
+- Authenticated browser QA: approved Director, GM and Assistant Manager equivalents; real upload, history, reload persistence, signed view/download with exact bytes, collision denial, unauthorized read denial.
+- Responsive QA: 390×844 and 1366×768, Standard and Colorful modes for each approved equivalent.
+- Full 10 MiB file upload/download tested with Director.
+- Before temporary grants, the same managers/generator are denied direct MOM Storage and metadata insertion.
+- Unapproved super-admin and ordinary employee: no MOM upload UI, finalize 403, direct Storage denied. Super-admin still generates ordinary official documents.
+- Assistant Manager retains no general upload, management, administration or saved-MOM deletion rights.
+- Six existing generated PDF preview types pass. Earlier baseline-to-candidate General Report persisted/downloaded byte regression and Policy PNG upload/download regression also passed; correction does not change those paths.
+- Disposable MOM rows/files and temporary QA grants cleaned. Audit records remain as normal audit history.
+- Committed evidence: `qa-artifacts/official-mom/`; browser harness: `scripts/qa-official-mom.mjs`.
 
-The browser harness verifies the UI's actual signing response, popup creation, and downloaded bytes rather than Chromium's internal PDF-viewer URL or DOMContentLoaded event. Cleanup uses authoritative object listing rather than potentially cached download bytes. An independent QA SQL check also confirmed zero MOM rows and zero MOM objects after the earlier run.
+## Acceptance
 
-Committed evidence is in `qa-artifacts/official-mom/`: final role/security/cleanup results, generated-document and existing-upload regression results, and four representative Assistant Manager screenshots covering both viewports/themes. All sixteen role/viewport/theme screenshots remain in the ignored local `release-evidence/mom/` directory.
-
-## Acceptance status
-
-| Required result | Status |
+| Requirement | Candidate result |
 | --- | --- |
-| Director existing access / MOM upload | YES / PASS |
-| General Manager existing access / MOM upload | YES / PASS |
-| Generation-only Assistant Manager MOM upload | PASS |
-| No general upload/manage/delete broadening | PASS |
-| Other existing manager permission combinations | PASS (unit/SQL and Admin browser fixture) |
-| Upload / list display / persistence | PASS |
-| Filter / search | NOT APPLICABLE — no existing filter/search on this page |
-| View / download | PASS |
-| Unauthorized block | PASS |
-| Existing official types / generated-document regression | PASS |
-| Mobile 390×844 / desktop 1366×768, both modes | PASS |
-| QA files cleaned | YES |
-| RLS/permissions changed | Six MOM-only policies and protected helpers/trigger; no role/user/designation permission grants |
-| Migration | `20260923105301_official_mom_upload.sql` — QA only |
-| Production modified | NO |
-
-Final SHA is supplied in the delivery response (the commit containing this report).
+| General Manager MOM upload | PASS, explicit-grant QA equivalent |
+| Director MOM upload | PASS, explicit-grant QA equivalent |
+| Diya MOM upload | PASS, Assistant Manager QA equivalent |
+| Separate Assistant Manager | Not applicable: same active account as Diya |
+| Everyone else without owner-approved grant | BLOCKED |
+| General Official Documents functionality | UNCHANGED; regression PASS |
+| Broad permission expansion | NONE |
+| Unique planned Production grants | 3 |
+| Production changed | NO |
 
 **OFFICIAL DOCUMENT MOM UPLOAD COMPLETE — PENDING INTEGRATION**
-
-Population discrepancy remains explicit: production currently has four qualifying users, not seven. No new general access was granted to manufacture the expected count.

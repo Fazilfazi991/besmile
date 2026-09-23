@@ -29,6 +29,7 @@ async function account(role) {
 const browser = await chromium.launch();
 let admin;
 const cleanup = [];
+const grantCleanup = [];
 const check = async (name, fn) => {
   try { await fn(); results.push({ name, status: 'PASS' }); console.log(`PASS ${name}`); }
   catch (error) { results.push({ name, status: 'FAIL', error: error.message }); console.log(`FAIL ${name}: ${error.message}`); }
@@ -40,7 +41,25 @@ const pdf = await new Promise(resolve => {
 });
 try {
   admin = await account('ADMIN');
-  for (const role of ['DIRECTOR', 'GENERAL_MANAGER', 'ASSISTANT_MANAGER', 'ADMIN']) {
+  const permission = await admin.db.from('permissions').select('id').eq('code', 'documents.mom.upload').single();
+  if (permission.error) throw permission.error;
+  // Only these QA equivalents receive temporary explicit MOM grants. Never
+  // populate all matching designations or reuse Production account IDs.
+  for (const role of ['DIRECTOR', 'GENERAL_MANAGER', 'ASSISTANT_MANAGER']) {
+    const actor = await account(role);
+    const before = await actor.db.rpc('official_mom_upload_allowed');
+    if (before.error || before.data !== false) throw Error('QA fixture must start without a MOM grant');
+    const denied = await actor.db.storage.from('employee-documents').upload(`company/${actor.uid}/mom/${crypto.randomUUID()}-denied.pdf`, pdf, { contentType: 'application/pdf' });
+    if (!denied.error) throw Error('Unapproved manager/generator Storage upload was allowed');
+    const deniedRecord = await actor.db.from('documents').insert({ title: 'Denied QA MOM', category: 'Official:Minutes of Meeting (MOM)', document_type: 'minutes_of_meeting', source_type: 'uploaded', uploaded_by: actor.uid,
+      storage_path: `company/${actor.uid}/mom/${crypto.randomUUID()}-minutes.pdf`, file_name: 'minutes.pdf', mime_type: 'application/pdf', file_size: pdf.length });
+    if (!deniedRecord.error) throw Error('Unapproved manager/generator metadata insert was allowed');
+    const grant = await admin.db.from('user_permission_grants').insert({ profile_id: actor.uid, permission_id: permission.data.id, reason: 'Disposable MOM scope QA', expires_at: new Date(Date.now() + 3600000).toISOString() }).select('id').single();
+    if (grant.error) throw grant.error;
+    grantCleanup.push(grant.data.id);
+  }
+  results.push({ name: 'Unapproved managers and generation-only fixture blocked before explicit grants', status: 'PASS' });
+  for (const role of ['DIRECTOR', 'GENERAL_MANAGER', 'ASSISTANT_MANAGER']) {
     await check(`${role}: real upload, history, persistence, signed view/download and security`, async () => {
       const actor = await account(role);
       const context = await browser.newContext({ baseURL, viewport: { width: 1366, height: 768 } });
@@ -71,7 +90,7 @@ try {
         }
         const title = `QA_MOM_${role}_${Date.now()}`;
         await form.getByLabel('Title', { exact: true }).fill(title);
-        const fileBytes = role === 'ADMIN' ? Buffer.concat([pdf, Buffer.alloc(10 * 1024 * 1024 - pdf.length, 32)]) : pdf;
+        const fileBytes = role === 'DIRECTOR' ? Buffer.concat([pdf, Buffer.alloc(10 * 1024 * 1024 - pdf.length, 32)]) : pdf;
         await form.getByLabel('File', { exact: true }).setInputFiles({ name: 'minutes.pdf', mimeType: 'application/pdf', buffer: fileBytes });
         const savedResponse = page.waitForResponse(response => response.url().endsWith('/api/documents/official/upload') && response.request().method() === 'POST');
         await form.getByRole('button', { name: 'Upload MOM', exact: true }).click();
@@ -121,7 +140,7 @@ try {
             storage_path: `company/${actor.uid}/mom/${crypto.randomUUID()}-minutes.pdf`, file_name: 'minutes.pdf', mime_type: 'application/pdf', file_size: pdf.length });
           expect(forged.error).toBeTruthy();
         }
-        if (role === 'ADMIN') {
+        if (role === 'DIRECTOR') {
           for (const documentType of ['offer_letter', 'appointment_letter', 'experience_letter', 'general_report', 'sales_report', 'custom_official_document']) {
             const generated = await context.request.post('/api/documents/official/generate', { data: { mode: 'preview', documentType, title: 'QA generated regression', customHeading: 'QA Custom Heading', issueDate: '2026-09-23', body: 'Disposable regression content.', relatedName: 'QA Candidate', position: 'QA role', joiningDate: '2026-10-01' } });
             expect(generated.status(), await generated.text()).toBe(200);
@@ -132,17 +151,21 @@ try {
       } finally { await context.close(); }
     });
   }
-  await check('ordinary employee: route, direct finalize, direct MOM Storage upload blocked', async () => {
-    const actor = await account('EMPLOYEE');
+  for (const role of ['EMPLOYEE', 'ADMIN']) await check(`unapproved ${role}: UI, finalize, direct MOM upload blocked`, async () => {
+    const actor = await account(role);
     const context = await browser.newContext({ baseURL });
     try {
       await context.addCookies([...actor.cookies.values()].map(({ name, value }) => ({ name, value, url: baseURL, sameSite: 'Lax' })));
       const page = await context.newPage();
-      await page.goto('/employee/documents/generate');
+      await page.goto(role === 'ADMIN' ? '/admin/documents/generate' : '/employee/documents/generate');
       await expect(page.getByRole('button', { name: 'Upload Document', exact: true })).toHaveCount(0);
       const response = await context.request.post('/api/documents/official/upload', { data: { documentType: 'minutes_of_meeting', title: 'denied', storagePath: `company/${actor.uid}/mom/${crypto.randomUUID()}-denied.pdf` } });
       expect(response.status()).toBe(403);
       expect((await actor.db.storage.from('employee-documents').upload(`company/${actor.uid}/mom/${crypto.randomUUID()}-denied.pdf`, pdf, { contentType: 'application/pdf' })).error).toBeTruthy();
+      if (role === 'ADMIN') {
+        const generated = await context.request.post('/api/documents/official/generate', { data: { mode: 'preview', documentType: 'general_report', title: 'QA unchanged generation', issueDate: '2026-09-23', body: 'Disposable regression content.' } });
+        expect(generated.status(), await generated.text()).toBe(200);
+      }
     } finally { await context.close(); }
   });
 } finally {
@@ -158,6 +181,11 @@ try {
     if (remaining.error) throw remaining.error;
     expect(remaining.data).toEqual([]);
   });
+  for (const id of grantCleanup) {
+    const result = await admin.db.from('user_permission_grants').delete().eq('id', id).select('id');
+    if (result.error || result.data.length !== 1) throw Error('QA grant cleanup failed');
+  }
+  results.push({ name: 'Temporary explicit QA grants cleaned', status: 'PASS' });
   await browser.close();
   writeFileSync('release-evidence/mom/results.json', JSON.stringify({ qaProject: ref, results }, null, 2));
 }
