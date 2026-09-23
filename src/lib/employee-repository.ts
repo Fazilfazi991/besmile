@@ -302,9 +302,15 @@ export const employeeRepository = {
     return data;
   },
   async convertMyCrmLead(_userId: string, payload: any) {
-    const { data, error } = await required().rpc("convert_crm_lead_to_sale", {
+    const { data, error } = await required().rpc("convert_crm_lead_to_sale_with_payment", {
       target_lead: payload.lead_id,
       sale_amount: payload.sale_value,
+      payment_received: payload.payment_received || 0,
+      receiving_account: payload.receiving_account || null,
+      payment_method: payload.payment_method || null,
+      payment_date: payload.payment_date || null,
+      payment_reference: payload.payment_reference || null,
+      invoice_due_date: payload.invoice_due_date || null,
       sale_currency: payload.currency || "INR",
       sale_closing_date:
         payload.closing_date || new Date().toISOString().slice(0, 10),
@@ -316,6 +322,11 @@ export const employeeRepository = {
     });
     if (error) throw error;
     return data;
+  },
+  async conversionReceivingAccounts() {
+    const { data, error } = await required().rpc("conversion_receiving_accounts");
+    if (error) throw error;
+    return data || [];
   },
   async convertMyCrmLeadToPatient(
     _userId: string,

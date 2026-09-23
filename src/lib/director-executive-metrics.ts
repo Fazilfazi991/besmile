@@ -1,11 +1,11 @@
 import { compactInr } from './finance-format';
 import {
   businessDateParts,
-  invoiceBalance,
   isActiveLead,
   isInRange,
   percentageChange,
 } from './executive-dashboard';
+import { collectibleInvoices } from './finance-rules';
 import { crmConversionRate, type CrmDashboardSummary, type CrmDateRange } from './crm-dashboard-e1';
 
 const REVENUE_TYPES = new Set(['income', 'invoice_payment']);
@@ -22,7 +22,7 @@ export function buildDirectorMetrics(data: any, range: CrmDateRange, crmSummary:
   const previousCollections = total(new Set(['invoice_payment']), previous);
   const leads = data.leads || [];
   const conversion = crmConversionRate(crmSummary);
-  const openInvoices = (data.invoices || []).map((invoice: any) => ({ ...invoice, balance: invoiceBalance(invoice) })).filter((invoice: any) => invoice.balance > 0 && !['paid', 'cancelled'].includes(invoice.status));
+  const openInvoices = collectibleInvoices(data.invoices || []);
   const outstanding = openInvoices.reduce((sum: number, invoice: any) => sum + invoice.balance, 0);
   const pipelineMap = new Map<string, { count: number; sortOrder: number }>();
   const statusSortOrder = new Map<string, number>();

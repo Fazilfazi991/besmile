@@ -9,7 +9,7 @@ import {
 } from "./permission-access";
 import { permissionCatalogue } from "./permission-catalogue";
 
-const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
+const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8").replace(/\r\n/g, "\n");
 const migration = read(
   "supabase/migrations/20260922140945_sales_coordinator_lead_client_access.sql",
 );

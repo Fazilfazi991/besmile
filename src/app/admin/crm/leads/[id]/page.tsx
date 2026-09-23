@@ -10,6 +10,8 @@ import { isValidCrmLeadDate } from "@/lib/crm-lead-date";
 import { leadToPatientConversionError } from "@/lib/lead-to-patient-conversion-error";
 import { employeeRepository } from "@/lib/employee-repository";
 import { LeadToPatientConversion } from "@/components/lead-to-patient-conversion";
+import { SalePaymentFields } from "@/components/sale-payment-fields";
+import { conversionPaymentValidation } from "@/lib/conversion-payment";
 
 const dateInput = (value?: string | null) =>
   value ? String(value).slice(0, 10) : "";
@@ -23,6 +25,12 @@ export default function LeadDetail() {
   const [next, setNext] = useState("");
   const [sale, setSale] = useState<any>({
     sale_value: "",
+    payment_received: "0",
+    invoice_due_date: "",
+    receiving_account: "",
+    payment_method: "",
+    payment_date: dateInput(new Date().toISOString()),
+    payment_reference: "",
     currency: "INR",
     closing_date: dateInput(new Date().toISOString()),
     service_details: "",
@@ -34,19 +42,24 @@ export default function LeadDetail() {
   const [patientConversionOpen, setPatientConversionOpen] = useState(false);
   const [patientConversionError, setPatientConversionError] = useState("");
   const [canConvertPatient, setCanConvertPatient] = useState(false);
+  const [canRecordPayment, setCanRecordPayment] = useState(false);
+  const [receivingAccounts, setReceivingAccounts] = useState<any[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const load = async () => {
     try {
-      const [item, options, permissions] = await Promise.all([
+      const [item, options, permissions, accounts] = await Promise.all([
         adminRepository.crmLead(id),
         adminRepository.crmLookups(),
         employeeRepository.grantedPermissions([
           "leads.convert_to_patient",
           "crm.manage_all",
           "patients.create",
+          "invoices.manage",
+          "finance.manage",
         ]),
+        adminRepository.conversionReceivingAccounts(),
       ]);
       setLead(item);
       setLookups(options);
@@ -55,6 +68,10 @@ export default function LeadDetail() {
           (permissions.has("leads.convert_to_patient") ||
             permissions.has("crm.manage_all")),
       );
+      setCanRecordPayment(
+        permissions.has("invoices.manage") || permissions.has("finance.manage"),
+      );
+      setReceivingAccounts(accounts);
     } catch (caught: any) {
       setError(caught.message);
     }
@@ -133,6 +150,11 @@ export default function LeadDetail() {
   };
   const convert = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const validation = conversionPaymentValidation(sale, sale.closing_date, canRecordPayment);
+    if (validation) {
+      setError(validation);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -385,18 +407,12 @@ export default function LeadDetail() {
             </div>
           ) : (
             <form className="mt-3 grid gap-2" onSubmit={convert}>
-              <input
-                className="input"
-                required
-                type="number"
-                min="0"
-                step="0.01"
-                aria-label="Sale value"
-                placeholder="Sale value"
-                value={sale.sale_value}
-                onChange={(event) =>
-                  setSale({ ...sale, sale_value: event.target.value })
-                }
+              <SalePaymentFields
+                value={sale}
+                onChange={(patch) => setSale((current: any) => ({ ...current, ...patch }))}
+                accounts={receivingAccounts}
+                canRecordPayment={canRecordPayment}
+                closingDate={sale.closing_date}
               />
               <div className="grid grid-cols-2 gap-2">
                 <input

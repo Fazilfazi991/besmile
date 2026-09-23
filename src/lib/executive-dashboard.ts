@@ -48,11 +48,7 @@ export const isInRange = (value: unknown, range: { start: string; end: string })
   return Boolean(key && key >= range.start && key <= range.end);
 };
 
-export function invoiceBalance(invoice: any) {
-  const subtotal = (invoice.finance_invoice_items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 0) * Number(item.rate || 0), 0);
-  const paid = (invoice.finance_invoice_payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
-  return Math.max(0, subtotal + Number(invoice.tax || 0) - Number(invoice.discount || 0) - paid);
-}
+export { invoiceBalance } from './finance-rules';
 
 export function percentageChange(current: number, previous: number) {
   if (!previous) return null;

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { adminRepository } from '@/lib/admin-repository';
 import { FinanceEmpty, FinanceStatus, inr } from '@/components/finance-ui';
 import { businessDateKey } from '@/lib/business-time';
-import { effectiveInvoiceStatus } from '@/lib/finance-rules';
+import { collectibleInvoices, effectiveInvoiceStatus } from '@/lib/finance-rules';
 
 const totalFor = (invoice: any) => Math.max(0, (invoice.finance_invoice_items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 0) * Number(item.rate || 0), 0) + Number(invoice.tax || 0) - Number(invoice.discount || 0));
 const paidFor = (invoice: any) => (invoice.finance_invoice_payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
@@ -37,9 +37,10 @@ export default function Invoices() {
     return matchesSearch && (!status || effectiveStatus === status) && (!from || invoice.issue_date >= from) && (!to || invoice.issue_date <= to) && (!overdueOnly || isOverdue);
   }), [items, search, status, from, to, overdueOnly, today]);
   const totalInvoices = items.length;
-  const outstanding = items.reduce((sum, invoice) => Math.max(0, totalFor(invoice) - paidFor(invoice)) + sum, 0);
+  const collectible = useMemo(() => collectibleInvoices(items), [items]);
+  const outstanding = collectible.reduce((sum, invoice) => invoice.balance + sum, 0);
   const paidThisMonth = items.reduce((sum, invoice) => sum + (invoice.finance_invoice_payments || []).filter((payment: any) => String(payment.payment_date || '').slice(0, 7) === today.slice(0, 7)).reduce((payments: number, payment: any) => payments + Number(payment.amount || 0), 0), 0);
-  const overdue = items.filter(invoice => effectiveInvoiceStatus(invoice, today) === 'overdue').reduce((sum, invoice) => sum + Math.max(0, totalFor(invoice) - paidFor(invoice)), 0);
+  const overdue = collectible.filter(invoice => effectiveInvoiceStatus(invoice, today) === 'overdue').reduce((sum, invoice) => sum + invoice.balance, 0);
 
   return <section className="mx-auto max-w-[1320px] space-y-5">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="eyebrow">Finance</p><h1 className="text-2xl font-bold">Invoices</h1><p className="mt-1 text-sm text-slate-600">Track customer invoices, collections, and outstanding balances.</p></div><Link className="btn btn-primary" href="/admin/finance/invoices/new">Create invoice</Link></div>
