@@ -47,9 +47,11 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   const { data: duplicate } = await admin.from('profiles').select('id').or(`email.eq.${email},employee_code.eq.${employeeCode}`).limit(1);
   if (duplicate?.length) return { error: 'An employee with that email address or employee code already exists.', fields };
   if (managerId) {
-    const { data: manager } = await admin.from('profiles').select('id,status,role').eq('id', managerId).maybeSingle();
-    if (!manager || manager.status !== 'active' || !['super_admin', 'chairman', 'director', 'general_manager'].includes(manager.role)) return { error: 'Choose an active management employee as the reporting manager.', fields };
+    const { data: manager } = await admin.from('profiles').select('id,status,role,is_employee,workforce_visible,removed_at').eq('id', managerId).maybeSingle();
+    if (!manager || manager.status !== 'active' || manager.removed_at || !((manager.is_employee && manager.workforce_visible) || ['chairman', 'director'].includes(manager.role))) return { error: 'Choose an active employee as the reporting manager.', fields };
   }
+  const { data: department, error: departmentError } = await session.from('departments').select('id').eq('id', departmentId).eq('is_active', true).maybeSingle();
+  if (departmentError || !department) return { error: 'Choose an active department.', fields };
   const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email);
   if (inviteError || !invitation.user) return { error: inviteError?.message || 'The employee invitation could not be created.', fields };
   const { error: profileError } = await admin.from('profiles').insert({

@@ -55,8 +55,8 @@ describe('client follow-up E3', () => {
     expect(css).toContain(".holiday-chip.awareness:before{content:'●'}");
     expect(css).toContain(".holiday-chip.observance:before{content:'✦'}");
     expect(css).toContain(".holiday-date.weekly-off:after");
-    expect(chart).toContain('className="organization-chart-mobile"');
-    expect(chart).toContain('OrganizationBranch key={`mobile-${root.key}`}');
+    expect(chart).toContain('className="organization-chart-tree"');
+    expect(chart).toContain('OrganizationBranch key={root.id}');
     expect(chart).not.toContain('mobileCard("director")');
   });
 

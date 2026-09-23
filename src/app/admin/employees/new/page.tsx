@@ -10,7 +10,7 @@ export default async function NewEmployeePage() {
   if (!user) redirect('/sign-in');
   const [{ data: profile }, permission, departments, managers] = await Promise.all([
     serverAuthorizationRead(signal => db.from('profiles').select('role,status').eq('id', user.id).abortSignal(signal).maybeSingle(), 'employee-create.profile'), serverPermissionRead(signal => db.rpc('has_permission', { permission_code: 'employees.create' }).abortSignal(signal), 'employee-create.permission'),
-    db.from('departments').select('id,name').order('name'), db.from('profiles').select('id,full_name,role').eq('workforce_visible', true).eq('status', 'active').in('role', ['super_admin', 'chairman', 'director', 'general_manager']).order('full_name'),
+    db.from('departments').select('id,name').eq('is_active', true).order('name'), db.rpc('organization_directory'),
   ]);
   if (!profile || profile.status !== 'active' || !permission.data) redirect('/unauthorized');
   const referenceErrors = [

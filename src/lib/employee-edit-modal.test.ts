@@ -28,7 +28,8 @@ describe('employee edit modal layout', () => {
   it('serializes the actual form controls rather than stale local state', () => {
     expect(page).toContain('Object.fromEntries(new FormData(event.currentTarget))');
     expect(page).toContain('name={key}');
-    expect(page).toContain('name="department_id"');
+    expect(page).toContain('<DepartmentSelect');
+    expect(readFileSync(new URL('../components/department-select.tsx', import.meta.url), 'utf8')).toContain('name="department_id"');
     expect(page).toContain('name="manager_id"');
     expect(page.indexOf('const payload = employeeEditPayload')).toBeLessThan(page.indexOf('await adminRepository.updateEmployee('));
   });

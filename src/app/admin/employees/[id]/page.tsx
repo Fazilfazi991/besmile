@@ -32,6 +32,9 @@ import {
   type EmployeeStatus,
 } from "@/lib/employee-management-rules";
 import { employeeStatusLabel, isOperationalEmployeeStatus } from "@/lib/employee-status";
+import { DepartmentSelect } from "@/components/department-select";
+import { organizationRepository, notifyOrganizationChanged } from "@/lib/organization-repository";
+import { reportingManagerError } from "@/lib/organization-chart-config";
 import { ProfileOrganizationChart } from "@/components/profile-organization-chart";
 
 const dash = (value: any) =>
@@ -107,10 +110,7 @@ export default function AdminEmployeeProfile() {
       setProfile(employee);
       setData({ ...status, statusHistory });
       setError("");
-      if (employee.avatar_url)
-        setPhoto(
-          await employeeRepository.signedProfilePhoto(employee.avatar_url),
-        );
+      setPhoto(employee.avatar_url ? await employeeRepository.signedProfilePhoto(employee.avatar_url).catch(() => "") : "");
     } catch (caught: any) {
       setError(caught.message || "Employee details could not be loaded.");
     }
@@ -228,16 +228,11 @@ export default function AdminEmployeeProfile() {
     try {
       const [departments, employees] = await Promise.all([
         adminRepository.departments(),
-        adminRepository.employees("", 0, 200),
+        organizationRepository.employees(),
       ]);
       setEditOptions({
         departments,
-        managers: employees.data.filter(
-          (person: any) =>
-            ["super_admin", "chairman", "director", "general_manager"].includes(
-              person.role,
-            ) && isOperationalEmployeeStatus(person.status),
-        ),
+        managers: employees,
       });
       setEdit({
         full_name: profile.full_name || "",
@@ -265,7 +260,10 @@ export default function AdminEmployeeProfile() {
     setBusy(true);
     setError("");
     try {
+      const managerError = reportingManagerError(editOptions.managers, profile.id, payload.manager_id as string | null, String(edit.designation));
+      if (managerError) throw new Error(managerError);
       await adminRepository.updateEmployee(profile.id, payload as any);
+      notifyOrganizationChanged();
       setNotice("Employee updated successfully.");
       setEditOpen(false);
       await load();
@@ -425,7 +423,7 @@ export default function AdminEmployeeProfile() {
           )}
         </div>
       </header>
-      <ProfileOrganizationChart profileName={profile.full_name} profilePhoto={photo} isSelf={viewer?.id === profile.id} />
+      <ProfileOrganizationChart profileId={profile.id} refreshKey={[profile.full_name,profile.avatar_url,profile.designation,profile.manager_id,profile.department_id,profile.status].join("|")} isSelf={viewer?.id === profile.id} onChanged={()=>void load()} />
       {error && <Banner error={error} />}
       {notice && (
         <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
@@ -560,21 +558,7 @@ export default function AdminEmployeeProfile() {
                 </label>
                 <label className="text-sm font-medium">
                   Department
-                  <select
-                    name="department_id"
-                    className="input mt-1"
-                    value={edit.department_id || ""}
-                    onChange={(event) =>
-                      setEdit({ ...edit, department_id: event.target.value })
-                    }
-                  >
-                    <option value="">No department</option>
-                    {editOptions.departments.map((item: any) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
+                  <DepartmentSelect departments={editOptions.departments} value={edit.department_id} onChange={value => setEdit({...edit, department_id: value})} />
                 </label>
                 <label className="text-sm font-medium">
                   Reporting manager
