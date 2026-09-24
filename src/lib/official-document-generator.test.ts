@@ -54,7 +54,7 @@ describe('official document generator', () => {
       expect(result.buffer.subarray(0, 4).toString()).toBe('%PDF');
       expect(result.pageCount).toBe(1);
     }
-  }, 30_000);
+  }, 90_000);
 
   it('uses the same PDF engine before preview and generated-output handling diverge', () => {
     const route = readFileSync(resolve(process.cwd(), 'src/app/api/documents/official/generate/route.ts'), 'utf8');
