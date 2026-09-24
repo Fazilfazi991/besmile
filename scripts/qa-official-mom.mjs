@@ -32,7 +32,7 @@ const cleanup = [];
 const grantCleanup = [];
 const check = async (name, fn) => {
   try { await fn(); results.push({ name, status: 'PASS' }); console.log(`PASS ${name}`); }
-  catch (error) { results.push({ name, status: 'FAIL', error: error.message }); console.log(`FAIL ${name}: ${error.message}`); }
+  catch (error) { results.push({ name, status: 'FAIL', error: error.message }); console.log(`FAIL ${name}: ${error.stack || error.message}`); }
 };
 const pdf = await new Promise(resolve => {
   const document = new PDFDocument(); const chunks = [];
@@ -110,7 +110,7 @@ try {
         await form.getByLabel('Title', { exact: true }).fill(title);
         const fileBytes = role === 'DIRECTOR' ? Buffer.concat([pdf, Buffer.alloc(10 * 1024 * 1024 - pdf.length, 32)]) : pdf;
         await form.getByLabel('File', { exact: true }).setInputFiles({ name: 'minutes.pdf', mimeType: 'application/pdf', buffer: fileBytes });
-        const savedResponse = page.waitForResponse(response => response.url().endsWith('/api/documents/official/upload') && response.request().method() === 'POST');
+        const savedResponse = page.waitForResponse(response => response.url().endsWith('/api/documents/official/upload') && response.request().method() === 'POST', { timeout: 120_000 });
         await form.getByRole('button', { name: 'Upload MOM', exact: true }).click();
         const saved = await savedResponse;
         expect(saved.status(), await saved.text()).toBe(201);
