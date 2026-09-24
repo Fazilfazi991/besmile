@@ -13,7 +13,7 @@ describe('E5 operational official-document creation correction', () => {
     expect(permissionAllows(permissions, adminRouteRequirement('/admin/documents/generate'))).toBe(true);
     expect(permissionAllows(permissions, adminRouteRequirement('/admin/documents'))).toBe(false);
     expect(permissionAllows(new Set(['documents.employee.view']), employeeRouteRequirement('/employee/documents/generate'))).toBe(false);
-    expect(source('src/app/employee/documents/page.tsx')).toContain('Create Document');
+    expect(source('src/app/employee/documents/page.tsx')).toContain('OfficialDocumentActions');
   });
 
   it('limits the creator to operational types while managers keep the existing catalogue', async () => {

@@ -68,8 +68,26 @@ try {
         const page = await context.newPage();
         const pageErrors = [];
         page.on('pageerror', error => pageErrors.push(error.message));
-        await page.goto(role === 'ASSISTANT_MANAGER' ? '/employee/documents/generate' : '/admin/documents/generate');
-        await page.getByRole('button', { name: 'Upload Document', exact: true }).click();
+        if (role === 'ASSISTANT_MANAGER') {
+          await page.goto('/employee/documents');
+          await expect(page.getByRole('link', { name: 'Create Document' })).toBeVisible();
+          await expect(page.getByRole('link', { name: 'Upload MOM' })).toBeVisible();
+          for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 }]) {
+            await page.setViewportSize(viewport);
+            for (const mode of ['standard', 'colorful']) {
+              await page.evaluate(value => { localStorage.setItem('bsmile-theme-mode', value); window.dispatchEvent(new Event('bsmile-theme-change')); }, mode);
+              await expect(page.locator('html')).toHaveAttribute('data-theme', mode);
+              await expect(page.getByRole('link', { name: 'Create Document' })).toBeVisible();
+              await expect(page.getByRole('link', { name: 'Upload MOM' })).toBeVisible();
+              expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+            }
+          }
+          await page.getByRole('link', { name: 'Upload MOM' }).click();
+          await expect(page.locator('#official-mom-upload')).toBeVisible();
+        } else {
+          await page.goto('/admin/documents/generate');
+          await page.getByRole('button', { name: 'Upload Document', exact: true }).click();
+        }
         const form = page.locator('#official-mom-upload');
         await expect(form.getByLabel('Document type')).toHaveValue('minutes_of_meeting');
         for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 }]) {
@@ -140,11 +158,41 @@ try {
             storage_path: `company/${actor.uid}/mom/${crypto.randomUUID()}-minutes.pdf`, file_name: 'minutes.pdf', mime_type: 'application/pdf', file_size: pdf.length });
           expect(forged.error).toBeTruthy();
         }
-        if (role === 'DIRECTOR') {
+        if (role === 'DIRECTOR' || role === 'ASSISTANT_MANAGER') {
           for (const documentType of ['offer_letter', 'appointment_letter', 'experience_letter', 'general_report', 'sales_report', 'custom_official_document']) {
-            const generated = await context.request.post('/api/documents/official/generate', { data: { mode: 'preview', documentType, title: 'QA generated regression', customHeading: 'QA Custom Heading', issueDate: '2026-09-23', body: 'Disposable regression content.', relatedName: 'QA Candidate', position: 'QA role', joiningDate: '2026-10-01' } });
+            const title = `QA_GEN_${role}_${documentType}_${Date.now()}`;
+            const generated = await context.request.post('/api/documents/official/generate', { data: { mode: role === 'ASSISTANT_MANAGER' ? 'generate' : 'preview', documentType, title, customHeading: 'QA Custom Heading', issueDate: '2026-09-23', body: 'Disposable regression content.', relatedName: 'QA Candidate', position: 'QA role', joiningDate: '2026-10-01' } });
             expect(generated.status(), await generated.text()).toBe(200);
             expect((await generated.body()).subarray(0, 5).toString()).toBe('%PDF-');
+            if (role === 'ASSISTANT_MANAGER') {
+              const id = generated.headers()['x-document-id'];
+              expect(id).toBeTruthy();
+              const saved = await actor.db.from('documents').select('id,storage_path,document_type,source_type').eq('id', id).single();
+              if (saved.error) throw saved.error;
+              expect(saved.data.source_type).toBe('official_generated');
+              expect(saved.data.document_type).toBe(documentType);
+              cleanup.push({ actor, id, path: saved.data.storage_path });
+              const historyResponse = await context.request.get('/api/documents/official/context');
+              const historyPayload = await historyResponse.json();
+              expect(historyResponse.status(), JSON.stringify(historyPayload)).toBe(200);
+              expect(historyPayload.history.some(item => item.id === id)).toBe(true);
+              await page.reload();
+              const generatedHistory = page.getByRole('button').filter({ hasText: title });
+              await expect(generatedHistory).toBeVisible({ timeout: 20_000 });
+              if (documentType === 'custom_official_document') {
+                const popupPromise = page.waitForEvent('popup');
+                const signedResponse = page.waitForResponse(response => response.url().includes('/storage/v1/object/sign/employee-documents/') && response.request().method() === 'POST');
+                await generatedHistory.click();
+                const popup = await popupPromise;
+                const signed = await signedResponse;
+                expect(signed.ok()).toBe(true);
+                const signedPath = (await signed.json()).signedURL;
+                const fileResponse = await context.request.get(`${url}/storage/v1${signedPath}`);
+                expect(fileResponse.ok()).toBe(true);
+                expect((await fileResponse.body()).subarray(0, 5).toString()).toBe('%PDF-');
+                await popup.close();
+              }
+            }
           }
         }
         expect(pageErrors).toEqual([]);
@@ -157,6 +205,11 @@ try {
     try {
       await context.addCookies([...actor.cookies.values()].map(({ name, value }) => ({ name, value, url: baseURL, sameSite: 'Lax' })));
       const page = await context.newPage();
+      if (role === 'EMPLOYEE') {
+        await page.goto('/employee/documents');
+        await expect(page.getByRole('link', { name: 'Create Document' })).toHaveCount(0);
+        await expect(page.getByRole('link', { name: 'Upload MOM' })).toHaveCount(0);
+      }
       await page.goto(role === 'ADMIN' ? '/admin/documents/generate' : '/employee/documents/generate');
       await expect(page.getByRole('button', { name: 'Upload Document', exact: true })).toHaveCount(0);
       const response = await context.request.post('/api/documents/official/upload', { data: { documentType: 'minutes_of_meeting', title: 'denied', storagePath: `company/${actor.uid}/mom/${crypto.randomUUID()}-denied.pdf` } });
