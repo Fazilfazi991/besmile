@@ -48,15 +48,15 @@ describe('client follow-up E3', () => {
     expect(reports).not.toContain('manager:profiles!profiles_manager_id_fkey');
   });
 
-  it('uses non-color holiday cues and a recursive mobile organization hierarchy', () => {
+  it('uses non-color holiday cues and a recursive mobile organization list', () => {
     const css = read('src/app/e3-ui.css');
     const chart = read('src/components/profile-organization-chart.tsx');
     expect(css).toContain(".holiday-chip.holiday:before{content:'◆'}");
     expect(css).toContain(".holiday-chip.awareness:before{content:'●'}");
     expect(css).toContain(".holiday-chip.observance:before{content:'✦'}");
     expect(css).toContain(".holiday-date.weekly-off:after");
-    expect(chart).toContain('className="organization-chart-tree"');
-    expect(chart).toContain('OrganizationBranch key={root.id}');
+    expect(chart).toContain('className="organization-list-view"');
+    expect(chart).toContain('OrganizationListBranch key={root.id}');
     expect(chart).not.toContain('mobileCard("director")');
   });
 

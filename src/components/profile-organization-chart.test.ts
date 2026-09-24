@@ -16,11 +16,15 @@ describe('organization integration boundaries', () => {
     expect(component).toContain('employeeAvatarInitials(person.full_name)');
     expect(component).not.toContain('/organization-chart/');
   });
-  it('contains the readable tree locally and does not give siblings false vertical reporting arrows', () => {
+  it('renders the bounded flow and an accessible hierarchy list from the same records', () => {
     const css=source('src/components/profile-organization-chart.css');
-    expect(css).toContain('overflow:auto;overscroll-behavior-x:contain');
-    expect(css).toContain('width:196px');
-    expect(css).not.toContain('li+li::before');
+    const component=source('src/components/profile-organization-chart.tsx');
+    expect(css).toContain('height: 126px');
+    expect(css).toContain('overflow: hidden');
+    expect(component).toContain('layoutOrganization(structuralPeople, collapsed)');
+    expect(component).toContain('OrganizationListBranch');
+    expect(component).toContain('nodesDraggable={false}');
+    expect(component).toContain('deleteKeyCode={null}');
   });
   it('limits edit controls using per-employee authorization from the server', () => {
     expect(source('src/components/profile-organization-chart.tsx')).toContain('node.can_edit &&');

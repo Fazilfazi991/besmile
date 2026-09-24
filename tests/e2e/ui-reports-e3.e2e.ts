@@ -249,9 +249,14 @@ test('Holiday cues and recursive organization chart remain aligned without color
   await navigateAfterLogin(page, '/employee/profile');
   await enableColorfulMode(page);
   await expect(page.locator('.organization-chart-section')).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('.organization-chart-tree')).toBeVisible();
-  const cards = page.locator('.organization-chart-tree .organization-chart-card');
-  expect(await cards.count()).toBeGreaterThan(0);
+  await expect(page.locator('.organization-chart-section')).toBeVisible();
+  if (page.viewportSize()!.width <= 700) {
+    await expect(page.getByRole('region', { name: 'Organization hierarchy list' })).toBeVisible();
+    expect(await page.locator('.organization-list-person').count()).toBeGreaterThan(0);
+  } else {
+    await expect(page.getByRole('region', { name: 'Pannable organization chart' })).toBeVisible();
+    expect(await page.locator('.organization-person-card').count()).toBeGreaterThan(0);
+  }
   await expectNoDocumentOverflow(page);
   await assertNoRawDatabaseError(page);
 });
