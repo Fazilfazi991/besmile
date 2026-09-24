@@ -26,10 +26,25 @@ async function mount(page: Page, rows: typeof small) {
   await expect(page.getByText('Loading organization…')).toHaveCount(0);
 }
 
-test('responsive chart, roots, list, controls, and refresh', async ({ page, browserName }) => {
-  mkdirSync(output, { recursive: true });
-  if (browserName === 'webkit') {
-    const account = credentials('employee');
+async function settledViewport(page: Page) {
+  return page.locator('.organization-flow-canvas .react-flow__viewport').evaluate(async element => {
+    let previous = '';
+    let stableFrames = 0;
+    for (let frame = 0; frame < 180; frame += 1) {
+      await new Promise(requestAnimationFrame);
+      const current = (element as HTMLElement).style.transform;
+      stableFrames = current === previous ? stableFrames + 1 : 0;
+      if (stableFrames >= 4) return current;
+      previous = current;
+    }
+    throw new Error('Organization viewport did not settle');
+  });
+}
+
+async function loginVisual(page: Page, browserName: string) {
+  if (browserName !== 'webkit') return login(page, 'employee', { reuseState: false });
+  const account = credentials('employee');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     await page.goto('/sign-in');
     await page.waitForLoadState('networkidle');
     await page.getByLabel('Email').fill(account.email);
@@ -37,10 +52,18 @@ test('responsive chart, roots, list, controls, and refresh', async ({ page, brow
     await expect(page.getByLabel('Email')).toHaveValue(account.email);
     await expect(page.getByLabel('Password')).toHaveValue(account.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL(/\/employee\/dashboard/, { timeout: 30_000 });
-  } else {
-    await login(page, 'employee', { reuseState: false });
+    try {
+      await expect(page).toHaveURL(/\/employee\/dashboard/, { timeout: 20_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
   }
+}
+
+test('responsive chart, roots, list, controls, and refresh', async ({ page, browserName }) => {
+  mkdirSync(output, { recursive: true });
+  await loginVisual(page, browserName);
   for (const viewport of [{ width: 1366, height: 768 }, { width: 1024, height: 768 }, { width: 768, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await mount(page, small);
@@ -65,32 +88,80 @@ test('responsive chart, roots, list, controls, and refresh', async ({ page, brow
     await page.getByRole('button', { name: 'Fit chart' }).click();
     await page.getByRole('button', { name: 'Zoom in' }).click();
     await page.getByRole('button', { name: 'Zoom out' }).click();
-    await expect.poll(async () => chart.locator('.react-flow__viewport').getAttribute('style'), { intervals: [300, 300, 300] }).toBeTruthy();
-    await page.waitForTimeout(350);
-    const beforeRefresh = await chart.locator('.react-flow__viewport').getAttribute('style');
+    const beforeRefresh = await settledViewport(page);
     await page.getByRole('button', { name: 'Refresh chart' }).click();
-    await expect(chart.locator('.react-flow__viewport')).toHaveAttribute('style', beforeRefresh || '');
+    expect(await settledViewport(page)).toBe(beforeRefresh);
     await page.getByRole('button', { name: 'List', exact: true }).click();
     await expect(page.locator('.organization-list-person')).toHaveCount(6);
   }
   await page.setViewportSize({ width: 1366, height: 768 });
   await mount(page, small.map(row => row.id === 'chair' ? { ...row, can_edit: true } : row));
   await expect(page.locator('[data-org-edit-id]')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Expand chart' }).click();
+  await expect(page.getByRole('dialog', { name: 'Organization chart' })).toBeVisible();
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+  expect(await page.evaluate(() => Boolean(document.querySelector('nav')?.closest('[inert]')))).toBe(true);
+  expect(await page.evaluate(() => Boolean(document.activeElement?.closest('.organization-chart-section')))).toBe(true);
+  for (let i = 0; i < 24; i += 1) {
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => Boolean(document.activeElement?.closest('.organization-chart-section')))).toBe(true);
+  }
   await page.getByRole('button', { name: 'Edit organization details for Aisha Chairman' }).click();
   await expect(page.getByRole('dialog', { name: 'Edit organization details' })).toBeVisible();
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Edit organization details' })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Organization chart' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Organization chart' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Expand chart' })).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
   await page.setViewportSize({ width: 1366, height: 768 });
   await mount(page, large);
   await page.getByRole('button', { name: 'Chart', exact: true }).click();
   const chart = page.getByRole('region', { name: 'Pannable organization chart' });
   await expect.poll(() => chart.locator('.react-flow__node-person').count()).toBeGreaterThan(0);
   const overviewCount = await chart.locator('.react-flow__node-person').count();
-  expect(overviewCount).toBeLessThanOrEqual(14);
+  expect(overviewCount).toBe(15);
   await page.locator('.organization-chart-section').screenshot({ path: join(output, `${browserName}-1366-large-overview.png`) });
   await page.getByRole('button', { name: 'Refresh chart' }).click();
   await expect(chart.locator('.react-flow__node-person')).toHaveCount(overviewCount);
   await page.getByRole('button', { name: 'Find me' }).click();
   await expect(chart.locator('[data-employee-id="qa-visual-viewer"]')).toBeVisible();
   await expect(chart.locator('.react-flow__node-person')).not.toHaveCount(overviewCount);
+});
+
+test('same large directory at every viewport in Standard and Colorful modes', async ({ page, browserName }) => {
+  mkdirSync(output, { recursive: true });
+  await loginVisual(page, browserName);
+  for (const viewport of [{ width: 1366, height: 768 }, { width: 1024, height: 768 }, { width: 768, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await mount(page, large);
+    if (viewport.width <= 700) {
+      const list = page.getByRole('region', { name: 'Organization hierarchy list' });
+      await expect(list).toBeVisible();
+      for (const theme of ['standard', 'colorful']) {
+        await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+        await page.locator('.organization-chart-section').screenshot({ path: join(output, `${browserName}-large-${viewport.width}-${theme}-initial-list.png`) });
+      }
+      await page.getByRole('button', { name: 'Chart', exact: true }).click();
+    }
+    const chart = page.getByRole('region', { name: 'Pannable organization chart' });
+    await expect(chart.locator('.react-flow__node-person')).toHaveCount(15);
+    for (const theme of ['standard', 'colorful']) {
+      await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+      await settledViewport(page);
+      await page.locator('.organization-chart-section').screenshot({ path: join(output, `${browserName}-large-${viewport.width}-${theme}-initial-chart.png`) });
+    }
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await page.getByRole('button', { name: /Show 1 report for Dalia Program Lead/ }).click();
+    await page.getByRole('button', { name: 'Chart', exact: true }).click();
+    await expect(chart.locator('.react-flow__node-person')).toHaveCount(16);
+    for (const theme of ['standard', 'colorful']) {
+      await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+      await settledViewport(page);
+      await page.locator('.organization-chart-section').screenshot({ path: join(output, `${browserName}-large-${viewport.width}-${theme}-expanded-chart.png`) });
+    }
+    const dimensions = await page.evaluate(() => ({ body: document.body.scrollWidth, viewport: window.innerWidth }));
+    expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport + 2);
+  }
 });

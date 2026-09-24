@@ -27,21 +27,23 @@ function visibleCount(roots: OrganizationNode[], collapsed: Set<string>): number
   return roots.reduce((sum, root) => sum + count(root), 0);
 }
 
-/** Start large directories as an overview; every hidden employee remains reachable by expanding an ancestor. */
+/** Keep roots and their first reporting tier; collapse deeper branches for a large overview. */
 export function initialCollapsedBranches(people: OrganizationEmployee[], budget = 14): Set<string> {
   const roots = buildOrganizationTree(people);
   const collapsed = new Set<string>();
   if (visibleCount(roots, collapsed) <= budget) return collapsed;
   const candidates: Array<{ id: string; depth: number; descendants: number }> = [];
+  const firstTierCount = roots.reduce((count, root) => count + 1 + root.children.length, 0);
+  const target = Math.max(budget, firstTierCount);
   const visit = (node: OrganizationNode, depth: number) => {
-    if (node.children.length) candidates.push({ id: node.id, depth, descendants: descendants(node) });
+    if (depth > 0 && node.children.length) candidates.push({ id: node.id, depth, descendants: descendants(node) });
     node.children.forEach(child => visit(child, depth + 1));
   };
   roots.forEach(root => visit(root, 0));
-  // Preserve the top level whenever possible, then collapse the largest remaining branches.
-  candidates.sort((a, b) => Number(a.depth === 0) - Number(b.depth === 0) || b.descendants - a.descendants || a.id.localeCompare(b.id));
+  // Hide deep, high-volume descendants before considering any top-level reporting line.
+  candidates.sort((a, b) => a.depth - b.depth || b.descendants - a.descendants || a.id.localeCompare(b.id));
   for (const candidate of candidates) {
-    if (visibleCount(roots, collapsed) <= budget) break;
+    if (visibleCount(roots, collapsed) <= target) break;
     collapsed.add(candidate.id);
   }
   return collapsed;

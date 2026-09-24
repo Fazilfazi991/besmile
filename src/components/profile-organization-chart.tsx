@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Handle, Position, ReactFlow, type Edge, type Node, type NodeProps, type ReactFlowInstance } from '@xyflow/react';
+import { Handle, Position, ReactFlow, type Edge, type Node, type NodeProps, type ReactFlowInstance, type Viewport } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { buildOrganizationTree, isChairman, reportingManagerError, type OrganizationEmployee, type OrganizationNode } from '@/lib/organization-chart-config';
 import { ancestorIds, initialCollapsedBranches, layoutOrganization, organizationCardHeight, organizationCardWidth } from '@/lib/organization-chart-layout';
@@ -39,6 +39,10 @@ function managerNote(person: OrganizationEmployee, hasParent: boolean, unassigne
   return `${directReports} direct ${directReports === 1 ? 'report' : 'reports'}`;
 }
 
+function reportCountLabel(count: number) {
+  return `${count} ${count === 1 ? 'report' : 'reports'}`;
+}
+
 function PersonCard({ data }: NodeProps<PersonNode>) {
   const { person, directReports, hasParent, unassigned, collapsed, current, isSelf, detailHref, onToggle, onEdit } = data;
   return <article className={`organization-person-card${current ? ' is-current' : ''}`} data-employee-id={person.id} aria-label={`${person.full_name}, ${person.designation || 'Position not assigned'}`} title={`${person.full_name} — ${person.designation || 'Position not assigned'}`}>
@@ -53,7 +57,7 @@ function PersonCard({ data }: NodeProps<PersonNode>) {
     </div>
     <div className="organization-person-footer">
       <span className={unassigned || (!hasParent && !isChairman(person.designation)) ? 'organization-person-warning' : ''} title={managerNote(person, hasParent, unassigned, directReports)}>{managerNote(person, hasParent, unassigned, directReports)}</span>
-      {directReports > 0 && <button type="button" className="nodrag nopan organization-person-action" aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${directReports} direct reports for ${person.full_name}`} aria-expanded={!collapsed} onClick={() => onToggle(person.id)}>{collapsed ? `+${directReports}` : '−'}</button>}
+      {directReports > 0 && <button type="button" className="nodrag nopan organization-person-action" aria-label={`${collapsed ? 'Show' : 'Hide'} ${reportCountLabel(directReports)} for ${person.full_name}`} aria-expanded={!collapsed} onClick={() => onToggle(person.id)}>{collapsed ? `Show ${reportCountLabel(directReports)}` : 'Hide reports'}</button>}
       {person.can_edit && <button type="button" className="nodrag nopan organization-person-action" data-org-edit-id={person.id} aria-label={`Edit organization details for ${person.full_name}`} onClick={() => onEdit(person)}>Edit</button>}
     </div>
     {directReports > 0 && !collapsed && <Handle type="source" position={Position.Bottom} isConnectable={false} className="organization-flow-handle" />}
@@ -68,7 +72,7 @@ function OrganizationListBranch({ node, collapsed, currentId, isSelf, adminView,
     <div className="organization-list-person" data-employee-id={node.id}>
       <div className="organization-person-avatar"><Avatar key={node.photo_url || 'initials'} person={node} /></div>
       <div className="organization-list-identity"><strong>{detailHref ? <Link href={detailHref}>{node.full_name}</Link> : node.full_name}</strong>{node.id === currentId && isSelf && <span className="organization-person-you">You</span>}<span>{node.designation || 'Position not assigned'} · {node.department_name || 'No department'}</span><small>{managerNote(node, Boolean(node.manager_id && !node.unassigned), node.unassigned, node.children.length)}</small></div>
-      <div className="organization-list-actions">{node.can_edit && <button type="button" className="btn border" data-org-edit-id={node.id} aria-label={`Edit organization details for ${node.full_name}`} onClick={() => onEdit(node)}>Edit</button>}{node.children.length > 0 && <button type="button" className="btn border" aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${node.children.length} direct reports for ${node.full_name}`} aria-expanded={!isCollapsed} onClick={() => onToggle(node.id)}>{isCollapsed ? `Show ${node.children.length}` : 'Hide'}</button>}</div>
+      <div className="organization-list-actions">{node.can_edit && <button type="button" className="btn border" data-org-edit-id={node.id} aria-label={`Edit organization details for ${node.full_name}`} onClick={() => onEdit(node)}>Edit</button>}{node.children.length > 0 && <button type="button" className="btn border" aria-label={`${isCollapsed ? 'Show' : 'Hide'} ${reportCountLabel(node.children.length)} for ${node.full_name}`} aria-expanded={!isCollapsed} onClick={() => onToggle(node.id)}>{isCollapsed ? `Show ${reportCountLabel(node.children.length)}` : 'Hide reports'}</button>}</div>
     </div>
     {node.children.length > 0 && !isCollapsed && <ul>{node.children.map(child => <OrganizationListBranch key={child.id} node={child} collapsed={collapsed} currentId={currentId} isSelf={isSelf} adminView={adminView} onToggle={onToggle} onEdit={onEdit} />)}</ul>}
   </li>;
@@ -134,6 +138,11 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
   const initializedBranches = useRef(false);
   const manualViewChoice = useRef(false);
   const expandButton = useRef<HTMLButtonElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const editingOpen = useRef(false);
+  const initialFramed = useRef(false);
+  const savedViewport = useRef<Viewport | null>(null);
+  const [pendingBranchFocus, setPendingBranchFocus] = useState<string | null>(null);
   const invalidate = useCallback(() => { request.current += 1; }, []);
   const load = useCallback(async () => {
     const revision = ++request.current;
@@ -183,10 +192,67 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
     return () => { window.clearTimeout(initial); media.removeEventListener('change', choose); };
   }, []);
   useEffect(() => {
+    editingOpen.current = editing !== null;
+  }, [editing]);
+  useEffect(() => {
+    if (!flow || initialFramed.current || viewMode !== 'chart' || layout.nodes.length <= 14) return;
+    const roots = layout.nodes.filter(node => !node.hasParent);
+    const canvas = sectionRef.current?.querySelector<HTMLElement>('.organization-flow-canvas');
+    if (!roots.length || !canvas) return;
+    const frame = window.requestAnimationFrame(() => {
+      const zoom = canvas.clientWidth < 580 ? 0.75 : canvas.clientWidth < 900 ? 0.82 : 0.92;
+      const left = Math.min(...roots.map(node => node.x));
+      const right = Math.max(...roots.map(node => node.x + organizationCardWidth));
+      const top = Math.min(...roots.map(node => node.y));
+      initialFramed.current = true;
+      void flow.setCenter((left + right) / 2, top + (canvas.clientHeight / 2 - 42) / zoom, { zoom, duration: 0 });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [flow, layout, viewMode]);
+  useEffect(() => {
     if (!expanded) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setExpanded(false); expandButton.current?.focus(); } };
+    const section = sectionRef.current;
+    if (!section) return;
+    const background = new Map<HTMLElement, boolean>();
+    let branch: HTMLElement | null = section;
+    while (branch?.parentElement) {
+      const parent: HTMLElement = branch.parentElement;
+      for (const sibling of Array.from(parent.children)) {
+        if (sibling instanceof HTMLElement && sibling !== branch && !background.has(sibling)) {
+          background.set(sibling, sibling.inert);
+          sibling.inert = true;
+        }
+      }
+      branch = parent;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const trigger = expandButton.current;
+    trigger?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (editingOpen.current) return; // The native employee editor owns its own Escape and focus handling.
+      if (event.key === 'Escape') { event.preventDefault(); setExpanded(false); return; }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(section.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(element => element.getClientRects().length > 0);
+      if (!focusable.length) { event.preventDefault(); section.focus(); return; }
+      event.preventDefault();
+      const index = focusable.findIndex(element => element === document.activeElement);
+      const next = event.shiftKey
+        ? (index <= 0 ? focusable.length - 1 : index - 1)
+        : (index < 0 || index === focusable.length - 1 ? 0 : index + 1);
+      focusable[next].focus();
+    };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      background.forEach((wasInert, sibling) => { sibling.inert = wasInert; });
+      document.body.style.overflow = previousOverflow;
+      window.requestAnimationFrame(() => {
+        if (!section.isConnected || section.getAttribute('aria-modal') === 'true') return;
+        if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+        else section.querySelector<HTMLButtonElement>('.organization-chart-view-switch button')?.focus({ preventScroll: true });
+      });
+    };
   }, [expanded]);
   useEffect(() => {
     if (!pendingFind || !flow) return;
@@ -198,6 +264,16 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
     });
     return () => window.cancelAnimationFrame(frame);
   }, [pendingFind, flow, layout, profileId]);
+  useEffect(() => {
+    if (!pendingBranchFocus || !flow || viewMode !== 'chart') return;
+    const branch = layout.nodes.find(node => node.id === pendingBranchFocus);
+    if (!branch) return;
+    const frame = window.requestAnimationFrame(() => {
+      void flow.setCenter(branch.x + organizationCardWidth / 2, branch.y + organizationCardHeight / 2 + 90, { zoom: 0.92, duration: 250 });
+      setPendingBranchFocus(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pendingBranchFocus, flow, layout, viewMode]);
   const fit = () => { if (flow) void flow.fitView({ padding: 0.15, minZoom: 0.4, maxZoom: 1.05, duration: 250 }); };
   const findMe = () => {
     if (!peopleById.has(profileId)) { setNotice('Your profile is not in the active organization chart.'); return; }
@@ -210,17 +286,17 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
     setEditing(null);
     window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-employee-id="${id}"] button`)?.focus());
   };
-  return <section className={`organization-chart-section${expanded ? ' is-expanded' : ''}`} aria-labelledby={titleId} role={expanded ? 'dialog' : undefined} aria-modal={expanded ? true : undefined}>
+  return <section ref={sectionRef} tabIndex={expanded ? -1 : undefined} className={`organization-chart-section${expanded ? ' is-expanded' : ''}`} aria-labelledby={titleId} role={expanded ? 'dialog' : undefined} aria-modal={expanded ? true : undefined}>
     <header className="organization-chart-header"><div><h2 id={titleId}>Organization chart</h2><p>Real reporting lines. Pan to explore, or switch to the hierarchy list.</p></div><div className="organization-chart-actions">
-      <div className="organization-chart-view-switch" role="group" aria-label="Organization view"><button type="button" aria-pressed={viewMode === 'chart'} onClick={() => { manualViewChoice.current = true; setViewMode('chart'); }}>Chart</button><button type="button" aria-pressed={viewMode === 'list'} onClick={() => { manualViewChoice.current = true; setViewMode('list'); setExpanded(false); }}>List</button></div>
-      {viewMode === 'chart' && <><button type="button" className="btn border" onClick={fit}>Fit chart</button><button type="button" className="btn border" aria-label="Zoom in" onClick={() => { if (flow) void flow.zoomIn({ duration: 200 }); }}>+</button><button type="button" className="btn border" aria-label="Zoom out" onClick={() => { if (flow) void flow.zoomOut({ duration: 200 }); }}>−</button><button type="button" className="btn border" onClick={findMe}>Find me</button><button ref={expandButton} type="button" className="btn border" aria-pressed={expanded} onClick={() => { setExpanded(value => !value); window.requestAnimationFrame(() => fit()); }}>{expanded ? 'Close expanded view' : 'Expand chart'}</button></>}
+      <div className="organization-chart-view-switch" role="group" aria-label="Organization view"><button type="button" aria-pressed={viewMode === 'chart'} onClick={() => { manualViewChoice.current = true; setViewMode('chart'); }}>Chart</button><button type="button" aria-pressed={viewMode === 'list'} onClick={() => { manualViewChoice.current = true; setFlow(null); setViewMode('list'); setExpanded(false); }}>List</button></div>
+      {viewMode === 'chart' && <><button type="button" className="btn border" onClick={fit}>Fit chart</button><button type="button" className="btn border" aria-label="Zoom in" onClick={() => { if (flow) void flow.zoomIn({ duration: 200 }); }}>+</button><button type="button" className="btn border" aria-label="Zoom out" onClick={() => { if (flow) void flow.zoomOut({ duration: 200 }); }}>−</button><button type="button" className="btn border" onClick={findMe}>Find me</button><button ref={expandButton} type="button" className="btn border" aria-pressed={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Close expanded view' : 'Expand chart'}</button></>}
       <button type="button" className="btn border" onClick={() => void load()}>Refresh chart</button>
     </div></header>
     {notice && <p role="status">{notice}</p>}
     {error && <p role="alert">{error}</p>}
-    {loading ? <p role="status">Loading organization…</p> : !people.length && !error ? <p>No active employees are available.</p> : viewMode === 'list' ? <div className="organization-list-view" role="region" aria-label="Organization hierarchy list"><ul>{roots.map(root => <OrganizationListBranch key={root.id} node={root} collapsed={collapsed} currentId={profileId} isSelf={isSelf} adminView={adminView} onToggle={toggle} onEdit={setEditing} />)}</ul></div> : viewMode === 'chart' ? <div className="organization-flow-canvas" role="region" aria-label="Pannable organization chart">
-      <ReactFlow<PersonNode, Edge> nodes={nodes} edges={edges} nodeTypes={nodeTypes} onInit={setFlow} fitView fitViewOptions={{ padding: 0.15, minZoom: 0.4, maxZoom: 1.05 }} minZoom={0.35} maxZoom={1.6} nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} elementsSelectable={false} deleteKeyCode={null} selectionKeyCode={null} zoomOnScroll={false} zoomOnDoubleClick={false} panOnScroll={false} preventScrolling={false} panOnDrag>
-        <div className="organization-flow-hint">Drag empty space to pan · Use controls to zoom</div>
+    {loading ? <p role="status">Loading organization…</p> : !people.length && !error ? <p>No active employees are available.</p> : viewMode === 'list' ? <div className="organization-list-view" role="region" aria-label="Organization hierarchy list"><ul>{roots.map(root => <OrganizationListBranch key={root.id} node={root} collapsed={collapsed} currentId={profileId} isSelf={isSelf} adminView={adminView} onToggle={id => { setPendingBranchFocus(id); toggle(id); }} onEdit={setEditing} />)}</ul></div> : viewMode === 'chart' ? <div className="organization-flow-canvas" role="region" aria-label="Pannable organization chart">
+      <ReactFlow<PersonNode, Edge> nodes={nodes} edges={edges} nodeTypes={nodeTypes} onInit={instance => { setFlow(instance); if (savedViewport.current) void instance.setViewport(savedViewport.current, { duration: 0 }); }} onMoveEnd={(_event, viewport) => { savedViewport.current = viewport; }} fitView={layout.nodes.length <= 14} fitViewOptions={{ padding: 0.15, minZoom: 0.4, maxZoom: 1.05 }} minZoom={0.35} maxZoom={1.6} nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} elementsSelectable={false} deleteKeyCode={null} selectionKeyCode={null} zoomOnScroll={false} zoomOnDoubleClick={false} panOnScroll={false} preventScrolling={false} panOnDrag>
+        <div className="organization-flow-hint">{layout.nodes.length > 14 ? 'Wide team: drag to see more reports · List shows everyone · Fit chart shows all' : 'Drag empty space to pan · Use controls to zoom'}</div>
       </ReactFlow>
     </div> : null}
     {editing && <OrganizationEditor person={editing} people={people} onClose={close} onSaved={() => { close(); setNotice('Organization details saved.'); void load(); onChanged?.(); }} />}

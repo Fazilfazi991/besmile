@@ -60,7 +60,7 @@
 .organization-person-footer { display: flex; align-items: center; gap: 6px; min-width: 0; border-top: 1px solid var(--org-border); padding-top: 5px; }
 .organization-person-footer > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--org-muted); font-size: 10px; }
 .organization-person-footer > span.organization-person-warning { color: #945b22; }
-.organization-person-action { min-width: 25px; min-height: 24px; border: 1px solid var(--org-border); border-radius: 6px; padding: 1px 5px; color: var(--org-text); font-size: 10px; font-weight: 700; }
+.organization-person-action { min-width: 25px; min-height: 24px; border: 1px solid var(--org-border); border-radius: 6px; padding: 1px 5px; color: var(--org-text); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .organization-person-action:hover { border-color: var(--org-line); color: var(--org-line); }
 .organization-flow-canvas .organization-flow-handle { width: 5px; height: 5px; border: 0; background: var(--org-line); pointer-events: none; }
 .organization-list-view { max-height: min(72vh, 680px); margin-top: 16px; overflow: auto; border: 1px solid var(--org-border); border-radius: 12px; padding: 12px; }
@@ -69,9 +69,9 @@
 .organization-list-item + .organization-list-item { margin-top: 6px; }
 .organization-list-person { display: flex; align-items: center; gap: 10px; min-width: 0; border: 1px solid var(--org-border); border-radius: 10px; background: var(--org-card); padding: 9px; }
 .organization-list-identity { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 1px; }
-.organization-list-identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.organization-list-identity strong { overflow-wrap: anywhere; font-size: 13px; }
 .organization-list-identity strong a { color: inherit; text-decoration: underline; text-decoration-color: var(--org-border); }
-.organization-list-identity > span:not(.organization-person-you) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.organization-list-identity > span:not(.organization-person-you) { overflow-wrap: anywhere; font-size: 12px; }
 .organization-list-identity > small { color: var(--org-muted); font-size: 10px; }
 .organization-list-identity .organization-person-you { align-self: flex-start; }
 .organization-list-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }

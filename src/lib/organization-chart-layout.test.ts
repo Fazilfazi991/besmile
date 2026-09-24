@@ -33,6 +33,20 @@ describe('Dagre organization layout', () => {
     expect(ancestorIds(people, 'staff-3')).toEqual(['manager-3', 'root']);
   });
 
+  it('keeps four legitimate roots and the principal first tier even when they exceed the soft budget', () => {
+    const people = [person('chair'), person('director'), person('gm'), person('unassigned'),
+      ...Array.from({ length: 11 }, (_, i) => person(`lead-${i}`, 'gm')),
+      ...Array.from({ length: 11 }, (_, i) => person(`report-${i}`, `lead-${i}`))];
+    const collapsed = initialCollapsedBranches(people, 14);
+    const overview = layoutOrganization(people, collapsed);
+    expect(overview.nodes).toHaveLength(15);
+    expect(overview.nodes.map(node => node.id)).toContain('lead-10');
+    expect(collapsed.has('gm')).toBe(false);
+    expect(collapsed.has('lead-0')).toBe(true);
+    expect(layoutOrganization(people, new Set()).nodes).toHaveLength(26);
+    noOverlaps(overview.nodes);
+  });
+
   it('keeps missing-manager reports visible and filters inactive people', () => {
     const layout = layoutOrganization([person('lost', 'inactive'), person('inactive', null, { status: 'inactive' }), person('long', null, { full_name: 'A very long name and title that must never change node geometry', designation: 'A long specialist designation' })], new Set());
     expect(layout.nodes.map(node => node.id).sort()).toEqual(['long', 'lost']);

@@ -2,8 +2,8 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: 'organization-chart-visual.e2e.ts',
-  timeout: 90_000,
+  testMatch: ['organization-chart-visual.e2e.ts', 'organization-chart-qa-smoke.e2e.ts'],
+  timeout: 240_000,
   expect: { timeout: 20_000 },
   workers: 1,
   reporter: 'list',
