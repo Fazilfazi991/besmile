@@ -65,3 +65,4 @@ app.*.map.json
 supabase/.temp/
 release-evidence/
 test-results/
+/tmp/
