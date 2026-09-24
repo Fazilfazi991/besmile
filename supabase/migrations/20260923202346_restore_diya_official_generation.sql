@@ -13,7 +13,7 @@ begin
       and profile.full_name = 'Diya Anthikat'
       and profile.role = 'staff'
       and profile.status = 'active'
-      and profile.designation = 'Admin'
+      and btrim(profile.designation) = 'Admin'
       and department.name = 'Administration'
   ) then
     raise exception 'Diya official generation identity check failed; stop release';

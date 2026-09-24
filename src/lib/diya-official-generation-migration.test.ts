@@ -25,7 +25,7 @@ async function fixture(designation: string) {
 
 describe('Diya generation restore migration', () => {
   it('grants only generation to the verified current account and is idempotent', async () => {
-    const db = await fixture('Admin');
+    const db = await fixture('Admin ');
     try {
       await db.exec(migration);
       await db.exec(migration);
