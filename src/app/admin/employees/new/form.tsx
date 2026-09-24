@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { DepartmentSelect } from '@/components/department-select';
 import { useActionState, useMemo } from 'react';
 import { createEmployee, type CreateEmployeeState } from './actions';
 import { genderOptions } from '@/lib/gender';
@@ -8,7 +9,7 @@ import { employeeStatuses, employeeStatusLabel } from '@/lib/employee-status';
 
 const initial: CreateEmployeeState = {};
 type DepartmentOption = { id: string; name: string };
-type ManagerOption = { id: string; full_name: string; role: string | null };
+type ManagerOption = { id: string; full_name: string; designation: string | null };
 const roles = [
   ['staff', 'Staff'],
   ['psychologist', 'Psychologist'],
@@ -76,7 +77,7 @@ export function EmployeeCreateForm({
         <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-800">{state.success}</p>
       )}
 
-      <form action={action} className="card grid gap-4 p-5 md:grid-cols-2">
+      <form action={action} className="card grid min-w-0 gap-4 p-5 md:grid-cols-2">
         <Field label="Full name" required>
           <input name="full_name" className="input" required defaultValue={values.full_name || ''} />
         </Field>
@@ -100,16 +101,7 @@ export function EmployeeCreateForm({
           <input name="employee_code" className="input" required defaultValue={values.employee_code || ''} />
         </Field>
         <Field label="Department" required>
-          <select name="department_id" className="input" required defaultValue={values.department_id || ''} disabled={!!referenceError || departmentOptions.length === 0}>
-            <option value="" disabled={departmentOptions.length > 0}>
-              {departmentOptions.length ? 'Select department' : 'No departments available'}
-            </option>
-            {departmentOptions.map((item) => (
-              <option value={item.id} key={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
+          <DepartmentSelect key={values.department_id || "new"} departments={departmentOptions} value={values.department_id} required disabled={!!referenceError} />
         </Field>
         <Field label="Designation" required>
           <input name="designation" className="input" required defaultValue={values.designation || ''} />
@@ -128,7 +120,7 @@ export function EmployeeCreateForm({
             <option value="">No manager assigned</option>
             {managerOptions.map((item) => (
               <option value={item.id} key={item.id}>
-                {item.full_name} ({String(item.role || 'management').replaceAll('_', ' ')})
+                {item.full_name} ({item.designation || 'Employee'})
               </option>
             ))}
           </select>
@@ -156,10 +148,10 @@ export function EmployeeCreateForm({
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
-    <label className="text-sm font-medium">
+    <label className="min-w-0 text-sm font-medium">
       {label}
       {required && <span className="text-rose-600"> *</span>}
-      <span className="mt-1 block">{children}</span>
+      <span className="mt-1 block min-w-0 [&_.input]:w-full [&_.input]:min-w-0 [&_.input]:max-w-full">{children}</span>
     </label>
   );
 }

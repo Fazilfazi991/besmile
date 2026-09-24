@@ -1,33 +1,63 @@
-export type OrganizationChartNode = {
-  key: string;
-  displayName: string;
-  designation: string;
-  parentKey: string | null;
-  profileNameAliases?: readonly string[];
-  /** User-supplied or otherwise verified public chart portrait. */
-  avatar?: string;
+export type OrganizationEmployee = {
+  id: string;
+  full_name: string;
+  designation: string | null;
+  manager_id: string | null;
+  department_id: string | null;
+  department_name: string | null;
+  avatar_url: string | null;
+  status: string;
+  can_edit: boolean;
+  photo_url?: string | null;
 };
+export type OrganizationNode = OrganizationEmployee & { children: OrganizationNode[]; unassigned: boolean };
+export const isChairman = (designation: string | null) => designation?.trim().toLowerCase() === 'chairman';
 
-export const organizationChart = [
-  { key: "director", displayName: "Yousaf KS", designation: "Director", parentKey: null, profileNameAliases: ["Yousaf KS", "Director"], avatar: "/organization-chart/yousaf-ks.png" },
-  { key: "general-manager", displayName: "Fayiz", designation: "General Manager", parentKey: "director", profileNameAliases: ["Fayiz", "Muhammad Faiz AU"] },
-  { key: "assistant-manager", displayName: "Diya Anthikat", designation: "Assistant Manager", parentKey: "general-manager", profileNameAliases: ["Diya Anthikat"], avatar: "/organization-chart/diya-anthikat.png" },
-  { key: "sales-coordinator", displayName: "Fathima", designation: "Sales Coordinator", parentKey: "general-manager", profileNameAliases: ["Fathima"] },
-  { key: "psychologist", displayName: "Aiswarya P", designation: "Psychologist", parentKey: "assistant-manager", profileNameAliases: ["Aiswarya P"], avatar: "/organization-chart/aiswarya-p.png" },
-  { key: "admin", displayName: "Anushma VK", designation: "Admin", parentKey: "assistant-manager", profileNameAliases: ["Anushma VK"], avatar: "/organization-chart/anushma-vk.png" },
-  { key: "intern", displayName: "Intern", designation: "Internship", parentKey: "assistant-manager", profileNameAliases: ["Intern"] },
-] as const satisfies readonly OrganizationChartNode[];
-
-export function normalizedOrganizationName(value?: string | null) {
-  return value?.trim().replace(/\s+/g, " ").toLocaleLowerCase() || "";
+/** Missing/inactive managers and legacy cycles become explicit roots; never invent reporting links. */
+export function buildOrganizationTree(employees: OrganizationEmployee[]) {
+  const active = employees.filter(person => person.status === 'active');
+  const byId = new Map(active.map(person => [person.id, person]));
+  const parents = new Map<string, string | null>();
+  for (const person of active) {
+    let parent = person.manager_id && byId.has(person.manager_id) ? person.manager_id : null;
+    const seen = new Set([person.id]);
+    let cursor = parent;
+    while (cursor) {
+      if (seen.has(cursor)) { parent = null; break; }
+      seen.add(cursor);
+      cursor = byId.get(cursor)?.manager_id || null;
+    }
+    parents.set(person.id, parent);
+  }
+  const nodes = new Map(active.map(person => [person.id, {
+    ...person, children: [] as OrganizationNode[],
+    unassigned: Boolean(person.manager_id && !parents.get(person.id)),
+  }]));
+  const roots: OrganizationNode[] = [];
+  for (const node of nodes.values()) {
+    const parent = parents.get(node.id);
+    if (parent) nodes.get(parent)!.children.push(node);
+    else roots.push(node);
+  }
+  const sort = (list: OrganizationNode[]) => {
+    list.sort((a, b) => Number(isChairman(b.designation)) - Number(isChairman(a.designation)) || a.full_name.localeCompare(b.full_name) || a.id.localeCompare(b.id));
+    list.forEach(node => sort(node.children));
+  };
+  sort(roots);
+  return roots;
 }
 
-export function organizationNodeForProfile(profileName?: string | null) {
-  const normalizedProfileName = normalizedOrganizationName(profileName);
-  if (!normalizedProfileName) return null;
-  return organizationChart.find((node) =>
-    (node.profileNameAliases || [node.displayName]).some(
-      (name) => normalizedOrganizationName(name) === normalizedProfileName,
-    ),
-  ) || null;
+export function reportingManagerError(employees: OrganizationEmployee[], employeeId: string, managerId: string | null, designation?: string | null) {
+  if (!managerId) return '';
+  if (isChairman(designation ?? employees.find(person => person.id === employeeId)?.designation ?? null)) return 'The Chairman must remain at the top with no reporting manager.';
+  const byId = new Map(employees.map(person => [person.id, person]));
+  if (byId.get(managerId)?.status !== 'active') return 'Choose an active employee as reporting manager.';
+  const seen = new Set([employeeId]);
+  let cursor: string | null = managerId;
+  while (cursor) {
+    if (seen.has(cursor)) return cursor === employeeId && managerId === employeeId ? 'An employee cannot report to themselves.' : 'This reporting relationship would create a cycle.';
+    seen.add(cursor);
+    cursor = byId.get(cursor)?.manager_id || null;
+  }
+  return '';
 }
