@@ -18,7 +18,7 @@ const roles = [
 ];
 const protectedRoles = [
   ['general_manager', 'General Manager'],
-  ['director', 'Director'],
+  ['director', 'Managing Director'],
   ['chairman', 'Chairman'],
 ];
 

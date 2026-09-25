@@ -30,6 +30,12 @@ export function normalizeRole(role?: string | null) {
     .replace(/[\s-]+/g, "_");
 }
 
+export function roleDisplayLabel(role?: string | null, fallback?: string | null) {
+  return normalizeRole(role) === "director"
+    ? "Managing Director"
+    : fallback || String(role || "").replaceAll("_", " ");
+}
+
 export function isManagementRole(role?: string | null) {
   return managementRoleCodes.has(normalizeRole(role));
 }
@@ -48,7 +54,7 @@ export function dashboardTitle(role?: string | null) {
   const labels: Record<string, string> = {
     super_admin: "Super Admin Dashboard",
     chairman: "Chairman Dashboard",
-    director: "Director Dashboard",
+    director: "Managing Director Dashboard",
     general_manager: "General Manager Dashboard",
   };
   return labels[normalizeRole(role)] || "Management Dashboard";

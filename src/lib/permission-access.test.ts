@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, permissionAllows, workspaceLandingPath, workspaceTitle } from './permission-access';
+import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, permissionAllows, roleDisplayLabel, workspaceLandingPath, workspaceTitle } from './permission-access';
 import { permissionCatalogue } from './permission-catalogue';
 
 describe('permission compatibility', () => {
@@ -17,6 +17,9 @@ describe('permission compatibility', () => {
   });
 
   it('uses role-aware dashboard and workspace labels without elevating management roles', () => {
+    expect(roleDisplayLabel('director', 'Director')).toBe('Managing Director');
+    expect(roleDisplayLabel('chairman', 'Chairman')).toBe('Chairman');
+    expect(dashboardTitle('director')).toBe('Managing Director Dashboard');
     expect(dashboardTitle('general_manager')).toBe('General Manager Dashboard');
     expect(dashboardTitle('General Manager')).not.toBe('Super Admin Dashboard');
     expect(workspaceTitle('general_manager')).toBe('General Manager Workspace');
