@@ -7,7 +7,7 @@ import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, T
 import { adminRepository } from '@/lib/admin-repository';
 import { chartInr, compactInr } from '@/lib/finance-format';
 import { ModuleIcon } from '@/components/module-icon';
-import { executiveFirstName, type ExecutivePeriod } from '@/lib/executive-dashboard';
+import { executiveFirstName } from '@/lib/executive-dashboard';
 import { executiveKpiCharts } from '@/lib/dashboard-kpi-model';
 import { KpiMiniChart } from '@/components/kpi-mini-chart';
 import { buildDirectorMetrics } from '@/lib/director-executive-metrics';
@@ -28,7 +28,6 @@ import {
 
 const PERIOD_LABELS: Record<CrmDashboardPeriod, string> = { today: 'Today', week: 'This Week', month: 'This Month', custom: 'Custom' };
 export function DirectorExecutiveDashboard({ name }: { name?: string | null }) {
-  const [financePeriod, setFinancePeriod] = useState<ExecutivePeriod>('month');
   const [today, setToday] = useState(currentCrmBusinessDate);
   const [period, setPeriod] = useState<CrmDashboardPeriod>('month');
   const [range, setRange] = useState<CrmDateRange>(() => crmDashboardPeriodRange('month', currentCrmBusinessDate()));
@@ -128,7 +127,7 @@ export function DirectorExecutiveDashboard({ name }: { name?: string | null }) {
     </div>
     <div className="director-layout">
       <Panel title="Revenue & sales trend" subtitle="Last 6 months" action={<Link href="/admin/finance/reports">View reports</Link>} className="director-trend-panel"><ExecutiveTrendChart rows={metrics.trend} /></Panel>
-      <div className="director-finance-overview-slot"><ExecutiveFinanceOverview transactions={data.finance?.monthly || []} timeZone={data.timezone} period={financePeriod} onPeriodChange={setFinancePeriod} /></div>
+      <div className="director-finance-overview-slot"><ExecutiveFinanceOverview transactions={data.finance?.monthly || []} range={range} /></div>
       <Panel title="Leads by current stage" subtitle={rangeLabel} action={<Link href="/admin/crm/leads">Open leads</Link>} className="director-pipeline-panel"><LeadPipeline rows={metrics.pipeline} /></Panel>
       <Panel title="High-priority items" subtitle="Executive attention" action={<Link href="/admin/tasks">View all</Link>} className="director-priority-panel"><div className="director-priorities">{metrics.priorities.length ? metrics.priorities.map((item: any) => <Link href={item.href} className={`director-priority priority-${item.tone}`} key={item.label}><ModuleIcon label={item.icon} /><span><b>{item.label}</b><small>{item.detail}</small></span><em>{item.action}</em></Link>) : <Empty text="Nothing currently needs executive attention." />}</div></Panel>
     </div>

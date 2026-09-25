@@ -14,6 +14,7 @@ import {
   StatusBadge,
 } from "@/components/compact-module";
 import { financeEntryValidationMessage } from "@/lib/finance-master-data-rules";
+import { marketingExpenseTypes, marketingExpenseValidationMessage, orderExpenseOptions } from "@/lib/expense-categories";
 
 export const validateFinanceReceipt = (file: File) =>
   !["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(
@@ -53,7 +54,7 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
     from: "",
     to: "",
   });
-  const categories = type === "income" ? options.income : options.expense;
+  const categories = type === "income" ? options.income : orderExpenseOptions(options.expense);
   const load = async () => {
     try {
       setLoading(true);
@@ -97,6 +98,7 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
     counterparty_name: "",
     reference_number: "",
     description: "",
+    ...(type === "expense" ? { expense_subcategory: null } : {}),
     receipt_path: "",
   });
   const shown = useMemo(
@@ -144,6 +146,9 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
         categoryId: edit[categoryKey],
       });
       if (validationError) throw new Error(validationError);
+      const categoryName = categories.find((category: any) => category.id === edit[categoryKey])?.name;
+      const marketingError = type === "expense" ? marketingExpenseValidationMessage(categoryName, edit.expense_subcategory, edit.description) : null;
+      if (marketingError) throw new Error(marketingError);
       let receipt_path = edit.receipt_path || null;
       if (edit.file) {
         const fileError = validateFinanceReceipt(edit.file);
@@ -158,6 +163,7 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
         amount: Number(edit.amount),
         receipt_path,
         file: undefined,
+        ...(type === "expense" ? { expense_subcategory: categoryName === "Marketing" ? edit.expense_subcategory : null } : {}),
       };
       for (const key of [
         "id",
@@ -581,7 +587,7 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                   className="input"
                   value={edit[categoryKey]}
                   onChange={(event) =>
-                    setEdit({ ...edit, [categoryKey]: event.target.value })
+                    setEdit({ ...edit, [categoryKey]: event.target.value, ...(type === "expense" ? { expense_subcategory: null } : {}) })
                   }
                 >
                   <option value="">Select a category</option>
@@ -592,6 +598,12 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                   ))}
                 </select>
               </Field>
+              {type === "expense" && categories.find((category: any) => category.id === edit[categoryKey])?.name === "Marketing" && <Field label="Marketing expense type" className="md:col-span-2">
+                <select required className="input" value={edit.expense_subcategory || ""} onChange={event => setEdit({ ...edit, expense_subcategory: event.target.value })}>
+                  <option value="">Select a Marketing expense type</option>
+                  {marketingExpenseTypes.map(subtype => <option key={subtype} value={subtype}>{subtype}</option>)}
+                </select>
+              </Field>}
               <Field label="Payment method">
                 <select
                   className="input"
@@ -640,6 +652,7 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
               </Field>
               <Field label="Description" className="md:col-span-2">
                 <textarea
+                  required={type === "expense" && edit.expense_subcategory === "Other Marketing Expenses"}
                   className="input min-h-24"
                   value={edit.description || ""}
                   onChange={(event) =>

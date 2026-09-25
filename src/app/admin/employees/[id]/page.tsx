@@ -13,6 +13,7 @@ import { useParams, useRouter } from "next/navigation";
 import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
 import { employeeRepository } from "@/lib/employee-repository";
+import { showEmployeeId } from "@/lib/employee-id-display";
 import {
   employeeEditPayload,
   normalizeDateOnly,
@@ -323,7 +324,7 @@ export default function AdminEmployeeProfile() {
   const canRestore =
     Boolean(viewer?.canRemoveEmployees) && canRestoreEmployee(viewer, profile);
   const employment = [
-    ["Employee ID", profile.employee_code],
+    ...(showEmployeeId(profile.role) ? [["Employee ID", profile.employee_code]] : []),
     ["Work email", profile.email],
     ["Role", profile.role],
     ["Department", profile.department?.name],
@@ -372,7 +373,7 @@ export default function AdminEmployeeProfile() {
               {profile.full_name}
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              {profile.employee_code || "Employee"} ·{" "}
+              {showEmployeeId(profile.role) ? `${profile.employee_code || "Employee"} · ` : ""}
               {profile.designation || "Employee"} ·{" "}
               {profile.department?.name || "No department"}
             </p>

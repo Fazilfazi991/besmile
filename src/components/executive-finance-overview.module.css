@@ -21,6 +21,9 @@
 .heading h2 { margin: 0; font-size: clamp(26px, 2.4vw, 34px); font-weight: 750; letter-spacing: -.04em; line-height: 1.13; }
 .heading p { margin: 7px 0 0; color: #66768a; font-size: 14px; }
 .heading p span { white-space: nowrap; }
+:global(html[data-theme="colorful"]) .heading h2 { color: #f7f9ff; }
+:global(html[data-theme="colorful"]) .heading p,
+:global(html[data-theme="colorful"]) .heading p span { color: #d5def7; }
 .actions { flex: 0 0 auto; gap: 12px; }
 .period { display: grid; gap: 5px; color: #62738a; font-size: 11px; font-weight: 650; }
 .period select {

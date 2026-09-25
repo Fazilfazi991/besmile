@@ -7,6 +7,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { inr } from "@/components/finance-ui";
 import { adminRepository } from "@/lib/admin-repository";
 import { clientSafeError } from "@/lib/client-error";
+import { marketingExpenseTotal } from "@/lib/crm-marketing-expenses";
 import {
   CrmDashboardPeriod,
   CrmDashboardSummary,
@@ -38,6 +39,8 @@ export default function CrmDashboard() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState("");
   const [summaryRetry, setSummaryRetry] = useState(0);
+  const [marketingExpenses, setMarketingExpenses] = useState<number | null>(null);
+  const [marketingError, setMarketingError] = useState("");
   const [leadSummary, setLeadSummary] = useState<CrmDashboardSummary | null>(null);
   const [leadLoading, setLeadLoading] = useState(true);
   const [leadError, setLeadError] = useState("");
@@ -58,6 +61,17 @@ export default function CrmDashboard() {
     [leadRange, leadSummary],
   );
   const selectedPoint = leadPoints[Math.min(selectedDayIndex, Math.max(0, leadPoints.length - 1))];
+  const financeAllowed = summary?.financeAllowed === true;
+
+  useEffect(() => {
+    if (!financeAllowed) return;
+    let active = true;
+    const requestRange = { start: range.start, end: range.end };
+    void adminRepository.crmMarketingExpenseTransactions(requestRange.start, requestRange.end)
+      .then(rows => { if (active) { setMarketingExpenses(marketingExpenseTotal(rows, requestRange)); setMarketingError(""); } })
+      .catch(error => { if (active) { setMarketingExpenses(null); setMarketingError(clientSafeError(error, "Marketing expenses could not be loaded. Refresh and try again.", { route: "/admin/crm", action: "load-marketing-expenses" })); } });
+    return () => { active = false; };
+  }, [financeAllowed, range.start, range.end, summaryRetry]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -69,6 +83,7 @@ export default function CrmDashboard() {
         setLeadError("");
         if (period !== "custom") {
           setSummary(null);
+          setMarketingExpenses(null);
           setSummaryLoading(true);
           setSummaryError("");
           setRange(crmDashboardPeriodRange(period, nextToday));
@@ -160,6 +175,7 @@ export default function CrmDashboard() {
     setPeriod(nextPeriod);
     if (sameCrmDateRange(range, nextRange)) return;
     setSummary(null);
+    setMarketingExpenses(null);
     setSummaryLoading(true);
     setSummaryError("");
     setRange(nextRange);
@@ -178,6 +194,7 @@ export default function CrmDashboard() {
     setPeriod("custom");
     if (!sameCrmDateRange(range, draftRange)) {
       setSummary(null);
+      setMarketingExpenses(null);
       setSummaryLoading(true);
       setSummaryError("");
       setRange(draftRange);
@@ -190,7 +207,6 @@ export default function CrmDashboard() {
   const total = Math.max(1, Number(summary?.periodLeads || 0));
   const revenue = Number(summary?.revenue || 0);
   const expenses = Number(summary?.expenses || 0);
-  const financeAllowed = summary?.financeAllowed === true;
   const metricRows = [
     { label: "New Leads", value: summary?.periodLeads, context: rangeLabel },
     { label: "Open Follow-ups", value: summary ? summary.followups.due + summary.followups.overdue : undefined, context: `Current queue · as of ${today}` },
@@ -238,11 +254,12 @@ export default function CrmDashboard() {
           <button type="button" className="font-semibold underline underline-offset-2" onClick={() => { setSummary(null); setSummaryLoading(true); setSummaryError(""); setSummaryRetry(value => value + 1); }}>Retry</button>
         </div>
       )}
+      {marketingError && financeAllowed && <p className="text-sm text-rose-700" role="status">{marketingError}</p>}
       {summaryLoading && <div className="dashboard-progress" role="status"><span />Refreshing CRM summary…</div>}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-busy={summaryLoading}>
         {metricRows.map(metric => <MetricCard key={metric.label} {...metric} />)}
-        {financeAllowed && [["Sales / Revenue", inr(revenue)], ["Expenses", inr(expenses)], ["Net Result", inr(revenue - expenses)]].map(([label, value]) => <MetricCard key={label} label={label} value={value} context={rangeLabel} />)}
+        {financeAllowed && ([{ label: "Sales / Revenue", value: inr(revenue) }, { label: "Marketing Expenses", value: marketingExpenses === null ? undefined : inr(marketingExpenses) }, { label: "Net Result", value: inr(revenue - expenses) }]).map(({ label, value }) => <MetricCard key={label} label={label} value={value} context={rangeLabel} />)}
       </div>
 
       <section className="card min-w-0 overflow-hidden" data-testid="lead-performance-card">

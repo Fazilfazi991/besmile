@@ -188,3 +188,18 @@ html[data-theme="colorful"] .director-heading h1{color:#f5f7ff}html[data-theme="
 /* Keep the upload-only MOM form legible in the existing Colorful theme. */
 html[data-theme="colorful"] .official-mom-upload label { color: #d4def6; }
 html[data-theme="colorful"] .official-mom-upload p.text-slate-500 { color: #b5c3e2; }
+
+/* Colorful mode: keep dark and saturated status surfaces readable. */
+html[data-theme="colorful"] .text-amber-700,
+html[data-theme="colorful"] .text-amber-900,
+html[data-theme="colorful"] .text-amber-950,
+html[data-theme="colorful"] .text-orange-800,
+html[data-theme="colorful"] .text-yellow-800 { color: #ffdc99 !important; }
+html[data-theme="colorful"] .text-teal-900,
+html[data-theme="colorful"] .text-teal-950,
+html[data-theme="colorful"] .text-emerald-900 { color: #c5fff2 !important; }
+html[data-theme="colorful"] [data-testid="lead-performance-card"] .bg-teal-50 { background-color: #174b51 !important; }
+html[data-theme="colorful"] [data-testid="lead-performance-total"] { color: #ffffff !important; }
+html[data-theme="colorful"] [data-testid="lead-performance-card"] .recharts-cartesian-axis-tick-value { fill: #c7d3f4 !important; }
+html[data-theme="colorful"] [data-testid="lead-performance-card"] .recharts-line-curve { stroke: #4be0c9 !important; }
+html[data-theme="colorful"] [data-testid="lead-performance-card"] .text-slate-900 { color: #f7f9ff !important; }

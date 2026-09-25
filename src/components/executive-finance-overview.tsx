@@ -1,16 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ChartNoAxesCombined, Coins, FileChartColumn, Lightbulb, LockKeyhole, Percent, Wallet } from 'lucide-react';
 import { chartInr } from '@/lib/finance-format';
-import { adminRepository } from '@/lib/admin-repository';
-import { type ExecutivePeriod } from '@/lib/executive-dashboard';
-import { buildExecutiveFinanceView } from '@/lib/executive-finance-view';
+import { buildExecutiveFinanceViewForRange } from '@/lib/executive-finance-view';
 import styles from './executive-finance-overview.module.css';
 
-const periods: Record<ExecutivePeriod, string> = { month: 'This month', previous_month: 'Last month', quarter: 'Last 3 months', year: 'This year' };
 const colors = ['#287de1', '#1fa05f', '#ffb547', '#6552c6', '#1ca9ba', '#de6689'];
 const dateLabel = (value: string) => new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`));
 const compactNumber = (value: number) => {
@@ -26,10 +23,10 @@ const compactInr = (value: number) => `INR ${compactNumber(value)}`;
 const axisMoney = compactNumber;
 const percentLabel = (value: number) => `${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}%`;
 
-type Props = { transactions: any[]; timeZone: string; period: ExecutivePeriod; onPeriodChange: (period: ExecutivePeriod) => void };
+type Props = { transactions: any[]; range: { start: string; end: string } };
 
-export function ExecutiveFinanceOverview({ transactions, timeZone, period, onPeriodChange }: Props) {
-  const view = useMemo(() => buildExecutiveFinanceView(transactions, period, timeZone), [transactions, period, timeZone]);
+export function ExecutiveFinanceOverview({ transactions, range }: Props) {
+  const view = useMemo(() => buildExecutiveFinanceViewForRange(transactions, range), [transactions, range]);
   const hasActivity = view.income !== 0 || view.expenses !== 0;
   const insight = [
     !hasActivity ? 'No finance activity was recorded in this period.' : view.net < 0 ? `Expenses exceeded income by ${compactInr(Math.abs(view.net))} this period.` : view.net > 0 ? `Income exceeded expenses by ${compactInr(view.net)} this period.` : 'Income and expenses were balanced this period.',
@@ -40,7 +37,7 @@ export function ExecutiveFinanceOverview({ transactions, timeZone, period, onPer
   return <section className={styles.overview} aria-labelledby="executive-finance-title">
     <header className={styles.heading}>
       <div className={styles.headingTitle}><span className={styles.mark}><ChartNoAxesCombined size={26} aria-hidden="true" /></span><div><h2 id="executive-finance-title">Finance Overview</h2><p>{dateLabel(view.range.start)} – {dateLabel(view.range.end)} <span>· Inclusive</span></p></div></div>
-      <div className={styles.actions}><label className={styles.period}>Period<select value={period} onChange={event => onPeriodChange(event.target.value as ExecutivePeriod)}>{Object.entries(periods).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><Link className={styles.openFinance} href="/admin/finance"><LockKeyhole size={17} aria-hidden="true" />Open Finance</Link></div>
+      <div className={styles.actions}><Link className={styles.openFinance} href="/admin/finance"><LockKeyhole size={17} aria-hidden="true" />Open Finance</Link></div>
     </header>
 
     <div className={styles.stats}>
@@ -61,19 +58,3 @@ export function ExecutiveFinanceOverview({ transactions, timeZone, period, onPer
 
 function Stat({ tone, icon, label, value, note }: { tone: string; icon: React.ReactNode; label: string; value: string; note: string }) { return <article className={`${styles.stat} ${styles[tone]}`}><div className={styles.statTop}><span className={styles.statIcon} aria-hidden="true">{icon}</span><span className={styles.statLabel}>{label}</span></div><strong title={value}>{value}</strong><small>{note}</small></article>; }
 function Empty({ text = 'No finance activity in this period' }: { text?: string }) { return <p className={styles.empty}>{text}</p>; }
-
-export function ExecutiveFinanceDashboard() {
-  const [period, setPeriod] = useState<ExecutivePeriod>('month');
-  const [source, setSource] = useState<{ transactions: any[]; timeZone: string } | null>(null);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    let active = true;
-    void Promise.all([adminRepository.financeDashboard(), adminRepository.superAdminDashboard()])
-      .then(([finance, summary]) => { if (active) setSource({ transactions: finance.monthly || [], timeZone: summary.timezone || 'Asia/Kolkata' }); })
-      .catch(() => { if (active) setError(true); });
-    return () => { active = false; };
-  }, []);
-  if (error) return <div className={styles.loadState} role="alert">Finance Overview could not be loaded. <Link href="/admin/finance">Open Finance</Link></div>;
-  if (!source) return <div className={styles.loadState} aria-busy="true">Loading Finance Overview…</div>;
-  return <ExecutiveFinanceOverview transactions={source.transactions} timeZone={source.timeZone} period={period} onPeriodChange={setPeriod} />;
-}

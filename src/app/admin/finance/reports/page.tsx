@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FinanceEmpty, inr } from '@/components/finance-ui';
 import { adminRepository } from '@/lib/admin-repository';
 import { downloadOfficialReport } from '@/lib/official-report-download';
+import { canonicalExpenseCategory, orderExpenseReportRows } from '@/lib/expense-categories';
 
 function csv(rows: any[]) {
   const quote = (value: any) => `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -24,7 +25,8 @@ export default function FinanceReports() {
     if (!data) return [];
     if (type === 'invoices') return data.invoices.map((item: any) => [item.issue_date, item.invoice_number, item.customer_name, item.status, item.finance_invoice_payments?.reduce((total: number, payment: any) => total + Number(payment.amount), 0) || 0]);
     if (type === 'payroll') return data.payroll.map((item: any) => [item.payroll_run?.period_start, item.profile?.full_name, item.payment_status, Number(item.basic_salary) + Number(item.allowances) - Number(item.deductions), item.payment_date || '']);
-    return data.transactions.filter((item: any) => (type === 'all' || type === 'ledger' || item.transaction_type === type) && (!from || item.transaction_date >= from) && (!to || item.transaction_date <= to)).map((item: any) => [item.transaction_date, item.transaction_type, item.account?.name, item.income_category?.name || item.expense_category?.name || '', item.counterparty_name || item.description || '', item.amount]);
+    const transactions = data.transactions.filter((item: any) => (type === 'all' || type === 'ledger' || item.transaction_type === type) && (!from || item.transaction_date >= from) && (!to || item.transaction_date <= to));
+    return (type === 'expense' ? orderExpenseReportRows(transactions) : transactions).map((item: any) => [item.transaction_date, item.transaction_type, item.account?.name, item.transaction_type === 'expense' ? canonicalExpenseCategory(item.expense_category?.name) : item.income_category?.name || item.expense_category?.name || '', item.expense_subcategory ? `${item.expense_subcategory}${item.description ? ` — ${item.description}` : ''}` : item.counterparty_name || item.description || '', item.amount]);
   }, [data, type, from, to]);
 
   const headers = type === 'invoices' ? ['Issue date', 'Invoice', 'Customer', 'Status', 'Paid'] : type === 'payroll' ? ['Period', 'Employee', 'Payment status', 'Net salary', 'Payment date'] : ['Date', 'Type', 'Account', 'Category', 'Description', 'Amount'];

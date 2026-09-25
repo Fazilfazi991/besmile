@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildExecutiveFinanceView } from './executive-finance-view';
+import { buildExecutiveFinanceView, buildExecutiveFinanceViewForRange } from './executive-finance-view';
+import { crmDashboardPeriodRange } from './crm-dashboard-e1';
 
 describe('executive finance overview', () => {
   it('uses the same transaction types and period as the existing Finance totals', () => {
@@ -14,7 +15,7 @@ describe('executive finance overview', () => {
     expect(view.expenses).toBe(500);
     expect(view.net).toBe(1000);
     expect(view.margin).toBeCloseTo(66.6667, 3);
-    expect(view.breakdown.map(row => [row.name, row.value])).toEqual([['Operations', 300], ['Payroll', 200]]);
+    expect(view.breakdown.map(row => [row.name, row.value])).toEqual([['Operations', 300], ['Salaries', 200]]);
     expect(view.netTrend.at(-1)?.net).toBe(view.net);
     expect(view.trend.reduce((sum, row) => sum + row.income, 0)).toBe(view.income);
   });
@@ -33,5 +34,30 @@ describe('executive finance overview', () => {
     })), 'month', 'Asia/Kolkata', new Date('2026-09-25T12:00:00Z'));
     expect(view.breakdown.map(row => row.name)).toEqual([...names].reverse());
     expect(view.breakdown.reduce((total, row) => total + row.value, 0)).toBe(view.expenses);
+  });
+
+  it.each(['today', 'week', 'month'] as const)('uses the exact top dashboard %s range for Finance', period => {
+    const range = crmDashboardPeriodRange(period, '2026-09-25');
+    const view = buildExecutiveFinanceViewForRange([
+      { transaction_type: 'income', transaction_date: range.start, amount: 100 },
+      { transaction_type: 'expense', transaction_date: range.end, amount: 20, expense_category: { name: 'Marketing' } },
+      { transaction_type: 'income', transaction_date: '2026-01-01', amount: 900 },
+    ], range);
+    expect(view.range).toEqual(range);
+    expect(view.income).toBe(100);
+    expect(view.expenses).toBe(20);
+  });
+
+  it('uses inclusive exact Custom start and end dates from the top selector', () => {
+    const range = { start: '2026-09-12', end: '2026-09-14' };
+    const view = buildExecutiveFinanceViewForRange([
+      { transaction_type: 'income', transaction_date: '2026-09-11', amount: 900 },
+      { transaction_type: 'income', transaction_date: '2026-09-12', amount: 100 },
+      { transaction_type: 'expense', transaction_date: '2026-09-14', amount: 30 },
+      { transaction_type: 'expense', transaction_date: '2026-09-15', amount: 900 },
+    ], range);
+    expect(view.range).toEqual(range);
+    expect(view.income).toBe(100);
+    expect(view.expenses).toBe(30);
   });
 });
