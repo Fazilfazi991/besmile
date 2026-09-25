@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { executivePeriodRange, invoiceBalance, isActiveLead, percentageChange, usesExecutiveDashboard } from './executive-dashboard';
+import { executivePeriodRange, invoiceBalance, isActiveLead, percentageChange, usesExecutiveDashboard, usesFinanceOverviewDashboard } from './executive-dashboard';
 
 describe('director executive dashboard rules', () => {
   it('selects only the configured Director role', () => {
@@ -9,6 +9,15 @@ describe('director executive dashboard rules', () => {
     expect(usesExecutiveDashboard('employee')).toBe(false);
     expect(usesExecutiveDashboard('clinician')).toBe(false);
     expect(usesExecutiveDashboard('chairman')).toBe(false);
+  });
+
+  it('shows the Finance Overview only for Director and Chairman', () => {
+    expect(usesFinanceOverviewDashboard('director')).toBe(true);
+    expect(usesFinanceOverviewDashboard('Chairman')).toBe(true);
+    expect(usesFinanceOverviewDashboard('employee')).toBe(false);
+    expect(usesFinanceOverviewDashboard('general_manager')).toBe(false);
+    expect(usesFinanceOverviewDashboard('clinician')).toBe(false);
+    expect(usesFinanceOverviewDashboard(null)).toBe(false);
   });
 
   it('calculates remaining invoice balance after partial payment', () => {

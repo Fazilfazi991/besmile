@@ -11,6 +11,10 @@ export function usesExecutiveDashboard(role?: string | null) {
   );
 }
 
+export function usesFinanceOverviewDashboard(role?: string | null) {
+  return usesExecutiveDashboard(role) || String(role || '').trim().toLowerCase() === 'chairman';
+}
+
 export type ExecutivePeriod = 'month' | 'previous_month' | 'quarter' | 'year';
 
 export function businessDateParts(date = new Date(), timeZone = 'Asia/Kolkata') {
