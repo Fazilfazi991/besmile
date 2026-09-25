@@ -29,7 +29,7 @@ describe('manual psychologist payment workflow', () => {
   it('grants manual entry only to Diya rather than every Assistant Manager', () => {
     expect(migration).toContain("permission.code = 'psychologist_payments.manage'");
     expect(migration).toContain("profile.employee_code = 'A002'");
-    expect(migration).toContain("lower(profile.email) = 'diyaadminbsmile@gmail.com'");
+    expect(migration).toContain("lower(profile.email) = 'diyaassistantmanager@gmail.com'");
     expect(migration).toContain('not exists (');
     expect(migration).not.toContain("designation = 'Assistant Manager'");
   });

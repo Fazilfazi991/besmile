@@ -22,7 +22,7 @@ select profile.id, permission.id, 'Manual psychologist payment entry for Diya'
 from public.profiles profile
 join public.permissions permission on permission.code = 'psychologist_payments.manage'
 where profile.employee_code = 'A002'
-  and lower(profile.email) = 'diyaadminbsmile@gmail.com'
+  and lower(profile.email) = 'diyaassistantmanager@gmail.com'
   and profile.status = 'active'
   and not exists (
     select 1 from public.user_permission_grants existing
