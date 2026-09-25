@@ -7,10 +7,11 @@ import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Respon
 import { adminRepository } from '@/lib/admin-repository';
 import { chartInr, compactInr } from '@/lib/finance-format';
 import { ModuleIcon } from '@/components/module-icon';
-import { executiveFirstName } from '@/lib/executive-dashboard';
+import { executiveFirstName, type ExecutivePeriod } from '@/lib/executive-dashboard';
 import { executiveKpiCharts } from '@/lib/dashboard-kpi-model';
 import { KpiMiniChart } from '@/components/kpi-mini-chart';
 import { buildDirectorMetrics } from '@/lib/director-executive-metrics';
+import { ExecutiveFinanceOverview } from '@/components/executive-finance-overview';
 import { clientSafeError } from '@/lib/client-error';
 import {
   type CrmDashboardPeriod,
@@ -27,6 +28,7 @@ import {
 
 const PERIOD_LABELS: Record<CrmDashboardPeriod, string> = { today: 'Today', week: 'This Week', month: 'This Month', custom: 'Custom' };
 export function DirectorExecutiveDashboard({ name }: { name?: string | null }) {
+  const [financePeriod, setFinancePeriod] = useState<ExecutivePeriod>('month');
   const [today, setToday] = useState(currentCrmBusinessDate);
   const [period, setPeriod] = useState<CrmDashboardPeriod>('month');
   const [range, setRange] = useState<CrmDateRange>(() => crmDashboardPeriodRange('month', currentCrmBusinessDate()));
@@ -110,6 +112,7 @@ export function DirectorExecutiveDashboard({ name }: { name?: string | null }) {
   const firstName = executiveFirstName(name);
   const charts = executiveKpiCharts(metrics);
   return <section className="director-dashboard">
+    <ExecutiveFinanceOverview transactions={data.finance?.monthly || []} timeZone={data.timezone} period={financePeriod} onPeriodChange={setFinancePeriod} />
     <header className="director-heading">
       <div><h1>Good {dayPart()}{firstName ? `, ${firstName}` : ''}</h1><p>Here’s how BSmile is performing across the business.</p></div>
       <div className="director-period"><span>Reporting period</span><div className="director-period-options" aria-label="Main dashboard reporting period">{(['today', 'week', 'month'] as const).map(item => <button type="button" key={item} onClick={() => choosePreset(item)} aria-pressed={period === item}>{PERIOD_LABELS[item]}</button>)}<button ref={customTrigger} type="button" onClick={openCustom} aria-pressed={period === 'custom'} aria-haspopup="dialog">Custom</button></div><small data-testid="director-selected-range">{PERIOD_LABELS[period]} · {rangeLabel}</small></div>

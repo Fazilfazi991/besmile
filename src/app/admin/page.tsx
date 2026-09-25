@@ -13,6 +13,7 @@ import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '
 import { TeamAttendanceStrip, type TeamMember } from '@/components/team-attendance-strip';
 import { ModuleIcon } from '@/components/module-icon';
 import { DirectorExecutiveDashboard } from '@/components/director-executive-dashboard';
+import { ChairmanFinanceOverview } from '@/components/executive-finance-overview';
 import { usesExecutiveDashboard } from '@/lib/executive-dashboard';
 import { businessMonthKeys, operationalKpiCharts } from '@/lib/dashboard-kpi-model';
 import { KpiMiniChart } from '@/components/kpi-mini-chart';
@@ -87,6 +88,7 @@ function OperationalDashboard() {
     { label: 'Document reviews', value: documents.filter(item => ['requested', 'submitted'].includes(item.status)).length, href: '/admin/documents' },
   ].filter(item => item.value > 0);
   return <section className="executive-dashboard">
+    {role === 'chairman' && (finance ? <ChairmanFinanceOverview transactions={finance.monthly || []} timeZone={summary.timezone || 'Asia/Kolkata'} /> : <p role="status">Finance Overview is unavailable. <Link href="/admin/finance">Open Finance</Link></p>)}
     <header className="executive-header"><div><h1>{title}</h1><p>Company operations at a glance · <time>{displayDate}</time></p></div><div className="executive-header-actions"><Link className="btn btn-primary" href={securityAdministrator ? '/admin/access' : '/admin/profile'}>{securityAdministrator ? 'Profile & access' : 'My profile'}</Link></div></header>
     {error && <p className="executive-alert">{error} Available sections still show live data.</p>}
 

@@ -5,6 +5,7 @@ import { compactInr } from './finance-format';
 import { executiveFirstName } from './executive-dashboard';
 
 const dashboardSource = readFileSync(resolve(process.cwd(), 'src/components/director-executive-dashboard.tsx'), 'utf8');
+const financeSource = readFileSync(resolve(process.cwd(), 'src/components/executive-finance-overview.tsx'), 'utf8');
 
 describe('director executive dashboard visual contracts', () => {
   it('uses a safe first-name greeting without incomplete honorifics', () => {
@@ -22,7 +23,7 @@ describe('director executive dashboard visual contracts', () => {
     expect(dashboardSource).toContain("from 'recharts'");
     expect(dashboardSource).toContain('<ComposedChart');
     expect(dashboardSource).toContain('<ResponsiveContainer');
-    expect(dashboardSource).toContain('No finance activity in this period');
+    expect(financeSource).toContain('No finance activity in this period');
     expect(dashboardSource).toContain('No leads entered this period');
     expect(dashboardSource).not.toContain('<svg');
     expect(dashboardSource).not.toContain('<polyline');
