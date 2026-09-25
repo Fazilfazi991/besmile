@@ -1,5 +1,5 @@
 import { serverSupabase } from '@/lib/supabase-server';
-import { filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, navigationPermissionCodes, roleDisplayLabel } from '@/lib/permission-access';
+import { filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, navigationPermissionCodes, profileRoleDisplayLabel } from '@/lib/permission-access';
 import { GlobalCommandCenter } from '@/components/global-command-center';
 import { redirect } from 'next/navigation';
 import { PermissionSidebar } from '@/components/permission-sidebar';
@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const visibleGroups = filterNavigation(navigationForProfile(profile.role), allowed);
   const name = profile.full_name || profile.email || 'BSmile User';
   const profileHref = isEmployeeShell ? '/employee/profile' : isSecurityAdministratorRole(profile.role) ? '/admin/access' : '/admin/profile';
-  const subtitle = profile.role === 'super_admin' ? 'Super Admin' : roleDisplayLabel(profile.role, profile.designation || profile.role || 'Employee');
+  const subtitle = profile.role === 'super_admin' ? 'Super Admin' : profileRoleDisplayLabel(profile.role, profile.designation, profile.designation || profile.role || 'Employee');
   const headerMode = isEmployeeShell ? 'employee' : 'admin';
   const photoUrl = await signedProfilePhotoUrl(db, profile.avatar_url);
 

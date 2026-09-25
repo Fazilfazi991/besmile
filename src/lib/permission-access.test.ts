@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, permissionAllows, roleDisplayLabel, workspaceLandingPath, workspaceTitle } from './permission-access';
+import { adminNavigation, adminRouteRequirement, dashboardTitle, employeeNavigation, employeeRouteRequirement, filterNavigation, isManagementRole, isSecurityAdministratorRole, navigationForProfile, permissionAllows, profileRoleDisplayLabel, roleDisplayLabel, workspaceLandingPath, workspaceTitle } from './permission-access';
 import { permissionCatalogue } from './permission-catalogue';
 
 describe('permission compatibility', () => {
@@ -25,6 +25,14 @@ describe('permission compatibility', () => {
     expect(workspaceTitle('general_manager')).toBe('General Manager Workspace');
     expect(dashboardTitle('super_admin')).toBe('Super Admin Dashboard');
     expect(workspaceTitle('super_admin')).toBe('Super Admin Workspace');
+  });
+
+  it('uses the Chairman designation only for the Chairman profile display', () => {
+    expect(profileRoleDisplayLabel('director', 'Chairman')).toBe('Chairman');
+    expect(profileRoleDisplayLabel('chairman', 'Chairman')).toBe('Chairman');
+    expect(profileRoleDisplayLabel('director', 'Director')).toBe('Managing Director');
+    expect(profileRoleDisplayLabel('staff', 'Chairman')).toBe('staff');
+    expect(roleDisplayLabel('director')).toBe('Managing Director');
   });
 
   it('reserves security administration for an actual Super Admin role', () => {

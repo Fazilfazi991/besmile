@@ -36,6 +36,12 @@ export function roleDisplayLabel(role?: string | null, fallback?: string | null)
     : fallback || String(role || "").replaceAll("_", " ");
 }
 
+export function profileRoleDisplayLabel(role?: string | null, designation?: string | null, fallback?: string | null) {
+  const code = normalizeRole(role);
+  if (code === "chairman" || (code === "director" && designation?.trim().toLowerCase() === "chairman")) return "Chairman";
+  return roleDisplayLabel(role, fallback);
+}
+
 export function isManagementRole(role?: string | null) {
   return managementRoleCodes.has(normalizeRole(role));
 }
