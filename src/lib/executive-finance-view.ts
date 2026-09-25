@@ -40,7 +40,7 @@ export function buildExecutiveFinanceViewForRange(transactions: Transaction[], r
   const expenses = trend.reduce((sum, row) => sum + row.expenses, 0);
   const categories = new Map<string, number>();
   rows.filter(row => expenseTypes.has(row.transaction_type)).forEach(row => {
-    const name = row.transaction_type === 'payroll_payment' ? 'Salaries' : canonicalExpenseCategory(row.expense_category?.name);
+    const name = row.transaction_type === 'payroll_payment' ? 'Monthly Expenses' : canonicalExpenseCategory(row.expense_category?.name);
     categories.set(name, (categories.get(name) || 0) + Number(row.amount || 0));
   });
   const breakdown = [...categories].map(([name, value]) => ({ name, value, percent: expenses ? value / expenses * 100 : 0 })).sort((a, b) => {

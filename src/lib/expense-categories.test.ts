@@ -3,19 +3,19 @@ import { canonicalExpenseCategory, expenseCategoryOrder, marketingExpenseValidat
 
 describe('Finance expense categories', () => {
   it('orders the six canonical choices independently of amounts or database order', () => {
-    const names = ['Other', 'Marketing', 'Capital', 'Operations', 'Admin & Utilities', 'Salaries'];
-    expect(orderExpenseOptions(names.map(name => ({ name }))).map(row => row.name)).toEqual(expenseCategoryOrder);
+    const names = ['Other', 'Marketing', 'Capital', 'Psychologist session payout', 'Admin & Utilities', 'Monthly Expenses'];
+    expect(orderExpenseOptions(names.map(name => ({ name }))).map(row => canonicalExpenseCategory(row.name))).toEqual(expenseCategoryOrder);
   });
 
-  it('groups historical category labels without changing amounts', () => {
-    expect(canonicalExpenseCategory('Payroll')).toBe('Salaries');
-    expect(canonicalExpenseCategory('Utilities')).toBe('Admin & Utilities');
-    expect(canonicalExpenseCategory('Unknown')).toBe('Other');
+  it('displays the psychologist category consistently and preserves inactive historical labels', () => {
+    expect(canonicalExpenseCategory('Psychologist session payout')).toBe('Psychologist Session Payout');
+    expect(canonicalExpenseCategory('Maintenance')).toBe('Maintenance');
+    expect(canonicalExpenseCategory('Monthly Expense')).toBe('Monthly Expense');
   });
 
   it('orders the expense report by canonical category', () => {
-    const rows = [{ expense_category: { name: 'Other' } }, { expense_category: { name: 'Marketing' } }, { expense_category: { name: 'Salary' } }, { expense_category: { name: 'Operations' } }];
-    expect(orderExpenseReportRows(rows).map(row => canonicalExpenseCategory(row.expense_category.name))).toEqual(['Operations', 'Salaries', 'Marketing', 'Other']);
+    const rows = [{ expense_category: { name: 'Other' } }, { expense_category: { name: 'Maintenance' } }, { expense_category: { name: 'Marketing' } }, { expense_category: { name: 'Psychologist session payout' } }, { expense_category: { name: 'Capital' } }];
+    expect(orderExpenseReportRows(rows).map(row => canonicalExpenseCategory(row.expense_category.name))).toEqual(['Capital', 'Marketing', 'Psychologist Session Payout', 'Other', 'Maintenance']);
   });
 
   it('requires a comment for Other Marketing Expenses', () => {

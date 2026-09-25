@@ -1,9 +1,9 @@
 export const expenseCategoryOrder = [
-  'Operations',
-  'Salaries',
+  'Capital',
+  'Monthly Expenses',
   'Marketing',
   'Admin & Utilities',
-  'Capital',
+  'Psychologist Session Payout',
   'Other',
 ] as const;
 
@@ -13,32 +13,25 @@ export const marketingExpenseTypes = [
   'Other Marketing Expenses',
 ] as const;
 
-const legacyCategoryNames: Record<string, typeof expenseCategoryOrder[number]> = {
-  Salary: 'Salaries',
-  Payroll: 'Salaries',
-  Rent: 'Admin & Utilities',
-  Utilities: 'Admin & Utilities',
-  Office: 'Admin & Utilities',
-  Software: 'Operations',
-  Travel: 'Operations',
-};
-
 export function canonicalExpenseCategory(name: string | null | undefined) {
   if (!name) return 'Other';
-  return (expenseCategoryOrder as readonly string[]).includes(name) ? name : legacyCategoryNames[name] || 'Other';
+  return name === 'Psychologist session payout' ? 'Psychologist Session Payout' : name;
 }
 
 export function orderExpenseOptions<T extends { name: string }>(options: T[]) {
   return [...options].sort((a, b) => {
-    const aIndex = expenseCategoryOrder.indexOf(a.name as typeof expenseCategoryOrder[number]);
-    const bIndex = expenseCategoryOrder.indexOf(b.name as typeof expenseCategoryOrder[number]);
+    const aIndex = expenseCategoryOrder.indexOf(canonicalExpenseCategory(a.name) as typeof expenseCategoryOrder[number]);
+    const bIndex = expenseCategoryOrder.indexOf(canonicalExpenseCategory(b.name) as typeof expenseCategoryOrder[number]);
     return (aIndex < 0 ? expenseCategoryOrder.length : aIndex) - (bIndex < 0 ? expenseCategoryOrder.length : bIndex);
   });
 }
 
 export function orderExpenseReportRows<T extends { expense_category?: { name: string } | null }>(rows: T[]) {
-  return [...rows].sort((a, b) => expenseCategoryOrder.indexOf(canonicalExpenseCategory(a.expense_category?.name) as typeof expenseCategoryOrder[number])
-    - expenseCategoryOrder.indexOf(canonicalExpenseCategory(b.expense_category?.name) as typeof expenseCategoryOrder[number]));
+  return [...rows].sort((a, b) => {
+    const aIndex = expenseCategoryOrder.indexOf(canonicalExpenseCategory(a.expense_category?.name) as typeof expenseCategoryOrder[number]);
+    const bIndex = expenseCategoryOrder.indexOf(canonicalExpenseCategory(b.expense_category?.name) as typeof expenseCategoryOrder[number]);
+    return (aIndex < 0 ? expenseCategoryOrder.length : aIndex) - (bIndex < 0 ? expenseCategoryOrder.length : bIndex);
+  });
 }
 
 export function marketingExpenseValidationMessage(categoryName: string | undefined, subtype: string | undefined, description: string | undefined) {

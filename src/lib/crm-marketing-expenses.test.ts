@@ -9,7 +9,7 @@ describe('CRM Marketing Expenses card', () => {
     });
     expect(marketingExpenseTotal([
       row('Marketing', '2026-09-12', 100), row('Marketing', '2026-09-14', 200),
-      row('Operations', '2026-09-13', 300), row('Salaries', '2026-09-13', 400),
+      row('Monthly Expenses', '2026-09-13', 300), row('Maintenance', '2026-09-13', 400),
       row('Admin & Utilities', '2026-09-13', 500), row('Capital', '2026-09-13', 600), row('Other', '2026-09-13', 700),
       row('Marketing', '2026-09-11', 800), row('Marketing', '2026-09-15', 900),
       row('Marketing', '2026-09-13', 1000, 'income'), row('Marketing', '2026-09-13', 1100, 'expense', '2026-09-16T00:00:00Z'),

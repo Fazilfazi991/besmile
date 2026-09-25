@@ -14,7 +14,7 @@ import {
   StatusBadge,
 } from "@/components/compact-module";
 import { financeEntryValidationMessage } from "@/lib/finance-master-data-rules";
-import { marketingExpenseTypes, marketingExpenseValidationMessage, orderExpenseOptions } from "@/lib/expense-categories";
+import { canonicalExpenseCategory, marketingExpenseTypes, marketingExpenseValidationMessage, orderExpenseOptions } from "@/lib/expense-categories";
 
 export const validateFinanceReceipt = (file: File) =>
   !["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(
@@ -146,7 +146,8 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
         categoryId: edit[categoryKey],
       });
       if (validationError) throw new Error(validationError);
-      const categoryName = categories.find((category: any) => category.id === edit[categoryKey])?.name;
+      const categoryName = categories.find((category: any) => category.id === edit[categoryKey])?.name
+        ?? (edit.id && edit.expense_category_id === edit[categoryKey] ? edit.expense_category?.name : undefined);
       const marketingError = type === "expense" ? marketingExpenseValidationMessage(categoryName, edit.expense_subcategory, edit.description) : null;
       if (marketingError) throw new Error(marketingError);
       let receipt_path = edit.receipt_path || null;
@@ -321,7 +322,7 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
             <option value="">All categories</option>
             {categories.map((category: any) => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {type === "expense" ? canonicalExpenseCategory(category.name) : category.name}
               </option>
             ))}
           </select>
@@ -418,7 +419,7 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                       </small>
                     </td>
                     <td>
-                      {row[
+                      {type === "expense" ? canonicalExpenseCategory(row.expense_category?.name) : row[
                         type === "income"
                           ? "income_category"
                           : "expense_category"
@@ -480,7 +481,7 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                   </div>
                   <p>
                     {row.transaction_date} ·{" "}
-                    {row[
+                    {type === "expense" ? canonicalExpenseCategory(row.expense_category?.name) : row[
                       type === "income" ? "income_category" : "expense_category"
                     ]?.name || "Uncategorised"}
                   </p>
@@ -593,9 +594,12 @@ export function FinanceTransactions({ type }: { type: "income" | "expense" }) {
                   <option value="">Select a category</option>
                   {categories.map((category: any) => (
                     <option key={category.id} value={category.id}>
-                      {category.name}
+                      {type === "expense" ? canonicalExpenseCategory(category.name) : category.name}
                     </option>
                   ))}
+                  {type === "expense" && edit.id && edit.expense_category && !categories.some((category: any) => category.id === edit[categoryKey]) && (
+                    <option value={edit[categoryKey]}>{canonicalExpenseCategory(edit.expense_category.name)} (historical)</option>
+                  )}
                 </select>
               </Field>
               {type === "expense" && categories.find((category: any) => category.id === edit[categoryKey])?.name === "Marketing" && <Field label="Marketing expense type" className="md:col-span-2">
