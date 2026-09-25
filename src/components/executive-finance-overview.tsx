@@ -8,7 +8,7 @@ import { chartInr } from '@/lib/finance-format';
 import { buildExecutiveFinanceViewForRange } from '@/lib/executive-finance-view';
 import styles from './executive-finance-overview.module.css';
 
-const colors = ['#287de1', '#1fa05f', '#ffb547', '#6552c6', '#1ca9ba', '#de6689'];
+const colors = ['#287de1', '#1fa05f', '#ffb547', '#6552c6', '#1ca9ba', '#de6689', '#e68c2e'];
 const dateLabel = (value: string) => new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`));
 const compactNumber = (value: number) => {
   const absolute = Math.abs(value);
@@ -28,9 +28,10 @@ type Props = { transactions: any[]; range: { start: string; end: string } };
 export function ExecutiveFinanceOverview({ transactions, range }: Props) {
   const view = useMemo(() => buildExecutiveFinanceViewForRange(transactions, range), [transactions, range]);
   const hasActivity = view.income !== 0 || view.expenses !== 0;
+  const leadingExpense = view.breakdown.find(row => row.value > 0);
   const insight = [
     !hasActivity ? 'No finance activity was recorded in this period.' : view.net < 0 ? `Expenses exceeded income by ${compactInr(Math.abs(view.net))} this period.` : view.net > 0 ? `Income exceeded expenses by ${compactInr(view.net)} this period.` : 'Income and expenses were balanced this period.',
-    view.breakdown.length ? `${view.breakdown[0].name} accounts for ${view.breakdown[0].percent.toFixed(0)}% of expenses.` : 'No expenses were recorded in this period.',
+    leadingExpense ? `${leadingExpense.name} accounts for ${leadingExpense.percent.toFixed(0)}% of expenses.` : 'No expenses were recorded in this period.',
     hasActivity ? `Net result is ${compactInr(view.net)}. ${view.margin === null ? 'Margin is unavailable until income is recorded.' : `Net margin is ${percentLabel(view.margin)}.`}` : 'Figures and trends will appear when transactions are recorded.',
   ];
 

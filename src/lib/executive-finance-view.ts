@@ -43,7 +43,11 @@ export function buildExecutiveFinanceViewForRange(transactions: Transaction[], r
     const name = row.transaction_type === 'payroll_payment' ? 'Monthly Expenses' : canonicalExpenseCategory(row.expense_category?.name);
     categories.set(name, (categories.get(name) || 0) + Number(row.amount || 0));
   });
-  const breakdown = [...categories].map(([name, value]) => ({ name, value, percent: expenses ? value / expenses * 100 : 0 })).sort((a, b) => {
+  const breakdownCategories = expenses ? new Map<string, number>([
+    ...expenseCategoryOrder.map(name => [name, categories.get(name) || 0] as const),
+    ...[...categories].filter(([name]) => !expenseCategoryOrder.includes(name as typeof expenseCategoryOrder[number])),
+  ]) : categories;
+  const breakdown = [...breakdownCategories].map(([name, value]) => ({ name, value, percent: expenses ? value / expenses * 100 : 0 })).sort((a, b) => {
     const aOrder = expenseCategoryOrder.indexOf(a.name as typeof expenseCategoryOrder[number]);
     const bOrder = expenseCategoryOrder.indexOf(b.name as typeof expenseCategoryOrder[number]);
     return (aOrder < 0 ? expenseCategoryOrder.length : aOrder) - (bOrder < 0 ? expenseCategoryOrder.length : bOrder);

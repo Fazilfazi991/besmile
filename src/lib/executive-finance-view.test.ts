@@ -15,7 +15,10 @@ describe('executive finance overview', () => {
     expect(view.expenses).toBe(500);
     expect(view.net).toBe(1000);
     expect(view.margin).toBeCloseTo(66.6667, 3);
-    expect(view.breakdown.map(row => [row.name, row.value])).toEqual([['Capital', 300], ['Monthly Expenses', 200]]);
+    expect(view.breakdown.map(row => [row.name, row.value])).toEqual([
+      ['Capital', 300], ['Monthly Expenses', 200], ['Marketing', 0],
+      ['Admin & Utilities', 0], ['Psychologist Session Payout', 0], ['Other', 0],
+    ]);
     expect(view.netTrend.at(-1)?.net).toBe(view.net);
     expect(view.trend.reduce((sum, row) => sum + row.income, 0)).toBe(view.income);
   });
@@ -33,6 +36,19 @@ describe('executive finance overview', () => {
       expense_category: { name },
     })), 'month', 'Asia/Kolkata', new Date('2026-09-25T12:00:00Z'));
     expect(view.breakdown.map(row => row.name)).toEqual(['Capital', 'Monthly Expenses', 'Marketing', 'Admin & Utilities', 'Psychologist Session Payout', 'Other']);
+    expect(view.breakdown.reduce((total, row) => total + row.value, 0)).toBe(view.expenses);
+  });
+
+  it('shows all active categories before historical categories without changing their amounts', () => {
+    const view = buildExecutiveFinanceViewForRange([
+      { transaction_type: 'expense', transaction_date: '2026-09-20', amount: 15, expense_category: { name: 'Maintenance' } },
+      { transaction_type: 'expense', transaction_date: '2026-09-20', amount: 50, expense_category: { name: 'Monthly Expenses' } },
+    ], { start: '2026-09-01', end: '2026-09-25' });
+    expect(view.breakdown.map(row => [row.name, row.value])).toEqual([
+      ['Capital', 0], ['Monthly Expenses', 50], ['Marketing', 0],
+      ['Admin & Utilities', 0], ['Psychologist Session Payout', 0], ['Other', 0],
+      ['Maintenance', 15],
+    ]);
     expect(view.breakdown.reduce((total, row) => total + row.value, 0)).toBe(view.expenses);
   });
 
