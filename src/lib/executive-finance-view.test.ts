@@ -24,4 +24,14 @@ describe('executive finance overview', () => {
     expect(view.margin).toBeNull();
     expect(view.breakdown).toEqual([]);
   });
+
+  it('keeps expense categories in the prescribed chart and legend order regardless of amount', () => {
+    const names = ['Other', 'Capital', 'Admin & Utilities', 'Marketing', 'Salaries', 'Operations'];
+    const view = buildExecutiveFinanceView(names.map((name, index) => ({
+      transaction_type: 'expense', transaction_date: '2026-09-14', amount: (index + 1) * 100,
+      expense_category: { name },
+    })), 'month', 'Asia/Kolkata', new Date('2026-09-25T12:00:00Z'));
+    expect(view.breakdown.map(row => row.name)).toEqual([...names].reverse());
+    expect(view.breakdown.reduce((total, row) => total + row.value, 0)).toBe(view.expenses);
+  });
 });

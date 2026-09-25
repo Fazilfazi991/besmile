@@ -12,7 +12,7 @@ import { employeeRepository } from '@/lib/employee-repository';
 import { freshLocation, locationBlockedMessage, locationCheckingMessage } from '@/lib/attendance-geofence';
 import { TeamAttendanceStrip, type TeamMember } from '@/components/team-attendance-strip';
 import { ModuleIcon } from '@/components/module-icon';
-import { ExecutiveFinanceDashboard } from '@/components/executive-finance-overview';
+import { DirectorExecutiveDashboard } from '@/components/director-executive-dashboard';
 import { usesFinanceOverviewDashboard } from '@/lib/executive-dashboard';
 import { businessMonthKeys, operationalKpiCharts } from '@/lib/dashboard-kpi-model';
 import { KpiMiniChart } from '@/components/kpi-mini-chart';
@@ -23,7 +23,7 @@ export default function DashboardByRole() {
   const [profile, setProfile] = useState<any>(undefined);
   useEffect(() => { let active = true; void currentProfile().then(value => { if (active) setProfile(value); }).catch(() => { if (active) setProfile(null); }); return () => { active = false; }; }, []);
   if (profile === undefined) return <DashboardSkeleton />;
-  return usesFinanceOverviewDashboard(profile?.role) ? <ExecutiveFinanceDashboard /> : <OperationalDashboard />;
+  return usesFinanceOverviewDashboard(profile?.role) ? <DirectorExecutiveDashboard name={profile.full_name} /> : <OperationalDashboard />;
 }
 
 function OperationalDashboard() {

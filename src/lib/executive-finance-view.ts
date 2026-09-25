@@ -9,6 +9,7 @@ type Transaction = {
 
 const incomeTypes = new Set(['income', 'invoice_payment']);
 const expenseTypes = new Set(['expense', 'payroll_payment']);
+const expenseCategoryOrder = ['Operations', 'Salaries', 'Marketing', 'Admin & Utilities', 'Capital', 'Other'];
 
 export function buildExecutiveFinanceView(transactions: Transaction[], period: ExecutivePeriod, timeZone: string, now = new Date()) {
   const range = executivePeriodRange(period, now, timeZone);
@@ -37,6 +38,10 @@ export function buildExecutiveFinanceView(transactions: Transaction[], period: E
     const name = row.transaction_type === 'payroll_payment' ? 'Payroll' : row.expense_category?.name || 'Uncategorized';
     categories.set(name, (categories.get(name) || 0) + Number(row.amount || 0));
   });
-  const breakdown = [...categories].map(([name, value]) => ({ name, value, percent: expenses ? value / expenses * 100 : 0 })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+  const breakdown = [...categories].map(([name, value]) => ({ name, value, percent: expenses ? value / expenses * 100 : 0 })).sort((a, b) => {
+    const aOrder = expenseCategoryOrder.indexOf(a.name);
+    const bOrder = expenseCategoryOrder.indexOf(b.name);
+    return (aOrder < 0 ? expenseCategoryOrder.length : aOrder) - (bOrder < 0 ? expenseCategoryOrder.length : bOrder);
+  });
   return { range, income, expenses, net: income - expenses, margin: income ? (income - expenses) / income * 100 : null, trend, netTrend, breakdown };
 }
