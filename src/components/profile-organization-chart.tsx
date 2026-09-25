@@ -43,15 +43,20 @@ function reportCountLabel(count: number) {
   return `${count} ${count === 1 ? 'report' : 'reports'}`;
 }
 
+function displayDesignation(designation: string | null) {
+  return designation?.trim().toLowerCase() === 'director' ? 'Managing Director' : designation || 'Position not assigned';
+}
+
 function PersonCard({ data }: NodeProps<PersonNode>) {
   const { person, directReports, hasParent, unassigned, collapsed, current, isSelf, detailHref, onToggle, onEdit } = data;
-  return <article className={`organization-person-card${current ? ' is-current' : ''}`} data-employee-id={person.id} aria-label={`${person.full_name}, ${person.designation || 'Position not assigned'}`} title={`${person.full_name} — ${person.designation || 'Position not assigned'}`}>
+  const designation = displayDesignation(person.designation);
+  return <article className={`organization-person-card${current ? ' is-current' : ''}`} data-employee-id={person.id} aria-label={`${person.full_name}, ${designation}`} title={`${person.full_name} — ${designation}`}>
     {hasParent && <Handle type="target" position={Position.Top} isConnectable={false} className="organization-flow-handle" />}
     <div className="organization-person-main">
       <div className="organization-person-avatar"><Avatar key={person.photo_url || 'initials'} person={person} /></div>
       <div className="organization-person-identity">
         <div className="organization-person-name">{detailHref ? <Link className="nodrag nopan" href={detailHref} title={`Open details for ${person.full_name}`}>{person.full_name}</Link> : <strong>{person.full_name}</strong>}{current && isSelf && <span className="organization-person-you">You</span>}</div>
-        <span title={person.designation || 'Position not assigned'}>{person.designation || 'Position not assigned'}</span>
+        <span title={designation}>{designation}</span>
         <small title={person.department_name || 'No department'}>{person.department_name || 'No department'}</small>
       </div>
     </div>
@@ -68,10 +73,11 @@ const nodeTypes = { person: PersonCard };
 function OrganizationListBranch({ node, collapsed, currentId, isSelf, adminView, onToggle, onEdit }: { node: OrganizationNode; collapsed: Set<string>; currentId: string; isSelf: boolean; adminView: boolean; onToggle: (id: string) => void; onEdit: (person: OrganizationEmployee) => void }) {
   const isCollapsed = collapsed.has(node.id);
   const detailHref = adminView ? `/admin/employees/${node.id}` : node.id === currentId ? '/employee/profile' : null;
+  const designation = displayDesignation(node.designation);
   return <li className="organization-list-item">
     <div className="organization-list-person" data-employee-id={node.id}>
       <div className="organization-person-avatar"><Avatar key={node.photo_url || 'initials'} person={node} /></div>
-      <div className="organization-list-identity"><strong>{detailHref ? <Link href={detailHref}>{node.full_name}</Link> : node.full_name}</strong>{node.id === currentId && isSelf && <span className="organization-person-you">You</span>}<span>{node.designation || 'Position not assigned'} · {node.department_name || 'No department'}</span><small>{managerNote(node, Boolean(node.manager_id && !node.unassigned), node.unassigned, node.children.length)}</small></div>
+      <div className="organization-list-identity"><strong>{detailHref ? <Link href={detailHref}>{node.full_name}</Link> : node.full_name}</strong>{node.id === currentId && isSelf && <span className="organization-person-you">You</span>}<span>{designation} · {node.department_name || 'No department'}</span><small>{managerNote(node, Boolean(node.manager_id && !node.unassigned), node.unassigned, node.children.length)}</small></div>
       <div className="organization-list-actions">{node.can_edit && <button type="button" className="btn border" data-org-edit-id={node.id} aria-label={`Edit organization details for ${node.full_name}`} onClick={() => onEdit(node)}>Edit</button>}{node.children.length > 0 && <button type="button" className="btn border" aria-label={`${isCollapsed ? 'Show' : 'Hide'} ${reportCountLabel(node.children.length)} for ${node.full_name}`} aria-expanded={!isCollapsed} onClick={() => onToggle(node.id)}>{isCollapsed ? `Show ${reportCountLabel(node.children.length)}` : 'Hide reports'}</button>}</div>
     </div>
     {node.children.length > 0 && !isCollapsed && <ul>{node.children.map(child => <OrganizationListBranch key={child.id} node={child} collapsed={collapsed} currentId={currentId} isSelf={isSelf} adminView={adminView} onToggle={onToggle} onEdit={onEdit} />)}</ul>}
