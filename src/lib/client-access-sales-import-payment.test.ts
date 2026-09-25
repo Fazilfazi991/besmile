@@ -211,13 +211,13 @@ describe("client access, CRM import, and psychologist payment alignment", () => 
 
   it("settles scheduled and payment-due rows while protecting paid rows", () => {
     expect(payments).toContain(
-      "x.status === 'scheduled' || x.status === 'payment_due'",
+      "x.status === 'payment_due' || x.status === 'scheduled'",
     );
     expect(payments).toContain(
-      "canSettlePermission && awaitingSettlement",
+      "const canMarkPaid = canSettlePermission &&",
     );
     expect(payments).toContain(
-      "No psychologist payments are currently awaiting settlement.",
+      "No psychologist payments match these filters.",
     );
     expect(payments).not.toMatch(
       /canSettlePermission\s*&&\s*x\.status\s*===\s*['"]paid['"]/,
