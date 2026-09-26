@@ -71,10 +71,22 @@ try {
   await mobileTrigger.click();
   const mobileViewer = page.locator('dialog.organization-photo-viewer');
   await mobileViewer.waitFor();
+  const stage = mobileViewer.locator('.organization-photo-stage');
+  const bounds = await stage.boundingBox();
+  if (!bounds) throw new Error('Mobile photo stage is unavailable');
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: centerX - 30, y: centerY, id: 1 }, { x: centerX + 30, y: centerY, id: 2 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: centerX - 70, y: centerY, id: 1 }, { x: centerX + 70, y: centerY, id: 2 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  const pinchTransform = await mobileViewer.locator('img').evaluate(node => getComputedStyle(node).transform);
+  if (pinchTransform === 'none' || pinchTransform.includes('matrix(1,')) throw new Error(`Mobile pinch did not zoom: ${pinchTransform}`);
   await mobileViewer.screenshot({ path: join(output, 'mobile-photo-preview.png') });
   await mobileViewer.getByRole('button', { name: 'Close' }).click();
   await mobileViewer.waitFor({ state: 'detached' });
   results.photo.mobileClose = true;
+  results.photo.mobilePinchZoomed = pinchTransform;
 
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto('/admin/documents/generate');

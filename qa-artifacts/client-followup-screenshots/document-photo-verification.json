@@ -5,7 +5,8 @@
     "chartPositionPreserved": true,
     "escapeClosed": true,
     "focusReturned": true,
-    "mobileClose": true
+    "mobileClose": true,
+    "mobilePinchZoomed": "matrix(2.33333, 0, 0, 2.33333, 0, 0)"
   },
   "document": {
     "type": "experience_letter",
