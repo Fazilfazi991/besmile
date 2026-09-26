@@ -39,6 +39,7 @@ import { DepartmentSelect } from "@/components/department-select";
 import { organizationRepository, notifyOrganizationChanged } from "@/lib/organization-repository";
 import { reportingManagerError } from "@/lib/organization-chart-config";
 import { ProfileOrganizationChart } from "@/components/profile-organization-chart";
+import { ProfilePhotoViewer } from "@/components/profile-photo-viewer";
 
 const dash = (value: any) =>
   value === null || value === undefined || value === "" ? "—" : value;
@@ -63,6 +64,9 @@ export default function AdminEmployeeProfile() {
   const [profile, setProfile] = useState<any>();
   const [data, setData] = useState<any>();
   const [photo, setPhoto] = useState("");
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const photoTrigger = useRef<HTMLButtonElement>(null);
+  const closePhotoViewer = () => { setPhotoViewerOpen(false); window.requestAnimationFrame(() => photoTrigger.current?.focus({ preventScroll: true })); };
   const [tab, setTab] = useState("overview");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -361,11 +365,14 @@ export default function AdminEmployeeProfile() {
       <header className="card flex flex-wrap items-center justify-between gap-4 p-5">
         <div className="flex min-w-0 items-center gap-4">
           {photo ? (
-            <img
-              src={photo}
-              alt="Employee"
-              className="h-20 w-20 rounded-full object-cover"
-            />
+            <button ref={photoTrigger} type="button" aria-label={`View photo of ${profile.full_name}`} className="shrink-0 rounded-full cursor-zoom-in focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600" onClick={() => setPhotoViewerOpen(true)}>
+              <img
+                src={photo}
+                alt=""
+                onError={() => setPhoto("")}
+                className="h-20 w-20 rounded-full object-cover"
+              />
+            </button>
           ) : (
             <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-teal-100 text-2xl font-bold text-teal-900">
               {profile.full_name?.[0]}
@@ -429,6 +436,7 @@ export default function AdminEmployeeProfile() {
         </div>
       </header>
       <ProfileOrganizationChart profileId={profile.id} refreshKey={[profile.full_name,profile.avatar_url,profile.designation,profile.manager_id,profile.department_id,profile.status].join("|")} isSelf={viewer?.id === profile.id} onChanged={()=>void load()} />
+      {photoViewerOpen && photo && <ProfilePhotoViewer name={profile.full_name} src={photo} onClose={closePhotoViewer} />}
       {error && <Banner error={error} />}
       {notice && (
         <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">

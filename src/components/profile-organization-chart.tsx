@@ -11,6 +11,7 @@ import { ancestorIds, initialCollapsedBranches, layoutOrganization, organization
 import { organizationChangedEvent, organizationRepository } from '@/lib/organization-repository';
 import { employeeAvatarInitials } from '@/lib/employee-avatar';
 import { DepartmentSelect } from './department-select';
+import { ProfilePhotoViewer } from './profile-photo-viewer';
 import './profile-organization-chart.css';
 
 function Avatar({ person, onOpen }: { person: OrganizationEmployee; onOpen: (person: OrganizationEmployee, trigger: HTMLButtonElement) => void }) {
@@ -18,22 +19,6 @@ function Avatar({ person, onOpen }: { person: OrganizationEmployee; onOpen: (per
   return person.photo_url && !failed
     ? <button type="button" className="organization-photo-trigger nodrag nopan" aria-label={`View photo of ${person.full_name}`} onClick={event => onOpen(person, event.currentTarget)}><Image src={person.photo_url} alt="" width={48} height={48} unoptimized onError={() => setFailed(true)} /></button>
     : <span>{employeeAvatarInitials(person.full_name)}</span>;
-}
-function PhotoViewer({ person, onClose }: { person: OrganizationEmployee; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ distance: number; scale: number } | null>(null);
-  const [scale, setScale] = useState(1);
-  const scaleRef = useRef(1);
-  const zoom = (value: number) => { const next = Math.max(1, Math.min(5, value)); scaleRef.current = next; setScale(next); };
-  useEffect(() => { const element = dialog.current; element?.showModal(); return () => { element?.close(); }; }, []);
-  const distance = () => { const [a, b] = [...pointers.current.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
-  return <dialog ref={dialog} className="organization-photo-viewer" aria-label={`Photo of ${person.full_name}`} onCancel={event => { event.preventDefault(); onClose(); }}>
-    <div className="organization-photo-toolbar"><strong>{person.full_name}</strong><div><button type="button" aria-label="Zoom out" onClick={() => zoom(scaleRef.current - .5)}>−</button><button type="button" aria-label="Zoom in" onClick={() => zoom(scaleRef.current + .5)}>+</button><button type="button" onClick={() => zoom(1)}>Reset</button><button type="button" onClick={onClose}>Close</button></div></div>
-    <div className="organization-photo-stage" onPointerDown={event => { pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY }); event.currentTarget.setPointerCapture(event.pointerId); if (pointers.current.size === 2) pinch.current = { distance: distance(), scale: scaleRef.current }; }} onPointerMove={event => { if (!pointers.current.has(event.pointerId)) return; pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY }); if (pointers.current.size === 2 && pinch.current?.distance) zoom(pinch.current.scale * distance() / pinch.current.distance); }} onPointerUp={event => { pointers.current.delete(event.pointerId); pinch.current = null; }} onPointerCancel={event => { pointers.current.delete(event.pointerId); pinch.current = null; }} onWheel={event => { if (event.ctrlKey) { event.preventDefault(); zoom(scaleRef.current + (event.deltaY < 0 ? .25 : -.25)); } }}>
-      <Image src={person.photo_url!} alt={person.full_name} width={900} height={900} unoptimized draggable={false} style={{ transform: `scale(${scale})` }} />
-    </div>
-  </dialog>;
 }
 type PersonData = {
   person: OrganizationEmployee;
@@ -330,6 +315,6 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
       </ReactFlow>
     </div> : null}
     {editing && <OrganizationEditor person={editing} people={people} onClose={close} onSaved={() => { close(); setNotice('Organization details saved.'); void load(); onChanged?.(); }} />}
-    {photoPerson && <PhotoViewer person={photoPerson} onClose={closePhoto} />}
+    {photoPerson?.photo_url && <ProfilePhotoViewer name={photoPerson.full_name} src={photoPerson.photo_url} onClose={closePhoto} />}
   </section>;
 }

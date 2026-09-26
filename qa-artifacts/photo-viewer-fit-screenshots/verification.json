@@ -1,0 +1,173 @@
+{
+  "desktopChairman": {
+    "open": true,
+    "name": "Photo of Chairman",
+    "natural": [
+      1254,
+      1880
+    ],
+    "stage": [
+      898,
+      770
+    ],
+    "imageBox": [
+      850,
+      722
+    ],
+    "gap": [
+      24,
+      24,
+      24,
+      24
+    ],
+    "modalGap": [
+      233,
+      36,
+      233,
+      36
+    ],
+    "objectFit": "contain",
+    "transform": "matrix(1, 0, 0, 1, 0, 0)",
+    "overflow": [
+      0,
+      806
+    ]
+  },
+  "desktopDirector": {
+    "open": true,
+    "name": "Photo of QA Director",
+    "natural": [
+      1254,
+      1254
+    ],
+    "stage": [
+      898,
+      770
+    ],
+    "imageBox": [
+      850,
+      722
+    ],
+    "gap": [
+      24,
+      24,
+      24,
+      24
+    ],
+    "modalGap": [
+      233,
+      20,
+      233,
+      52
+    ],
+    "objectFit": "contain",
+    "transform": "matrix(1, 0, 0, 1, 0, 0)",
+    "overflow": [
+      0,
+      806
+    ]
+  },
+  "mobileChairman": {
+    "open": true,
+    "name": "Photo of Chairman",
+    "natural": [
+      1254,
+      1880
+    ],
+    "stage": [
+      364.59375,
+      689.46875
+    ],
+    "imageBox": [
+      332.59375,
+      657.46875
+    ],
+    "gap": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "modalGap": [
+      11.703125,
+      33.765625,
+      11.703125,
+      33.765625
+    ],
+    "objectFit": "contain",
+    "transform": "matrix(1, 0, 0, 1, 0, 0)",
+    "overflow": [
+      0,
+      1838
+    ]
+  },
+  "pinch": "matrix(2.33333, 0, 0, 2.33333, 0, 0)",
+  "mobileDirector": {
+    "open": true,
+    "name": "Photo of QA Director",
+    "natural": [
+      1254,
+      1254
+    ],
+    "stage": [
+      364.59375,
+      689.46875
+    ],
+    "imageBox": [
+      332.59375,
+      657.46875
+    ],
+    "gap": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "modalGap": [
+      11.703125,
+      20,
+      11.703125,
+      47.53125
+    ],
+    "objectFit": "contain",
+    "transform": "matrix(1, 0, 0, 1, 0, 0)",
+    "overflow": [
+      0,
+      1838
+    ]
+  },
+  "employeeDetailDirector": {
+    "open": true,
+    "name": "Photo of QA Director",
+    "natural": [
+      1254,
+      1254
+    ],
+    "stage": [
+      898,
+      770
+    ],
+    "imageBox": [
+      850,
+      722
+    ],
+    "gap": [
+      24,
+      24,
+      24,
+      24
+    ],
+    "modalGap": [
+      233,
+      20,
+      233,
+      52
+    ],
+    "objectFit": "contain",
+    "transform": "matrix(1, 0, 0, 1, 0, 0)",
+    "overflow": [
+      0,
+      970
+    ]
+  }
+}

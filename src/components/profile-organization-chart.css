@@ -49,15 +49,6 @@
 .organization-person-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .organization-photo-trigger { display: block; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 50%; overflow: hidden; cursor: zoom-in; }
 .organization-photo-trigger:focus-visible { outline: 3px solid var(--org-line); outline-offset: 2px; }
-.organization-photo-viewer { width: min(94vw, 900px); max-width: 900px; max-height: 94dvh; margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--org-border); border-radius: 16px; background: var(--org-surface); color: var(--org-text); }
-.organization-photo-viewer::backdrop { background: rgb(5 12 26 / 85%); }
-.organization-photo-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; }
-.organization-photo-toolbar strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.organization-photo-toolbar > div { display: flex; flex: none; gap: 6px; }
-.organization-photo-toolbar button { min-width: 36px; min-height: 36px; border: 1px solid var(--org-border); border-radius: 8px; padding: 4px 9px; }
-.organization-photo-toolbar button:focus-visible { outline: 2px solid var(--org-line); }
-.organization-photo-stage { display: grid; width: 100%; height: min(76dvh, 760px); place-items: center; overflow: hidden; background: #101827; touch-action: none; }
-.organization-photo-stage img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; user-select: none; transform-origin: center; }
 .organization-person-identity { min-width: 0; }
 .organization-person-identity > span, .organization-person-identity > small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .organization-person-identity > span { margin-top: 2px; font-size: 12px; line-height: 1.35; }
@@ -91,7 +82,6 @@
 .organization-editor .input { width: 100%; min-width: 0; max-width: 100%; }
 html[data-theme="colorful"] .organization-chart-section { --org-surface: #182044; --org-card: #202a55; --org-line: #67e0d5; --org-text: #f4f7ff; --org-muted: #b9c5e6; --org-border: #354369; --org-highlight: #1d3e50; }
 html[data-theme="colorful"] .organization-editor { --org-surface: #182044; --org-card: #202a55; --org-line: #67e0d5; --org-text: #f4f7ff; --org-muted: #b9c5e6; --org-border: #354369; --org-highlight: #1d3e50; }
-html[data-theme="colorful"] .organization-photo-viewer { --org-surface: #182044; --org-line: #67e0d5; --org-text: #f4f7ff; --org-border: #354369; }
 html[data-theme="colorful"] .organization-person-avatar { background: #314178; color: #eafdfa; }
 html[data-theme="colorful"] .organization-person-footer > span.organization-person-warning { color: #f1cc91; }
 html[data-theme="colorful"] .organization-chart-view-switch button[aria-pressed="true"] { color: #b9fff6; }
@@ -107,8 +97,5 @@ html[data-theme="colorful"] .organization-chart-view-switch button[aria-pressed=
   .organization-list-person .organization-person-avatar { width: 38px; height: 38px; }
   .organization-list-actions .btn { min-height: 28px; }
   .organization-editor { padding: 18px; }
-  .organization-photo-toolbar { flex-wrap: wrap; padding: 8px; }
-  .organization-photo-toolbar > div { width: 100%; justify-content: space-between; }
-  .organization-photo-stage { height: 70dvh; }
 }
 @media (prefers-reduced-motion: reduce) { .organization-chart-section *, .organization-chart-section *::before, .organization-chart-section *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
