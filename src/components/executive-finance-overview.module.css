@@ -124,16 +124,18 @@
 .chartSubhead { margin: -10px 0 12px; color: #7a899b; font-size: 11px; }
 .netPanel .chart { height: 184px; }
 
-.breakdown { display: flex; min-height: 224px; align-items: center; gap: 20px; }
-.donut { position: relative; width: 49%; height: 210px; flex: 0 0 49%; }
+.breakdown { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); min-height: 224px; align-items: center; gap: 22px; }
+.donut { min-width: 0; width: 100%; max-width: 210px; justify-self: center; }
+.donutPlot { position: relative; width: 100%; aspect-ratio: 1; }
 .donutCenter { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; pointer-events: none; }
 .donutCenter small { color: #62748b; font-size: 11px; }
 .donutCenter strong { margin-top: 4px; color: #17243a; font-size: 17px; white-space: nowrap; }
-.breakdownList { display: grid; flex: 1; gap: 12px; min-width: 0; }
-.breakdownRow { display: grid; grid-template-columns: 9px minmax(0, 1fr); align-items: start; column-gap: 8px; color: #26354b; font-size: 12px; }
+.donutDetail { min-height: 28px; padding-top: 5px; color: #506178; font-size: 11px; line-height: 1.3; text-align: center; overflow-wrap: break-word; }
+.breakdownList { display: grid; gap: 11px; min-width: 0; }
+.breakdownRow { display: grid; grid-template-columns: 9px minmax(0, 1fr); align-items: start; column-gap: 9px; color: #26354b; font-size: 12px; }
 .breakdownRow i { margin-top: 4px; }
-.breakdownRow span { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
-.breakdownRow small { grid-column: 2; margin-top: 2px; color: #68788c; font-size: 11px; white-space: nowrap; }
+.breakdownRow > span { min-width: 0; line-height: 1.3; overflow-wrap: break-word; }
+.breakdownRow small { display: flex; grid-column: 2; align-items: baseline; gap: 5px; min-width: 0; margin-top: 2px; color: #68788c; font-size: 11px; white-space: nowrap; }
 
 .insights { border-color: #d6eeea; background: #f1fbfa; }
 .insights h3 { display: flex; align-items: center; gap: 11px; color: #176c62; }
@@ -147,8 +149,8 @@
 @media (max-width: 1200px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .breakdown { flex-direction: column; gap: 4px; }
-  .donut { width: 100%; height: 180px; flex: 0 0 180px; }
+  .breakdown { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .donut { max-width: 190px; }
   .breakdownList { width: 100%; }
   .breakdownPanel { grid-column: 2; grid-row: 1 / 3; }
   .netPanel { grid-column: 1; }
@@ -178,8 +180,7 @@
   .panel h3 { font-size: 17px; }
   .chart { height: 220px; }
   .netPanel .chart { height: 180px; }
-  .breakdown { flex-direction: row; gap: 14px; }
-  .donut { width: 44%; height: 185px; flex: 0 0 44%; }
+  .breakdown { gap: 12px; }
 }
 
 @media (max-width: 450px) {
@@ -188,10 +189,7 @@
   .stat { min-height: 140px; }
   .stat strong { font-size: 19px; }
   .margin strong { font-size: 17px; }
-  .breakdown { flex-direction: column; gap: 14px; }
-  .donut { width: 100%; height: 194px; flex: 0 0 194px; }
-  .breakdownList { width: 100%; grid-template-columns: 1fr; gap: 10px; }
-  .breakdownRow { grid-template-columns: 9px minmax(0, 1fr) auto; column-gap: 10px; }
-  .breakdownRow small { grid-column: 3; grid-row: 1; margin-top: 1px; }
+  .donut { max-width: 194px; }
+  .breakdownList { gap: 10px; }
   .chartLegend { gap: 9px; font-size: 11px; }
 }

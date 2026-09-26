@@ -14,6 +14,7 @@ import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
 import { employeeRepository } from "@/lib/employee-repository";
 import { showEmployeeId } from "@/lib/employee-id-display";
+import { employeeDetailLabels } from "@/lib/employee-detail-labels";
 import {
   employeeEditPayload,
   normalizeDateOnly,
@@ -323,10 +324,11 @@ export default function AdminEmployeeProfile() {
     Boolean(viewer?.canRemoveEmployees) && canRemoveEmployee(viewer, profile);
   const canRestore =
     Boolean(viewer?.canRemoveEmployees) && canRestoreEmployee(viewer, profile);
+  const employeeLabels = employeeDetailLabels(profile.role, profile.designation);
   const employment = [
     ...(showEmployeeId(profile.role) ? [["Employee ID", profile.employee_code]] : []),
     ["Work email", profile.email],
-    ["Role", profile.role],
+    ["Role", employeeLabels.role],
     ["Department", profile.department?.name],
     ["Designation", profile.designation],
     ["Reporting manager", profile.manager?.full_name],
@@ -374,7 +376,7 @@ export default function AdminEmployeeProfile() {
             </h1>
             <p className="mt-1 text-sm text-slate-600">
               {showEmployeeId(profile.role) ? `${profile.employee_code || "Employee"} · ` : ""}
-              {profile.designation || "Employee"} ·{" "}
+              {employeeLabels.title} ·{" "}
               {profile.department?.name || "No department"}
             </p>
             <div className="mt-2 flex gap-2">
@@ -385,7 +387,7 @@ export default function AdminEmployeeProfile() {
                 </span>
               )}
               <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold capitalize">
-                {profile.role}
+                {employeeLabels.role}
               </span>
             </div>
           </div>

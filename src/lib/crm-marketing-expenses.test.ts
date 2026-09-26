@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { marketingExpenseTotal } from './crm-marketing-expenses';
+import { crmFinanceDisplay, marketingExpenseTotal } from './crm-marketing-expenses';
 import { crmDashboardPeriodRange } from './crm-dashboard-e1';
 
 describe('CRM Marketing Expenses card', () => {
@@ -11,6 +11,7 @@ describe('CRM Marketing Expenses card', () => {
       row('Marketing', '2026-09-12', 100), row('Marketing', '2026-09-14', 200),
       row('Monthly Expenses', '2026-09-13', 300), row('Maintenance', '2026-09-13', 400),
       row('Admin & Utilities', '2026-09-13', 500), row('Capital', '2026-09-13', 600), row('Other', '2026-09-13', 700),
+      row('Psychologist session payout', '2026-09-13', 750),
       row('Marketing', '2026-09-11', 800), row('Marketing', '2026-09-15', 900),
       row('Marketing', '2026-09-13', 1000, 'income'), row('Marketing', '2026-09-13', 1100, 'expense', '2026-09-16T00:00:00Z'),
     ], { start: '2026-09-12', end: '2026-09-14' })).toBe(300);
@@ -23,5 +24,25 @@ describe('CRM Marketing Expenses card', () => {
       { transaction_type: 'expense', transaction_date: range.end, amount: 20, expense_category: { name: 'Marketing' } },
       { transaction_type: 'expense', transaction_date: '2026-01-01', amount: 30, expense_category: { name: 'Marketing' } },
     ], range)).toBe(30);
+  });
+
+  it('follows exact inclusive Custom dates', () => {
+    expect(marketingExpenseTotal([
+      { transaction_type: 'expense', transaction_date: '2026-09-11', amount: 50, expense_category: { name: 'Marketing' } },
+      { transaction_type: 'expense', transaction_date: '2026-09-12', amount: 10, expense_category: { name: 'Marketing' } },
+      { transaction_type: 'expense', transaction_date: '2026-09-14', amount: 20, expense_category: { name: 'Marketing' } },
+      { transaction_type: 'expense', transaction_date: '2026-09-15', amount: 60, expense_category: { name: 'Marketing' } },
+    ], { start: '2026-09-12', end: '2026-09-14' })).toBe(30);
+  });
+
+  it('uses Marketing only in the expense visual while preserving the existing Net Result', () => {
+    const display = crmFinanceDisplay(1000, 493276, 50);
+    expect(display.bars).toEqual([
+      { label: 'Revenue', value: 1000, tone: 'bg-teal-600' },
+      { label: 'Marketing Expenses', value: 50, tone: 'bg-rose-400' },
+      { label: 'Net', value: -492276, tone: 'bg-slate-700' },
+    ]);
+    expect(display.netResult).toBe(-492276);
+    expect(crmFinanceDisplay(1000, 493276, null).bars[1].value).toBeNull();
   });
 });
