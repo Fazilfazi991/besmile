@@ -1,0 +1,74 @@
+[
+  {
+    "label": "desktop",
+    "theme": "standard",
+    "chartToRowWidth": 1,
+    "chartGridColumn": "1 / -1",
+    "kpiColumns": "79.0781px 79.0781px 79.0781px 79.0781px 79.0781px 79.0781px 79.0781px 79.0781px 79.0938px 79.0781px 79.0781px 79.0781px",
+    "legendWidths": [
+      8,
+      8
+    ],
+    "bodyOverflow": false
+  },
+  {
+    "label": "desktop",
+    "theme": "colorful",
+    "chartToRowWidth": 1,
+    "chartGridColumn": "1 / -1",
+    "kpiColumns": "79.0781px 79.0781px 79.0781px 79.0781px 79.0781px 79.0781px 79.0781px 79.0781px 79.0938px 79.0781px 79.0781px 79.0781px",
+    "legendWidths": [
+      8,
+      8
+    ],
+    "bodyOverflow": false
+  },
+  {
+    "label": "tablet",
+    "theme": "standard",
+    "chartToRowWidth": 1,
+    "chartGridColumn": "1 / -1",
+    "kpiColumns": "384.5px 384.5px",
+    "legendWidths": [
+      8,
+      8
+    ],
+    "bodyOverflow": false
+  },
+  {
+    "label": "tablet",
+    "theme": "colorful",
+    "chartToRowWidth": 1,
+    "chartGridColumn": "1 / -1",
+    "kpiColumns": "384.5px 384.5px",
+    "legendWidths": [
+      8,
+      8
+    ],
+    "bodyOverflow": false
+  },
+  {
+    "label": "mobile",
+    "theme": "standard",
+    "chartToRowWidth": 1,
+    "chartGridColumn": "1 / -1",
+    "kpiColumns": "repeat(3, minmax(0px, 1fr))",
+    "legendWidths": [
+      8,
+      8
+    ],
+    "bodyOverflow": false
+  },
+  {
+    "label": "mobile",
+    "theme": "colorful",
+    "chartToRowWidth": 1,
+    "chartGridColumn": "1 / -1",
+    "kpiColumns": "repeat(3, minmax(0px, 1fr))",
+    "legendWidths": [
+      8,
+      8
+    ],
+    "bodyOverflow": false
+  }
+]

@@ -302,7 +302,7 @@ export function PermissionSidebar({
         aria-label="Primary navigation"
       >
         <div className="brand">
-          <Image src="/images/bsmile-mark.png" alt="BSmile" width={148} height={185} priority />
+          <span className="sidebar-logo-circle"><Image src="/images/bsmile-mark-updated.png" alt="BSmile" width={96} height={96} priority /></span>
           {drawer ? (
             <button
               className="sidebar-drawer-close"
@@ -517,7 +517,7 @@ export function PermissionSidebar({
                 </button>
               ) : (
                 <span className="mobile-launcher-mark" aria-hidden="true">
-                  <ModuleIcon label="All Modules" />
+                  <Image src="/images/bsmile-mark-updated.png" alt="" width={32} height={32} />
                 </span>
               )}
               <div>

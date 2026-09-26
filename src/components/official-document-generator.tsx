@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { officialDocumentTypes, type OfficialDocumentInput, type OfficialDocumentType } from '@/lib/official-document-types';
 import OfficialMomUpload from '@/components/official-mom-upload';
 import { officialMomType } from '@/lib/official-mom';
+import { officialSignatoryTitle } from '@/lib/official-signatory-title';
 
 type Employee = { id: string; full_name: string; designation?: string | null; joining_date?: string | null; department?: { name?: string } | null };
 type HistoryItem = { id: string; title: string; category: string; file_name: string; created_at: string; storage_path: string; document_type?: string; source_type?: string };
-type Context = { profile: { full_name?: string; designation?: string }; history: HistoryItem[]; allowedTypes: OfficialDocumentType[]; canUploadMom: boolean };
+type Context = { profile: { full_name?: string; designation?: string; role?: string }; history: HistoryItem[]; allowedTypes: OfficialDocumentType[]; canUploadMom: boolean };
 
 const today = new Date().toISOString().slice(0, 10);
 const initialForm: OfficialDocumentInput = {
@@ -58,7 +59,7 @@ export default function OfficialDocumentGeneratorPage() {
       documentType: data.allowedTypes.includes(current.documentType) ? current.documentType : data.allowedTypes[0],
       body: data.allowedTypes.includes(current.documentType) ? current.body : templateBody(data.allowedTypes[0]),
       signatoryName: current.signatoryName || data.profile?.full_name || '',
-      signatoryTitle: current.signatoryTitle || data.profile?.designation || '',
+      signatoryTitle: officialSignatoryTitle(current.signatoryTitle || (data.profile?.role === 'director' ? 'Director' : data.profile?.designation) || '', data.profile?.role === 'director'),
     }));
   };
 

@@ -38,14 +38,14 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   const rawJoiningDate = String(form.get('joining_date') || '');
   let joiningDate: string | null = null;
   try { joiningDate = rawJoiningDate ? normalizeDateOnly(rawJoiningDate) : null; } catch { return { error: 'Joining date must be a valid calendar date.', fields }; }
-  if (!fullName || !email || !employeeCode || !gender || !departmentId || !designation || !operationalRoles.has(role)) return { error: 'Full name, email, gender, employee code, department, designation, and a valid operational role are required.', fields };
+  if (!fullName || !email || !employeeCode || !gender || !departmentId || !designation || !operationalRoles.has(role)) return { error: 'Full name, email, gender, Official ID, department, designation, and a valid operational role are required.', fields };
   if (!employeeStatuses.includes(status as typeof employeeStatuses[number])) return { error: 'Choose a valid employee status.', fields };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: 'Enter a valid work email address.', fields };
   if (!isSecurityAdministratorRole(profileResult.data.role) && protectedManagementRoles.has(role)) return { error: 'Only a Super Admin can assign protected management roles.', fields };
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
   const { data: duplicate } = await admin.from('profiles').select('id').or(`email.eq.${email},employee_code.eq.${employeeCode}`).limit(1);
-  if (duplicate?.length) return { error: 'An employee with that email address or employee code already exists.', fields };
+  if (duplicate?.length) return { error: 'An employee with that email address or Official ID already exists.', fields };
   if (managerId) {
     const { data: manager } = await admin.from('profiles').select('id,status,role,is_employee,workforce_visible,removed_at').eq('id', managerId).maybeSingle();
     if (!manager || manager.status !== 'active' || manager.removed_at || !((manager.is_employee && manager.workforce_visible) || ['chairman', 'director'].includes(manager.role))) return { error: 'Choose an active employee as the reporting manager.', fields };

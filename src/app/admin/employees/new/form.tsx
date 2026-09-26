@@ -97,7 +97,7 @@ export function EmployeeCreateForm({
             ))}
           </select>
         </Field>
-        <Field label="Employee code" required>
+        <Field label="Official ID" required>
           <input name="employee_code" className="input" required defaultValue={values.employee_code || ''} />
         </Field>
         <Field label="Department" required>

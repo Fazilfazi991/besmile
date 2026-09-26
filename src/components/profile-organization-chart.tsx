@@ -13,11 +13,27 @@ import { employeeAvatarInitials } from '@/lib/employee-avatar';
 import { DepartmentSelect } from './department-select';
 import './profile-organization-chart.css';
 
-function Avatar({ person }: { person: OrganizationEmployee }) {
+function Avatar({ person, onOpen }: { person: OrganizationEmployee; onOpen: (person: OrganizationEmployee, trigger: HTMLButtonElement) => void }) {
   const [failed, setFailed] = useState(false);
   return person.photo_url && !failed
-    ? <Image src={person.photo_url} alt="" width={48} height={48} unoptimized onError={() => setFailed(true)} />
+    ? <button type="button" className="organization-photo-trigger nodrag nopan" aria-label={`View photo of ${person.full_name}`} onClick={event => onOpen(person, event.currentTarget)}><Image src={person.photo_url} alt="" width={48} height={48} unoptimized onError={() => setFailed(true)} /></button>
     : <span>{employeeAvatarInitials(person.full_name)}</span>;
+}
+function PhotoViewer({ person, onClose }: { person: OrganizationEmployee; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ distance: number; scale: number } | null>(null);
+  const [scale, setScale] = useState(1);
+  const scaleRef = useRef(1);
+  const zoom = (value: number) => { const next = Math.max(1, Math.min(5, value)); scaleRef.current = next; setScale(next); };
+  useEffect(() => { const element = dialog.current; element?.showModal(); return () => { element?.close(); }; }, []);
+  const distance = () => { const [a, b] = [...pointers.current.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
+  return <dialog ref={dialog} className="organization-photo-viewer" aria-label={`Photo of ${person.full_name}`} onCancel={event => { event.preventDefault(); onClose(); }}>
+    <div className="organization-photo-toolbar"><strong>{person.full_name}</strong><div><button type="button" aria-label="Zoom out" onClick={() => zoom(scaleRef.current - .5)}>−</button><button type="button" aria-label="Zoom in" onClick={() => zoom(scaleRef.current + .5)}>+</button><button type="button" onClick={() => zoom(1)}>Reset</button><button type="button" onClick={onClose}>Close</button></div></div>
+    <div className="organization-photo-stage" onPointerDown={event => { pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY }); event.currentTarget.setPointerCapture(event.pointerId); if (pointers.current.size === 2) pinch.current = { distance: distance(), scale: scaleRef.current }; }} onPointerMove={event => { if (!pointers.current.has(event.pointerId)) return; pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY }); if (pointers.current.size === 2 && pinch.current?.distance) zoom(pinch.current.scale * distance() / pinch.current.distance); }} onPointerUp={event => { pointers.current.delete(event.pointerId); pinch.current = null; }} onPointerCancel={event => { pointers.current.delete(event.pointerId); pinch.current = null; }} onWheel={event => { if (event.ctrlKey) { event.preventDefault(); zoom(scaleRef.current + (event.deltaY < 0 ? .25 : -.25)); } }}>
+      <Image src={person.photo_url!} alt={person.full_name} width={900} height={900} unoptimized draggable={false} style={{ transform: `scale(${scale})` }} />
+    </div>
+  </dialog>;
 }
 type PersonData = {
   person: OrganizationEmployee;
@@ -30,6 +46,7 @@ type PersonData = {
   detailHref: string | null;
   onToggle: (id: string) => void;
   onEdit: (person: OrganizationEmployee) => void;
+  onPhoto: (person: OrganizationEmployee, trigger: HTMLButtonElement) => void;
 };
 type PersonNode = Node<PersonData, 'person'>;
 
@@ -48,12 +65,12 @@ function displayDesignation(designation: string | null) {
 }
 
 function PersonCard({ data }: NodeProps<PersonNode>) {
-  const { person, directReports, hasParent, unassigned, collapsed, current, isSelf, detailHref, onToggle, onEdit } = data;
+  const { person, directReports, hasParent, unassigned, collapsed, current, isSelf, detailHref, onToggle, onEdit, onPhoto } = data;
   const designation = displayDesignation(person.designation);
   return <article className={`organization-person-card${current ? ' is-current' : ''}`} data-employee-id={person.id} aria-label={`${person.full_name}, ${designation}`} title={`${person.full_name} — ${designation}`}>
     {hasParent && <Handle type="target" position={Position.Top} isConnectable={false} className="organization-flow-handle" />}
     <div className="organization-person-main">
-      <div className="organization-person-avatar"><Avatar key={person.photo_url || 'initials'} person={person} /></div>
+      <div className="organization-person-avatar"><Avatar key={person.photo_url || 'initials'} person={person} onOpen={onPhoto} /></div>
       <div className="organization-person-identity">
         <div className="organization-person-name">{detailHref ? <Link className="nodrag nopan" href={detailHref} title={`Open details for ${person.full_name}`}>{person.full_name}</Link> : <strong>{person.full_name}</strong>}{current && isSelf && <span className="organization-person-you">You</span>}</div>
         <span title={designation}>{designation}</span>
@@ -70,17 +87,17 @@ function PersonCard({ data }: NodeProps<PersonNode>) {
 }
 const nodeTypes = { person: PersonCard };
 
-function OrganizationListBranch({ node, collapsed, currentId, isSelf, adminView, onToggle, onEdit }: { node: OrganizationNode; collapsed: Set<string>; currentId: string; isSelf: boolean; adminView: boolean; onToggle: (id: string) => void; onEdit: (person: OrganizationEmployee) => void }) {
+function OrganizationListBranch({ node, collapsed, currentId, isSelf, adminView, onToggle, onEdit, onPhoto }: { node: OrganizationNode; collapsed: Set<string>; currentId: string; isSelf: boolean; adminView: boolean; onToggle: (id: string) => void; onEdit: (person: OrganizationEmployee) => void; onPhoto: (person: OrganizationEmployee, trigger: HTMLButtonElement) => void }) {
   const isCollapsed = collapsed.has(node.id);
   const detailHref = adminView ? `/admin/employees/${node.id}` : node.id === currentId ? '/employee/profile' : null;
   const designation = displayDesignation(node.designation);
   return <li className="organization-list-item">
     <div className="organization-list-person" data-employee-id={node.id}>
-      <div className="organization-person-avatar"><Avatar key={node.photo_url || 'initials'} person={node} /></div>
+      <div className="organization-person-avatar"><Avatar key={node.photo_url || 'initials'} person={node} onOpen={onPhoto} /></div>
       <div className="organization-list-identity"><strong>{detailHref ? <Link href={detailHref}>{node.full_name}</Link> : node.full_name}</strong>{node.id === currentId && isSelf && <span className="organization-person-you">You</span>}<span>{designation} · {node.department_name || 'No department'}</span><small>{managerNote(node, Boolean(node.manager_id && !node.unassigned), node.unassigned, node.children.length)}</small></div>
       <div className="organization-list-actions">{node.can_edit && <button type="button" className="btn border" data-org-edit-id={node.id} aria-label={`Edit organization details for ${node.full_name}`} onClick={() => onEdit(node)}>Edit</button>}{node.children.length > 0 && <button type="button" className="btn border" aria-label={`${isCollapsed ? 'Show' : 'Hide'} ${reportCountLabel(node.children.length)} for ${node.full_name}`} aria-expanded={!isCollapsed} onClick={() => onToggle(node.id)}>{isCollapsed ? `Show ${reportCountLabel(node.children.length)}` : 'Hide reports'}</button>}</div>
     </div>
-    {node.children.length > 0 && !isCollapsed && <ul>{node.children.map(child => <OrganizationListBranch key={child.id} node={child} collapsed={collapsed} currentId={currentId} isSelf={isSelf} adminView={adminView} onToggle={onToggle} onEdit={onEdit} />)}</ul>}
+    {node.children.length > 0 && !isCollapsed && <ul>{node.children.map(child => <OrganizationListBranch key={child.id} node={child} collapsed={collapsed} currentId={currentId} isSelf={isSelf} adminView={adminView} onToggle={onToggle} onEdit={onEdit} onPhoto={onPhoto} />)}</ul>}
   </li>;
 }
 function OrganizationEditor({ person, people, onClose, onSaved }: { person: OrganizationEmployee; people: OrganizationEmployee[]; onClose: () => void; onSaved: () => void }) {
@@ -132,6 +149,12 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<OrganizationEmployee | null>(null);
+  const [photoPerson, setPhotoPerson] = useState<OrganizationEmployee | null>(null);
+  const photoTrigger = useRef<HTMLButtonElement | null>(null);
+  const photoOpen = useRef(false);
+  useEffect(() => { photoOpen.current = photoPerson !== null; }, [photoPerson]);
+  const openPhoto = useCallback((person: OrganizationEmployee, trigger: HTMLButtonElement) => { photoTrigger.current = trigger; setPhotoPerson(person); }, []);
+  const closePhoto = useCallback(() => { setPhotoPerson(null); window.requestAnimationFrame(() => photoTrigger.current?.focus({ preventScroll: true })); }, []);
   const [notice, setNotice] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [viewMode, setViewMode] = useState<'chart' | 'list' | null>(null);
@@ -187,8 +210,8 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
     draggable: false,
     selectable: false,
     style: { width: organizationCardWidth, height: organizationCardHeight },
-    data: { person: peopleById.get(item.id)!, directReports: item.directReports, hasParent: item.hasParent, unassigned: item.unassigned, collapsed: collapsed.has(item.id), current: item.id === profileId, isSelf, detailHref: detailHref(item.id), onToggle: toggle, onEdit: setEditing },
-  })), [layout, peopleById, collapsed, profileId, isSelf, detailHref, toggle]);
+    data: { person: peopleById.get(item.id)!, directReports: item.directReports, hasParent: item.hasParent, unassigned: item.unassigned, collapsed: collapsed.has(item.id), current: item.id === profileId, isSelf, detailHref: detailHref(item.id), onToggle: toggle, onEdit: setEditing, onPhoto: openPhoto },
+  })), [layout, peopleById, collapsed, profileId, isSelf, detailHref, toggle, openPhoto]);
   const edges = useMemo<Edge[]>(() => layout.edges.map(({ source, target }) => ({ id: `${source}->${target}`, source, target, type: 'smoothstep', selectable: false, style: { strokeWidth: 2 } })), [layout]);
   const [touchNavigation, setTouchNavigation] = useState(false);
   useEffect(() => {
@@ -237,7 +260,7 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
     const trigger = expandButton.current;
     trigger?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (editingOpen.current) return; // The native employee editor owns its own Escape and focus handling.
+      if (editingOpen.current || photoOpen.current) return; // Native dialogs own Escape and focus handling.
       if (event.key === 'Escape') { event.preventDefault(); setExpanded(false); return; }
       if (event.key !== 'Tab') return;
       const focusable = Array.from(section.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(element => element.getClientRects().length > 0);
@@ -301,11 +324,12 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
     </div></header>
     {notice && <p role="status">{notice}</p>}
     {error && <p role="alert">{error}</p>}
-    {loading ? <p role="status">Loading organization…</p> : !people.length && !error ? <p>No active employees are available.</p> : viewMode === 'list' ? <div className="organization-list-view" role="region" aria-label="Organization hierarchy list"><ul>{roots.map(root => <OrganizationListBranch key={root.id} node={root} collapsed={collapsed} currentId={profileId} isSelf={isSelf} adminView={adminView} onToggle={id => { setPendingBranchFocus(id); toggle(id); }} onEdit={setEditing} />)}</ul></div> : viewMode === 'chart' ? <div className="organization-flow-canvas" role="region" aria-label="Scrollable organization chart">
+    {loading ? <p role="status">Loading organization…</p> : !people.length && !error ? <p>No active employees are available.</p> : viewMode === 'list' ? <div className="organization-list-view" role="region" aria-label="Organization hierarchy list"><ul>{roots.map(root => <OrganizationListBranch key={root.id} node={root} collapsed={collapsed} currentId={profileId} isSelf={isSelf} adminView={adminView} onToggle={id => { setPendingBranchFocus(id); toggle(id); }} onEdit={setEditing} onPhoto={openPhoto} />)}</ul></div> : viewMode === 'chart' ? <div className="organization-flow-canvas" role="region" aria-label="Scrollable organization chart">
       <ReactFlow<PersonNode, Edge> nodes={nodes} edges={edges} nodeTypes={nodeTypes} onInit={instance => { setFlow(instance); if (savedViewport.current) void instance.setViewport(savedViewport.current, { duration: 0 }); }} onMoveEnd={(_event, viewport) => { savedViewport.current = viewport; }} fitView={layout.nodes.length <= 14} fitViewOptions={{ padding: 0.15, minZoom: 0.4, maxZoom: 1.05 }} minZoom={0.35} maxZoom={1.6} nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} elementsSelectable={false} deleteKeyCode={null} selectionKeyCode={null} zoomOnScroll={false} zoomOnDoubleClick={false} panOnScroll={!touchNavigation} preventScrolling={!touchNavigation} panOnDrag={touchNavigation}>
         <div className="organization-flow-hint">{touchNavigation ? 'Swipe sideways to explore · Scroll up or down to move the page' : 'Scroll to explore · Use controls to zoom'}</div>
       </ReactFlow>
     </div> : null}
     {editing && <OrganizationEditor person={editing} people={people} onClose={close} onSaved={() => { close(); setNotice('Organization details saved.'); void load(); onChanged?.(); }} />}
+    {photoPerson && <PhotoViewer person={photoPerson} onClose={closePhoto} />}
   </section>;
 }

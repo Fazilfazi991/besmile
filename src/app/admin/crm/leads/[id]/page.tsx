@@ -101,6 +101,7 @@ export default function LeadDetail() {
         profession: form.get("profession") || null,
         location: form.get("location") || null,
         reason_for_enquiry: form.get("reason_for_enquiry") || null,
+        category: form.get("category") || null,
         remarks: form.get("remarks") || null,
       });
       setMessage("Lead details saved.");
@@ -228,7 +229,7 @@ export default function LeadDetail() {
         <div>
           <h1 className="text-2xl font-bold">{lead.full_name}</h1>
           <p className="text-slate-600">
-            {lead.phone} {lead.location ? `· ${lead.location}` : ""}
+            {lead.phone} {lead.location ? `· ${lead.location}` : ""}{lead.category ? ` · ${lead.category}` : ""}
           </p>
         </div>
         {canConvertPatient && !convertedPatient && <button className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setPatientConversionError(""); setPatientConversionOpen(true); }}>Convert to client</button>}
@@ -314,11 +315,16 @@ export default function LeadDetail() {
           defaultValue={lead.location || ""}
         />
         <input
-          className="input md:col-span-2"
+          className="input"
           name="reason_for_enquiry"
           placeholder="Reason for enquiry"
           defaultValue={lead.reason_for_enquiry || ""}
         />
+        <label className="text-sm font-medium">Category
+          <select className="input mt-1" name="category" defaultValue={lead.category || ""}>
+            <option value="">Not set</option><option value="Child">Child</option><option value="Adults">Adults</option>
+          </select>
+        </label>
         <textarea
           className="input md:col-span-2"
           name="remarks"

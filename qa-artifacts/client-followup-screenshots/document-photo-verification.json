@@ -1,0 +1,17 @@
+{
+  "photo": {
+    "photoSource": "test-only signed photo response",
+    "zoomed": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+    "chartPositionPreserved": true,
+    "escapeClosed": true,
+    "focusReturned": true,
+    "mobileClose": true
+  },
+  "document": {
+    "type": "experience_letter",
+    "initialTitle": "Managing Director",
+    "signatoryName": "QA Director",
+    "previewStatus": 200,
+    "pages": "1"
+  }
+}

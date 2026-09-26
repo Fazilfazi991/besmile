@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
+import { displayWorkEmail, executiveTitle } from '@/lib/profile-display';
+import { showEmployeeId } from '@/lib/employee-id-display';
 import {
   employeeStatuses,
   employeeStatusLabel,
@@ -16,8 +18,10 @@ type EmployeeSuggestion = {
   id: string;
   full_name: string;
   email?: string | null;
+  work_email?: string | null;
   employee_code?: string | null;
   designation?: string | null;
+  role?: string | null;
   status?: string | null;
   workforce_visible?: boolean | null;
 };
@@ -171,7 +175,7 @@ export default function EmployeesPage() {
             aria-controls="employee-search-suggestions"
             aria-activedescendant={activeSuggestion >= 0 ? `employee-search-suggestion-${suggestions[activeSuggestion]?.id}` : undefined}
             autoComplete="off"
-            placeholder="Search name, email, phone, or employee ID"
+            placeholder="Search name, email, phone, or Official ID"
             value={query}
             onChange={(event) => {
               const value = event.target.value;
@@ -205,7 +209,7 @@ export default function EmployeesPage() {
                   onClick={() => chooseSuggestion(employee)}
                 >
                   <span>{employee.full_name}</span>
-                  <small>{[employee.designation, employee.employee_code, employee.email].filter(Boolean).join(' · ') || employeeStatusLabel(employee.status)}</small>
+                  <small>{[executiveTitle(employee.role, employee.designation), showEmployeeId(employee.role) ? employee.employee_code : null, displayWorkEmail(employee)].filter(Boolean).join(' · ') || employeeStatusLabel(employee.status)}</small>
                 </button>
               )) : (
                 <p role="status">No matching employees.</p>
@@ -230,15 +234,15 @@ export default function EmployeesPage() {
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[980px] text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr>{['Employee', 'Employee ID', 'Role', 'Department', 'Designation', 'Joined', 'Status', 'Action'].map((label) => <th className="px-4 py-3 text-left" key={label}>{label}</th>)}</tr>
+            <tr>{['Employee', 'Official ID', 'Role', 'Department', 'Designation', 'Joined', 'Status', 'Action'].map((label) => <th className="px-4 py-3 text-left" key={label}>{label}</th>)}</tr>
           </thead>
           <tbody>
             {loading
               ? Array.from({ length: 5 }, (_, index) => <tr className="border-t" key={index}><td colSpan={8} className="px-4 py-5"><div className="h-4 animate-pulse rounded bg-slate-100" /></td></tr>)
               : shown.map((employee) => (
                 <tr className="border-t border-slate-100" key={employee.id}>
-                  <td className="px-4 py-3"><b>{employee.full_name}</b><small className="block text-slate-500">{employee.email}</small></td>
-                  <td className="px-4 py-3">{employee.employee_code || '—'}</td>
+                  <td className="px-4 py-3"><b>{employee.full_name}</b>{displayWorkEmail(employee) && <small className="block text-slate-500">{displayWorkEmail(employee)}</small>}</td>
+                  <td className="px-4 py-3">{showEmployeeId(employee.role) ? employee.employee_code || '—' : '—'}</td>
                   <td className="px-4 py-3 capitalize">{employee.role}</td>
                   <td className="px-4 py-3">{employee.department?.name || '—'}</td>
                   <td className="px-4 py-3">{employee.designation || '—'}</td>

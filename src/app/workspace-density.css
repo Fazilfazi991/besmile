@@ -1,4 +1,6 @@
 /* Compact workspace primitives shared by authenticated shells. */
+.app-sidebar .sidebar-logo-circle{display:grid;width:52px;height:52px;margin-inline:auto;place-items:center;overflow:hidden;border-radius:50%;background:#fff;padding:5px}
+.app-sidebar .sidebar-logo-circle img{display:block;width:100%!important;height:100%!important;object-fit:contain!important;border-radius:0!important;box-shadow:none!important}
 :root{--workspace-sidebar:248px;--workspace-sidebar-collapsed:72px;--workspace-pad:20px}
 @media(min-width:901px){
   .app-shell{--sidebar-expanded:var(--workspace-sidebar);--sidebar-collapsed:var(--workspace-sidebar-collapsed)}
@@ -6,6 +8,8 @@
   .app-shell>.app-sidebar.sidebar-collapsed{width:var(--workspace-sidebar-collapsed)!important;min-width:var(--workspace-sidebar-collapsed);padding:8px!important}
   .app-sidebar .brand{min-height:56px;padding:0 4px 8px!important}
   .app-sidebar .brand img{width:48px!important;height:48px;margin-inline:auto;object-fit:contain}
+  .app-sidebar .sidebar-logo-circle{display:grid;width:52px;height:52px;margin-inline:auto;place-items:center;overflow:hidden;border-radius:50%;background:#fff;padding:5px}
+  .app-sidebar .sidebar-logo-circle img{display:block;width:100%!important;height:100%!important;object-fit:contain!important;border-radius:0!important;box-shadow:none!important}
   .app-sidebar .sidebar-collapse-button{right:-2px!important;bottom:-11px!important;width:26px!important;height:26px!important;font-size:18px!important}
   .app-sidebar .section-navigation{padding:5px 0 7px!important}
   .app-sidebar .nav-section{margin:0!important}
@@ -20,6 +24,7 @@
   .app-sidebar .sidebar-footer{padding:7px 4px 1px!important}
   .app-sidebar.sidebar-collapsed .brand{min-height:50px!important}
   .app-sidebar.sidebar-collapsed .brand img{width:42px!important;height:38px!important}
+  .app-sidebar.sidebar-collapsed .sidebar-logo-circle{width:42px;height:42px;padding:4px}
   .app-sidebar.sidebar-collapsed .nav-section-trigger{min-height:38px!important;padding:5px!important}
   .app-sidebar.sidebar-collapsed .nav-section-trigger .module-icon{width:28px!important;height:28px!important;min-width:28px!important}
   .app-sidebar.sidebar-collapsed .sidebar-profile-icon{width:28px!important;height:28px!important}
@@ -209,6 +214,8 @@ html[data-theme="colorful"] .module-tabs button.active,html[data-theme="colorful
   .mobile-launcher-header h2{margin:0;color:#142d29;font-size:17px;letter-spacing:-.02em}
   .mobile-launcher-header p{margin:2px 0 0;color:#647b76;font-size:10px}
   .mobile-launcher-mark,.mobile-launcher-back,.mobile-launcher-close{display:grid;width:38px;height:38px;place-items:center;border:0;border-radius:10px;background:#e8f6f3;color:#00796f}
+  .mobile-launcher-mark{overflow:hidden;border-radius:50%;background:#fff;padding:4px}
+  .mobile-launcher-mark img{display:block;width:100%;height:100%;object-fit:contain}
   .mobile-launcher-back,.mobile-launcher-close{cursor:pointer}
   .mobile-launcher-back{font:inherit;font-size:28px;line-height:1}
   .mobile-launcher-mark .module-icon{width:30px;height:30px;background:transparent}

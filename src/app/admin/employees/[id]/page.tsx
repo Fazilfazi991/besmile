@@ -15,6 +15,7 @@ import { currentProfile } from "@/lib/auth";
 import { employeeRepository } from "@/lib/employee-repository";
 import { showEmployeeId } from "@/lib/employee-id-display";
 import { employeeDetailLabels } from "@/lib/employee-detail-labels";
+import { displayWorkEmail, executiveTitle } from "@/lib/profile-display";
 import {
   employeeEditPayload,
   normalizeDateOnly,
@@ -326,11 +327,11 @@ export default function AdminEmployeeProfile() {
     Boolean(viewer?.canRemoveEmployees) && canRestoreEmployee(viewer, profile);
   const employeeLabels = employeeDetailLabels(profile.role, profile.designation);
   const employment = [
-    ...(showEmployeeId(profile.role) ? [["Employee ID", profile.employee_code]] : []),
-    ["Work email", profile.email],
-    ["Role", employeeLabels.role],
+    ...(showEmployeeId(profile.role) ? [["Official ID", profile.employee_code]] : []),
+    ["Work email", displayWorkEmail(profile)],
+    ["Role", showEmployeeId(profile.role) ? employeeLabels.role : executiveTitle(profile.role)],
     ["Department", profile.department?.name],
-    ["Designation", profile.designation],
+    ["Designation", showEmployeeId(profile.role) ? profile.designation : executiveTitle(profile.role)],
     ["Reporting manager", profile.manager?.full_name],
     ["Joining date", profile.joining_date],
     ["Employment type", profile.employment_type],
@@ -376,9 +377,10 @@ export default function AdminEmployeeProfile() {
             </h1>
             <p className="mt-1 text-sm text-slate-600">
               {showEmployeeId(profile.role) ? `${profile.employee_code || "Employee"} · ` : ""}
-              {employeeLabels.title} ·{" "}
-              {profile.department?.name || "No department"}
+              {showEmployeeId(profile.role) ? employeeLabels.title : executiveTitle(profile.role)}
+              {showEmployeeId(profile.role) ? ` · ${profile.department?.name || "No department"}` : ""}
             </p>
+            {!showEmployeeId(profile.role) && <p className="text-sm text-slate-600">{profile.department?.name || "No department"}</p>}
             <div className="mt-2 flex gap-2">
               <FinanceStatus value={profile.status} />
               {profile.removed_at && (
@@ -387,7 +389,7 @@ export default function AdminEmployeeProfile() {
                 </span>
               )}
               <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold capitalize">
-                {employeeLabels.role}
+                {showEmployeeId(profile.role) ? employeeLabels.role : executiveTitle(profile.role)}
               </span>
             </div>
           </div>
@@ -940,13 +942,13 @@ function Panel({
 }
 function Pairs({ entries }: { entries: any[] }) {
   return (
-    <dl className="grid gap-4 sm:grid-cols-2">
+    <dl className="grid min-w-0 gap-4 sm:grid-cols-2">
       {entries.map(([label, value]) => (
-        <div key={label}>
+        <div className="min-w-0" key={label}>
           <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
             {label}
           </dt>
-          <dd className="mt-1 text-sm capitalize">{dash(value)}</dd>
+          <dd className="mt-1 break-words text-sm capitalize [overflow-wrap:anywhere]">{dash(value)}</dd>
         </div>
       ))}
     </dl>

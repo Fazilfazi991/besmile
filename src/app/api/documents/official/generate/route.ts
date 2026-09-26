@@ -3,6 +3,7 @@ import { serverSupabase } from '@/lib/supabase-server';
 import { officialDocumentAccess } from '@/lib/official-document-access';
 import { generateOfficialDocument } from '@/lib/official-document-engine';
 import { officialDocumentFilename, validateOfficialDocumentInput } from '@/lib/official-document-types';
+import { officialSignatoryTitle } from '@/lib/official-signatory-title';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +19,11 @@ export async function POST(request: Request) {
     const mode = payload?.mode === 'generate' ? 'generate' : 'preview';
     const input = validateOfficialDocumentInput(payload);
     if (!access.allowedTypes.includes(input.documentType)) return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    if (input.signatoryTitle?.trim().toLowerCase() === 'director' && input.signatoryName) {
+      const signatory = await db.from('profiles').select('role').eq('full_name', input.signatoryName.trim()).eq('role', 'director').limit(1).maybeSingle();
+      if (signatory.error) throw new Error('Unable to verify the signatory title.');
+      input.signatoryTitle = officialSignatoryTitle(input.signatoryTitle, signatory.data?.role === 'director');
+    }
     if (input.relatedProfileId) {
       if (access.manager) {
         const related = await db.from('profiles').select('id').eq('id', input.relatedProfileId).maybeSingle();

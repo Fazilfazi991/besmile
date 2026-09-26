@@ -39,6 +39,7 @@ export default function LeadManagement() {
     temperature: "cold",
     assigned_to: "",
     reason_for_enquiry: "",
+    category: "",
     location: "",
     remarks: "",
   });
@@ -163,6 +164,7 @@ export default function LeadManagement() {
         full_name: form.full_name.trim(),
         phone: form.phone.replace(/\D/g, ""),
         reason_for_enquiry: form.reason_for_enquiry || null,
+        category: form.category || null,
         location: form.location || null,
         remarks: form.remarks || null,
         created_by: profile.id,
@@ -173,6 +175,7 @@ export default function LeadManagement() {
         phone: "",
         lead_date: defaultCrmLeadDate(),
         reason_for_enquiry: "",
+        category: "",
         location: "",
         remarks: "",
       }));
@@ -344,6 +347,13 @@ export default function LeadManagement() {
                     setForm({ ...form, reason_for_enquiry: event.target.value })
                   }
                 />
+              </Field>
+              <Field label="Category">
+                <select className="input" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+                  <option value="">Not set</option>
+                  <option value="Child">Child</option>
+                  <option value="Adults">Adults</option>
+                </select>
               </Field>
               <Field label="Notes" className="md:col-span-2">
                 <textarea
