@@ -329,9 +329,9 @@ export default function AdminEmployeeProfile() {
   const employment = [
     ...(showEmployeeId(profile.role) ? [["Official ID", profile.employee_code]] : []),
     ["Work email", displayWorkEmail(profile)],
-    ["Role", showEmployeeId(profile.role) ? employeeLabels.role : executiveTitle(profile.role)],
+    ["Role", showEmployeeId(profile.role) ? employeeLabels.role : executiveTitle(profile.role, profile.designation)],
     ["Department", profile.department?.name],
-    ["Designation", showEmployeeId(profile.role) ? profile.designation : executiveTitle(profile.role)],
+    ["Designation", showEmployeeId(profile.role) ? profile.designation : executiveTitle(profile.role, profile.designation)],
     ["Reporting manager", profile.manager?.full_name],
     ["Joining date", profile.joining_date],
     ["Employment type", profile.employment_type],
@@ -377,7 +377,7 @@ export default function AdminEmployeeProfile() {
             </h1>
             <p className="mt-1 text-sm text-slate-600">
               {showEmployeeId(profile.role) ? `${profile.employee_code || "Employee"} · ` : ""}
-              {showEmployeeId(profile.role) ? employeeLabels.title : executiveTitle(profile.role)}
+              {showEmployeeId(profile.role) ? employeeLabels.title : executiveTitle(profile.role, profile.designation)}
               {showEmployeeId(profile.role) ? ` · ${profile.department?.name || "No department"}` : ""}
             </p>
             {!showEmployeeId(profile.role) && <p className="text-sm text-slate-600">{profile.department?.name || "No department"}</p>}
@@ -389,7 +389,7 @@ export default function AdminEmployeeProfile() {
                 </span>
               )}
               <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold capitalize">
-                {showEmployeeId(profile.role) ? employeeLabels.role : executiveTitle(profile.role)}
+                {showEmployeeId(profile.role) ? employeeLabels.role : executiveTitle(profile.role, profile.designation)}
               </span>
             </div>
           </div>

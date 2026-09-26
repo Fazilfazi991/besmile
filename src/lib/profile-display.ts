@@ -1,5 +1,5 @@
 export function executiveTitle(role: string | null | undefined, designation?: string | null) {
-  if (role === 'chairman') return 'Chairman';
+  if (role === 'chairman' || (role === 'director' && designation?.trim().toLowerCase() === 'chairman')) return 'Chairman';
   if (role === 'director') return 'Managing Director';
   return designation || 'Employee';
 }

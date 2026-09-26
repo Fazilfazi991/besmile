@@ -16,6 +16,7 @@ describe('client profile and official document follow up', () => {
     const profile = { full_name: 'Test', email: 'login@example.com', gender: 'male', department_id: 'department', designation: 'Director', role: 'director' };
     expect(executiveTitle(profile.role, profile.designation)).toBe('Managing Director');
     expect(executiveTitle('chairman', 'Other')).toBe('Chairman');
+    expect(executiveTitle('director', 'Chairman')).toBe('Chairman');
     expect(profileCompletion(profile).missing).not.toContain('Official ID');
     expect(profileCompletion({ ...profile, role: 'staff' }).missing).toContain('Official ID');
   });
@@ -44,7 +45,7 @@ describe('client profile and official document follow up', () => {
   it('guards the staged General Manager work email update and preserves login identity', async () => {
     const db = new PGlite();
     try {
-      await db.exec("create table profiles (employee_code text, full_name text, role text, email text, work_email text); insert into profiles values ('A001', 'Muhammad Faiz AU', 'general_manager', 'login@qa.bsmile.local', null)");
+      await db.exec("create table profiles (employee_code text, full_name text, role text, status text, email text, work_email text); insert into profiles values ('A001', 'Mr. Muhammad Faiz AU', 'general_manager', 'active', 'login@qa.bsmile.local', null)");
       await db.exec(readFileSync('qa-artifacts/staged-general-manager-work-email.sql', 'utf8'));
       const { rows } = await db.query<{ email: string; work_email: string }>('select email, work_email from profiles');
       expect(rows[0]).toEqual({ email: 'login@qa.bsmile.local', work_email: 'bsmile.gm@gmail.com' });
