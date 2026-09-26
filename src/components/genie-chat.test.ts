@@ -22,6 +22,14 @@ describe('Genie chat experience', () => {
     expect(styles).toContain('@media(prefers-reduced-motion:reduce)');
   });
 
+  it('places the existing mobile navigation after Genie instead of overlaying it', () => {
+    expect(styles).toContain('.app-shell:has(.genie-page)>.app-main{order:1');
+    expect(styles).toContain('.app-shell:has(.genie-page)>.mobile-bottom-nav{position:relative');
+    expect(styles).toContain('order:2');
+    expect(styles).toContain('padding-bottom:max(5px,env(safe-area-inset-bottom))');
+    expect(styles).toContain('.app-shell:has(.genie-page) .app-content{padding-bottom:var(--workspace-pad)}');
+  });
+
   it('states the privacy boundary in the product UI', () => {
     expect(component).toContain('No client, CRM, Finance, or private profile data is available to Genie.');
     expect(component).toContain('Approved policies only');
