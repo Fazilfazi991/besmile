@@ -2,6 +2,22 @@ import { expect, test } from '@playwright/test';
 import { currentCrmBusinessDate, formatCrmRangeLabel, shiftCrmDateKey } from '../../src/lib/crm-dashboard-e1';
 import { assertNoRawDatabaseError, login, navigateAfterLogin, type QaRole } from './helpers';
 
+test('CRM shows six lead, sales and Marketing cards without company net metrics', async ({ page }) => {
+  await login(page, 'admin', { waitForLanding: true });
+  await navigateAfterLogin(page, '/admin/crm');
+  const cards = page.getByTestId('crm-summary-cards');
+  await expect(cards.locator(':scope > .card')).toHaveCount(6);
+  for (const label of ['New Leads', 'Open Follow-ups', 'Converted Clients', 'Conversion Rate', 'Sales / Revenue', 'Marketing Expenses']) {
+    await expect(cards.getByText(label, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByText('Net Result', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Financial Overview' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Sales & Marketing' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sales & Marketing' }).locator('..').getByText('Marketing Expenses', { exact: true })).toBeVisible();
+  const overflow = await page.evaluate(() => ({ viewport: window.innerWidth, document: document.documentElement.scrollWidth }));
+  expect(overflow.document).toBeLessThanOrEqual(overflow.viewport);
+});
+
 for (const role of ['admin', 'general_manager', 'director'] as QaRole[]) {
   test(`CRM E1 date range and 30-day performance work for ${role}`, async ({ page }) => {
     const runtimeErrors: string[] = [];

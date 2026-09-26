@@ -206,8 +206,7 @@ export default function CrmDashboard() {
   const sourceRows = summary?.sources || [];
   const total = Math.max(1, Number(summary?.periodLeads || 0));
   const revenue = Number(summary?.revenue || 0);
-  const expenses = Number(summary?.expenses || 0);
-  const financeDisplay = crmFinanceDisplay(revenue, expenses, marketingExpenses);
+  const financeDisplay = crmFinanceDisplay(revenue, marketingExpenses);
   const metricRows = [
     { label: "New Leads", value: summary?.periodLeads, context: rangeLabel },
     { label: "Open Follow-ups", value: summary ? summary.followups.due + summary.followups.overdue : undefined, context: `Current queue · as of ${today}` },
@@ -258,9 +257,9 @@ export default function CrmDashboard() {
       {marketingError && financeAllowed && <p className="text-sm text-rose-700" role="status">{marketingError}</p>}
       {summaryLoading && <div className="dashboard-progress" role="status"><span />Refreshing CRM summary…</div>}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-busy={summaryLoading}>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy={summaryLoading} data-testid="crm-summary-cards">
         {metricRows.map(metric => <MetricCard key={metric.label} {...metric} />)}
-        {financeAllowed && ([{ label: "Sales / Revenue", value: inr(financeDisplay.revenue) }, { label: "Marketing Expenses", value: financeDisplay.marketingExpenses === null ? undefined : inr(financeDisplay.marketingExpenses) }, { label: "Net Result", value: inr(financeDisplay.netResult) }]).map(({ label, value }) => <MetricCard key={label} label={label} value={value} context={rangeLabel} />)}
+        {financeAllowed && ([{ label: "Sales / Revenue", value: inr(financeDisplay.revenue) }, { label: "Marketing Expenses", value: financeDisplay.marketingExpenses === null ? undefined : inr(financeDisplay.marketingExpenses) }]).map(({ label, value }) => <MetricCard key={label} label={label} value={value} context={rangeLabel} />)}
       </div>
 
       <section className="card min-w-0 overflow-hidden" data-testid="lead-performance-card">
@@ -322,9 +321,9 @@ export default function CrmDashboard() {
 
       {financeAllowed && (
         <section className="card p-5">
-          <h2 className="font-bold">Financial Overview</h2>
-          <p className="mt-1 text-sm text-slate-500">Recognized income and Marketing expenses for {rangeLabel.toLowerCase()}.</p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <h2 className="font-bold">Sales &amp; Marketing</h2>
+          <p className="mt-1 text-sm text-slate-500">Recognized revenue and Marketing expenses for {rangeLabel.toLowerCase()}.</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {financeDisplay.bars.map(({ label, value, tone }) => (
               <div key={label}><div className="flex justify-between text-sm"><span>{label}</span><b>{value === null ? "—" : inr(value)}</b></div><div className="mt-2 h-2 rounded bg-slate-100"><div className={`h-full rounded ${tone}`} style={{ width: `${value === null ? 0 : Math.min(100, Math.max(0, (value / Math.max(financeDisplay.revenue, financeDisplay.marketingExpenses || 0, 1)) * 100))}%` }} /></div></div>
             ))}
