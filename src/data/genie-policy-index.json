@@ -1,0 +1,957 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "source-controlled",
+  "documents": [
+    {
+      "id": "employee-handbook-v1",
+      "title": "Employee Handbook",
+      "version": "1.0",
+      "updatedDate": "2026-08-11",
+      "sourceFile": "Employee Handbook Version 1.0.pdf",
+      "sha256": "9028157d48021bf03bee5bd2f680534ce6a19af4e34d8a1e5b4600af8fe7b456",
+      "pageCount": 7
+    },
+    {
+      "id": "hiring-recruitment-policy-v1",
+      "title": "Hiring & Recruitment Policy",
+      "version": "1.0",
+      "updatedDate": "2026-08-12",
+      "sourceFile": "Hiring Policy Version 1.0.pdf",
+      "sha256": "dd1a1da3763c4bbf068bd6650762dafa9a28bbe6810d0dc7d25ab4c906087819",
+      "pageCount": 16
+    },
+    {
+      "id": "internship-policy-v1",
+      "title": "Internship Policy",
+      "version": "1.0",
+      "effectiveDate": "2026-08-01",
+      "sourceFile": "Internship Policy Version 1.0.pdf",
+      "sha256": "0c5f74189b78bb7ce44188a4c8a87729257e81eaac7c195b01be6924c19471a7",
+      "pageCount": 13
+    }
+  ],
+  "chunks": [
+    {
+      "id": "employee-handbook-v1:1:1",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "1",
+      "sectionTitle": "Purpose",
+      "pages": [
+        1
+      ],
+      "text": "The purpose of this policy handbook is to establish clear expectations regarding employee conduct, attendance, reporting chain of command, confidentiality, ethical standards, and workplace responsibilities at BSmile The Mind Studio.\nAll employees are required to read, understand, and comply with the provisions outlined in this handbook. This policy is applicable to all employees working for Bsmile The Mind Studio."
+    },
+    {
+      "id": "employee-handbook-v1:2:2",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "2",
+      "sectionTitle": "Core Values",
+      "pages": [
+        1
+      ],
+      "text": "Employees of BSmile The Mind Studio shall uphold:\n• Integrity in Practice\n• Trust & Transparency\n• Respect & Compassion\n• Continuous Learning & Curiosity\n• Creative Problem-Solving\n• Passion for Excellence\n• Client-Centred Practice\n• Responsible Ownership"
+    },
+    {
+      "id": "employee-handbook-v1:3.1:3",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "3.1",
+      "sectionTitle": "Professional Behaviour",
+      "pages": [
+        1
+      ],
+      "text": "Employees are expected to:\n• Treat all clients, caregivers, visitors, and colleagues with dignity and respect.\n• Maintain professional boundaries with clients at all times.\n• Conduct themselves in a manner that protects the reputation of the organization.\n• Refrain from any behavior that may compromise client welfare or organizational\nintegrity.\n• Employees are expected to maintain a clean, professional, and client-appropriate\nappearance while office hours and at any events representing the organization.\n• Employees shall not report to work under the influence of alcohol, illegal substances,\nor medications that significantly impair professional performance.\n• Employees shall not bring personal visitors into therapy rooms, assessment areas, or\nspaces containing confidential client information."
+    },
+    {
+      "id": "employee-handbook-v1:3.2:4",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "3.2",
+      "sectionTitle": "Moonlighting Policy",
+      "pages": [
+        2
+      ],
+      "text": "Moonlighting, secondary employment (Exception for Online psychologists), freelance work, consulting assignments, or any paid professional engagement outside BSmile The Mind Studio is strictly prohibited.\nThis includes:\n• Providing therapy services independently.\n• Working for competing organizations.\n• Conducting private consultations for remuneration.\n• Online counselling or coaching services outside organizational authorization.\nViolation of this policy may result in disciplinary action up to and including termination of employment.\nAny exceptional circumstances require prior written approval from Management."
+    },
+    {
+      "id": "employee-handbook-v1:4.1:5",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "4.1",
+      "sectionTitle": "Attendance Records",
+      "pages": [
+        2
+      ],
+      "text": "All employees must record attendance through the organization's attendance system.\n• Attendance must be marked upon arrival and departure.\n• Attendance should also be marked in the attendance ledger.\n• Employees are responsible for ensuring successful attendance registration.\nAny discrepancy, missed record, or system error must be reported immediately to the Assistant Manager via email.\nFailure to report discrepancies promptly may result in the attendance being recorded as absent."
+    },
+    {
+      "id": "employee-handbook-v1:4.2:6",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "4.2",
+      "sectionTitle": "Working Hours",
+      "pages": [
+        2
+      ],
+      "text": "Office Working hours will be from 9:00 AM to 6:00 PM, including a 1-hour lunch break.\nThe office will be operational 6 days a week, Monday to Saturday, with Sunday as the weekly holiday. Public holidays as observed by the organization will also be considered holidays.\nEmployees are expected to:\n• Report to work on time.\n• Adhere to assigned schedules.\n• Complete assigned duties during working hours.\nRepeated tardiness or unauthorized absence may lead to disciplinary action."
+    },
+    {
+      "id": "employee-handbook-v1:5.1:7",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "5.1",
+      "sectionTitle": "Leave Approval",
+      "pages": [
+        2,
+        3
+      ],
+      "text": "All leave requests must be submitted through email.\nLeave shall be considered approved only after Email confirmation is received from the authorized approving authority.\nEmployees shall not proceed on leave without approval except in genuine emergencies.\nVerbal approvals are not considered official unless subsequently documented.\nYou will be entitled to 1 casual leave per month, subject to the organization's leave procedures and prior approval from the management.\nPlease note, Any Additional leaves shall be considered Leave without Pay."
+    },
+    {
+      "id": "employee-handbook-v1:5.2:8",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "5.2",
+      "sectionTitle": "Extended Leave and Multiple Employee Leave",
+      "pages": [
+        3
+      ],
+      "text": "Manager approval shall also be required in the following situations:\n• Leave exceeding one working day.\n• Multiple employees requesting leave on the same day.\nApproval may be denied or modified based on service requirements and staffing needs."
+    },
+    {
+      "id": "employee-handbook-v1:5.3:9",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "5.3",
+      "sectionTitle": "Emergency Leave",
+      "pages": [
+        3
+      ],
+      "text": "In emergencies:\n• The employee must inform the reporting authority immediately.\n• An email notification must be sent as soon as possible."
+    },
+    {
+      "id": "employee-handbook-v1:6.1:10",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "6.1",
+      "sectionTitle": "Reporting Structure",
+      "pages": [
+        3
+      ],
+      "text": "Interns → Assistant Manager\nSales Coordinator/Sales Head → Assistant Manager/General Manager/Director (only under\nmanagement’s instruction)\nPsychologist → Assistant Manager/General Manager\nOnline Part-Time Psychologists → Psychologist/Assistant Manager\nAssistant Manager → General Manager/Director (only under management’s instruction)\nGeneral Manager → Director"
+    },
+    {
+      "id": "employee-handbook-v1:6.2:11",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "6.2",
+      "sectionTitle": "Chain of Command",
+      "pages": [
+        3
+      ],
+      "text": "Employees are expected to communicate through their immediate reporting authority.\nDirect communication with higher levels of management should be avoided unless:\n• Directed by management.\n• Required for urgent operational reasons.\n• Existing reporting channels are unavailable."
+    },
+    {
+      "id": "employee-handbook-v1:6.3:12",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "6.3",
+      "sectionTitle": "Escalation Policy",
+      "pages": [
+        3,
+        4
+      ],
+      "text": "Escalation beyond the reporting hierarchy shall occur only in exceptional circumstances including:\n• Client safety concerns.\n• Ethical violations.\n• Legal concerns.\n• Serious workplace misconduct.\n• Urgent operational disruptions.\nEmployees must attempt resolution through the normal chain of command before escalating whenever reasonably possible."
+    },
+    {
+      "id": "employee-handbook-v1:7:13",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "7",
+      "sectionTitle": "Client Confidentiality and Privacy",
+      "pages": [
+        4
+      ],
+      "text": "Protecting client confidentiality is a fundamental responsibility.\nEmployees shall:\n• Maintain strict confidentiality regarding all client information.\n• Access client records only when required for professional duties.\n• Avoid discussing client information in public or unauthorized settings.\n• Secure all documents, records, and electronic information.\nConfidential information shall not be disclosed without:\n• Client consent\n• Legal requirement\n• Clinical necessity approved by management.\nViolation of confidentiality may result in immediate disciplinary action."
+    },
+    {
+      "id": "employee-handbook-v1:8:14",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "8",
+      "sectionTitle": "Clinical Documentation Standards",
+      "pages": [
+        4
+      ],
+      "text": "All clinical staff must maintain accurate and timely documentation.\nRecords shall include:\n• Assessment notes.\n• Progress notes.\n• Treatment plans.\n• Follow-up records.\n• Referral documentation.\nDocumentation must be:\n• Clear and objective.\n• Completed promptly.\n• Stored securely and maintained according to organizational requirements.\nFalsification of records is grounds for disciplinary action."
+    },
+    {
+      "id": "employee-handbook-v1:9:15",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "9",
+      "sectionTitle": "Professional Ethics",
+      "pages": [
+        4,
+        5
+      ],
+      "text": "All clinical professionals shall practice according to applicable professional ethical standards.\nEmployees shall:\n• Work within their professional scope of practice.\n• Maintain professional boundaries.\n• Seek supervision when necessary.\n• Refer clients when appropriate expertise is unavailable.\n• Any employee identifying an immediate risk to a client's safety must promptly notify\ntheir reporting authority and follow the organization's crisis management procedures.\nAny unethical conduct may lead to disciplinary proceedings."
+    },
+    {
+      "id": "employee-handbook-v1:9.1:16",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "9.1",
+      "sectionTitle": "Professional Boundaries with clients",
+      "pages": [
+        5
+      ],
+      "text": "• Employees shall not engage in personal, romantic, financial, or business relationships\nwith clients.\n• Accepting significant gifts from clients is prohibited without management approval.\n• Personal contact details of employees should not be shared unless authorized by the\norganization.\n• Communication with clients should occur only through approved channels."
+    },
+    {
+      "id": "employee-handbook-v1:10:17",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "10",
+      "sectionTitle": "Social Media and Public Communication",
+      "pages": [
+        5
+      ],
+      "text": "Employees shall not:\n• Share confidential client information online.\n• Discuss client cases on social media.\n• Represent personal opinions as organizational positions.\n• Post content that damages the reputation of BSmile The Mind Studio.\nAny media inquiries must be directed to Management."
+    },
+    {
+      "id": "employee-handbook-v1:11:18",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "11",
+      "sectionTitle": "Roles and Responsibilities",
+      "pages": [
+        5
+      ],
+      "text": "Each employee shall be provided with a Job Description (JD) outlining their duties, responsibilities, reporting relationships, performance expectations, and scope of work.\nEmployees are expected to perform their assigned responsibilities in accordance with their JD and any reasonable instructions provided by management.\nThe organization reserves the right to modify job responsibilities based on operational requirements, provided such changes are communicated to the employee."
+    },
+    {
+      "id": "employee-handbook-v1:12:19",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "12",
+      "sectionTitle": "Workplace Respect and Anti-Harassment Policy",
+      "pages": [
+        5
+      ],
+      "text": "BSmile The Mind Studio is committed to maintaining a respectful and inclusive workplace.\nThe following are strictly prohibited:\n• Harassment.\n• Bullying.\n• Intimidation.\n• Discrimination.\n• Verbal abuse.\n• Sexual harassment.\nComplaints will be investigated confidentially and promptly.\nRetaliation against employees reporting concerns is prohibited."
+    },
+    {
+      "id": "employee-handbook-v1:13:20",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "13",
+      "sectionTitle": "Information Technology and Data Protection",
+      "pages": [
+        6
+      ],
+      "text": "Employees shall:\n• Use organizational systems responsibly.\n• Maintain password confidentiality.\n• Protect electronic records.\n• Avoid unauthorized downloading or sharing of data.\nClient information shall not be stored on personal devices unless specifically authorized."
+    },
+    {
+      "id": "employee-handbook-v1:13.1:21",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "13.1",
+      "sectionTitle": "Resignation/Termination of Employee",
+      "pages": [
+        6
+      ],
+      "text": "In the instance of employee resignation/termination:\n• All client files must be updated.\n• Ongoing cases must be handed over.\n• Organization property must be returned.\n• Access to systems and records must be revoked."
+    },
+    {
+      "id": "employee-handbook-v1:14:22",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "14",
+      "sectionTitle": "Grievance Redressal Procedure",
+      "pages": [
+        6
+      ],
+      "text": "Employees who have workplace concerns may:\n1. Discuss the issue with their immediate supervisor.\n2. Escalate to the Assistant Manager if unresolved.\n3. Escalate to the Manager if necessary.\n4. Escalate to the Director only in exceptional circumstances.\nAll grievances shall be reviewed fairly and confidentially."
+    },
+    {
+      "id": "employee-handbook-v1:15:23",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "15",
+      "sectionTitle": "Disciplinary Action",
+      "pages": [
+        6
+      ],
+      "text": "Violations of organizational policies may result in:\n• Verbal warning.\n• Written warning.\n• Performance improvement plan.\n• Suspension.\n• Termination of employment.\nSerious misconduct may result in immediate termination.\nExamples include:\n• Breach of confidentiality.\n• Falsification of records.\n• Unauthorized disclosure of information.\n• Workplace harassment.\n• Moonlighting.\n• Gross negligence affecting client welfare."
+    },
+    {
+      "id": "employee-handbook-v1:16:24",
+      "documentId": "employee-handbook-v1",
+      "sectionNumber": "16",
+      "sectionTitle": "Policy Amendments",
+      "pages": [
+        7
+      ],
+      "text": "BSmile The Mind Studio reserves the right to amend, revise, or update these policies at any time to meet operational, legal, ethical, and professional requirements.\nEmployees will be notified of significant policy changes."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:1:1",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "1",
+      "sectionTitle": "PURPOSE",
+      "pages": [
+        1
+      ],
+      "text": "The purpose of this Hiring & Recruitment Policy is to establish a structured, transparent and consistent process for identifying, assessing and selecting individuals for employment and professional engagement at BSmile The Mind Studio.\nAs a mental health organisation, BSmile recognises the importance of appointing individuals who possess the required educational qualifications, professional experience, the appropriate technical competence, professional conduct, attitude, communication skills and suitability for working within a mental health care environment.\nThis policy aims to ensure that recruitment decisions are based on the requirements of the position and the overall suitability of the candidate for the role and the organisation."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:2:2",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "2",
+      "sectionTitle": "SCOPE",
+      "pages": [
+        1
+      ],
+      "text": "This policy applies to the recruitment and selection of:\n• Full-time employees\n• Part-time employees\n• Clinical and mental health professionals\n• Administrative and operational employees\n• Sales and business development employees\n• Marketing employees\n• Management positions\n• Consultants and other professional engagements\n• Interns and trainees, where applicable\nThe recruitment process may be modified according to the nature, seniority and professional requirements of a particular position."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:3.1:3",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "3.1",
+      "sectionTitle": "3A Principle",
+      "pages": [
+        2
+      ],
+      "text": "BSmile's hiring decisions are guided by the 3A Principle - Ability, Aptitude and Attitude.\nCandidates are assessed not only on their qualifications and experience, but also on their capacity to perform, learn, adapt and contribute positively to the organisation.\n• Ability: The candidate's existing knowledge, qualifications, professional competence,\ntechnical skills and capacity to perform the responsibilities of the role.\n• Aptitude: The candidate's capacity to learn, adapt, solve problems, make decisions\nand develop within the role.\n• Attitude: The candidate's professionalism, work ethic, communication, teamwork,\nopenness to feedback, responsibility and approach towards clients, colleagues and the organisation."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:3.2:4",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "3.2",
+      "sectionTitle": "Merit and Competence",
+      "pages": [
+        2
+      ],
+      "text": "Candidates shall be evaluated based on qualifications, relevant experience, professional competence, skills and suitability for the requirements of the position."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:3.3:5",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "3.3",
+      "sectionTitle": "Professional Standards",
+      "pages": [
+        2
+      ],
+      "text": "Candidates appointed to clinical, mental health or other regulated professional positions shall meet the educational, professional registration, licensing and other applicable requirements relevant to the role."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:3.4:6",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "3.4",
+      "sectionTitle": "Fair and Consistent Selection",
+      "pages": [
+        2
+      ],
+      "text": "The recruitment process shall be conducted using role-relevant and reasonable criteria, with candidates assessed consistently throughout the selection process."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:3.5:7",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "3.5",
+      "sectionTitle": "Organisational Suitability",
+      "pages": [
+        2
+      ],
+      "text": "In addition to technical competence, BSmile shall consider the candidate's suitability for the organisation's professional environment, work culture, expectations and collaborative approach."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:3.6:8",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "3.6",
+      "sectionTitle": "Integrity and Transparency",
+      "pages": [
+        2
+      ],
+      "text": "Recruitment decisions shall be made with professionalism, integrity and transparency, and candidates shall be expected to provide accurate information and documentation throughout the recruitment process."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:3.7:9",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "3.7",
+      "sectionTitle": "Confidentiality",
+      "pages": [
+        2
+      ],
+      "text": "Candidate information, documents, interview discussions and assessment outcomes shall be treated as confidential and accessed only by authorised personnel involved in the recruitment process."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:3.8:10",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "3.8",
+      "sectionTitle": "Verification",
+      "pages": [
+        2,
+        3
+      ],
+      "text": "Relevant educational qualifications, professional credentials, experience and other information provided by a selected candidate may be verified before appointment."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:4:11",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "4",
+      "sectionTitle": "IDENTIFICATION OF STAFFING REQUIREMENT",
+      "pages": [
+        3
+      ],
+      "text": "The recruitment process shall begin when a staffing requirement or vacancy is identified.\nA hiring requirement may arise due to:\n• Creation of a new position\n• Expansion of an existing service\n• Increase in workload or client requirements\n• Resignation or separation of an employee\n• Replacement of an existing position\n• Requirement for specialised professional expertise\n• Operational or organisational requirements\nBefore recruitment begins, the requirement for the position shall be assessed and approved by the appropriate management authority.\nThe requirement shall clearly identify:\n• Position title\n• Department/function\n• Reason for hiring\n• Employment type\n• Required qualifications\n• Required experience\n• Technical competencies\n• Soft skills\n• Other role-specific requirements"
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:5:12",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "5",
+      "sectionTitle": "JOB REQUIREMENT FINALISATION",
+      "pages": [
+        4
+      ],
+      "text": "Before a vacancy is advertised, the requirements of the position shall be clearly defined.\nThe hiring team shall determine the following:"
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:5.1:13",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "5.1",
+      "sectionTitle": "Educational Qualifications",
+      "pages": [
+        4
+      ],
+      "text": "The minimum and preferred educational qualifications required for the position."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:5.2:14",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "5.2",
+      "sectionTitle": "Professional Qualifications and Registration",
+      "pages": [
+        4
+      ],
+      "text": "Where applicable, the candidate must possess the required professional registration, license, certification or other legally/professionally recognised credential for the position.\nFor clinical and allied health positions, relevant professional credentials shall be verified before appointment."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:5.3:15",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "5.3",
+      "sectionTitle": "Experience",
+      "pages": [
+        4
+      ],
+      "text": "The required level and nature of professional or work experience shall be determined based on the position."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:5.4:16",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "5.4",
+      "sectionTitle": "Technical Skills",
+      "pages": [
+        4
+      ],
+      "text": "The specific knowledge and technical competencies required to perform the role."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:5.5:17",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "5.5",
+      "sectionTitle": "Soft Skills",
+      "pages": [
+        4
+      ],
+      "text": "Relevant interpersonal and professional competencies, including communication, teamwork, adaptability, professionalism, problem-solving and other role-specific requirements."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:5.6:18",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "5.6",
+      "sectionTitle": "Other Requirements",
+      "pages": [
+        4
+      ],
+      "text": "Additional requirements such as location, availability, working hours, language proficiency or other role-specific criteria may be specified where relevant to the position."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:6:19",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "6",
+      "sectionTitle": "JOB DESCRIPTION AND RECRUITMENT CONTENT",
+      "pages": [
+        4,
+        5
+      ],
+      "text": "Once the requirements of the position have been finalised, an appropriate Job Description (JD) and recruitment communication shall be prepared.\nThe recruitment content shall, as appropriate, include:\n• Position title\n• Location\n• Employment type\n• Educational qualification\n• Required experience\n• Professional registration/licensing requirements\n• Key responsibilities\n• Required technical skills\n• Required soft skills\n• Application procedure\n• Other relevant role-specific information\nThe final recruitment content shall be shared with the Marketing Team for preparation and publication of the recruitment poster or other approved recruitment material."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:7:20",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "7",
+      "sectionTitle": "RECRUITMENT SOURCES",
+      "pages": [
+        5
+      ],
+      "text": "BSmile may use one or more appropriate recruitment channels depending on the position and recruitment requirement.\nThese may include:\n• BSmile's LinkedIn profile\n• Social media platforms\n• WhatsApp status/stories\n• Relevant professional or graduate groups\n• Professional contacts and networks\n• Employee/professional referrals\n• Direct contacts\n• Meta advertisements\n• Other suitable job portals or recruitment platforms\nThe recruitment channels selected may vary according to the nature of the vacancy and the type of candidate being sought."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:8:21",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "8",
+      "sectionTitle": "APPLICATION RECEIPT AND CANDIDATE SHORTLISTING",
+      "pages": [
+        5,
+        6
+      ],
+      "text": "Applications and candidate leads received through the recruitment channels shall be reviewed against the requirements of the position.\nAn initial screening may be conducted through telephone or other appropriate communication with the candidate.\nCandidates may be shortlisted based on:\n• Educational qualifications\n• Professional credentials\n• Relevant work experience\n• Nature and quality of previous experience\n• Technical suitability\n• Location, where relevant to the role\n• Availability\n• Communication skills\n• Other position-specific requirements\nOnly candidates who reasonably meet the requirements of the position shall ordinarily proceed to the interview stage."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:9:22",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "9",
+      "sectionTitle": "INTERVIEW AND SELECTION PROCESS",
+      "pages": [
+        6,
+        7
+      ],
+      "text": "BSmile shall generally follow a two-stage interview process, subject to modification based on the position.\nStage 1 – Technical/Functional Interview The first round shall primarily assess the candidate's technical and professional competence.\nFor clinical, psychological, allied health or other specialised professional positions, the interview panel may include:\n• A relevant BSmile professional\n• A qualified/experienced professional from the respective field\n• Other personnel considered appropriate by management\nFor example, in the recruitment of an Occupational Therapist, the first-round panel may include a BSmile psychologist and an experienced Occupational Therapist.\nThe technical interview may assess:\n• Educational foundation\n• Professional knowledge\n• Practical understanding\n• Previous experience\n• Role-specific technical skills\n• Case-based or practical understanding, where appropriate\n• Professional judgement\n• Problem-solving ability\n• Understanding of ethical and professional responsibilities\nThe first round shall also assess the candidate's aptitude, attitude and ability in relation to the position.\nOnly candidates considered suitable following the first round shall ordinarily proceed to the second round."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:10:23",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "10",
+      "sectionTitle": "SECOND-ROUND MANAGEMENT INTERVIEW",
+      "pages": [
+        7
+      ],
+      "text": "Candidates who successfully clear the first-round assessment shall be forwarded for the management interview.\nThe second round may be conducted by the Director, Manager and/or other authorised management representatives.\nThe management interview shall assess areas including:\n• Overall suitability for the organisation\n• Professional attitude\n• Communication and interpersonal skills\n• Organisational expectations\n• Role expectations\n• Availability and joining requirements\n• Compensation expectations\n• Alignment between candidate expectations and BSmile's requirements\n• Other management-level considerations\nThe management team shall make the final selection decision based on the overall assessment of the candidate."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:11:24",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "11",
+      "sectionTitle": "INTERVIEW EVALUATION",
+      "pages": [
+        8
+      ],
+      "text": "Interviewers shall assess candidates based on criteria relevant to the position.\nDepending on the role, assessment may include:\n• Educational qualifications\n• Relevant experience\n• Technical competence\n• Aptitude\n• Professional attitude\n• Communication\n• Problem-solving ability\n• Role suitability\n• Professionalism\n• Organisational suitability\n• Compensation alignment\n• Other role-specific requirements\nThe assessment should consider the candidate's overall suitability rather than relying solely on one factor or one stage of the interview."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:12:25",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "12",
+      "sectionTitle": "SELECTION AND APPROVAL",
+      "pages": [
+        8,
+        9
+      ],
+      "text": "Following completion of the interview process, the selected candidate shall be approved by the authorised management personnel.\nThe final selection shall be based on:\n1. Meeting the minimum requirements of the position 2. Performance during the interview/assessment process 3. Professional and technical suitability 4. Organisational suitability 5. Verification of relevant credentials and information 6. Management approval.\nNo candidate shall be considered formally appointed until the required approval and appointment process has been completed."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:13:26",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "13",
+      "sectionTitle": "BACKGROUND AND DOCUMENT VERIFICATION",
+      "pages": [
+        9
+      ],
+      "text": "Following selection and prior to or as part of appointment formalities, BSmile may conduct appropriate verification of the selected candidate's information.\nDepending on the position, this may include verification of:\n• Identity documents\n• Educational qualifications\n• Professional qualifications\n• Professional registration/license\n• Relevant certifications\n• Previous employment/experience\n• References, where required\n• Other role-specific credentials\nFor clinical and professional positions, verification of applicable professional registration or licensing shall be given particular importance.\nIf material discrepancies, false information, forged documents or misrepresentation are identified, BSmile reserves the right to withdraw the selection or offer, subject to applicable requirements and organisational procedures."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:14:27",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "14",
+      "sectionTitle": "DOCUMENT SUBMISSION",
+      "pages": [
+        9,
+        10
+      ],
+      "text": "The selected candidate shall be required to submit the documents specified by BSmile for appointment.\nThe required documentation may include:\n• Identity proof\n• Educational certificates\n• Professional registration/licence\n• Relevant experience certificates\n• Photograph\n• Bank/payment details\n• Emergency contact details\nThe specific documentation required may vary depending on the position and employment type."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:15:28",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "15",
+      "sectionTitle": "OFFER LETTER",
+      "pages": [
+        10
+      ],
+      "text": "Following completion of the selection process and required approvals, BSmile shall issue an Offer Letter to the selected candidate.\nThe Offer Letter shall contain applicable employment or engagement terms, including:\n• Designation\n• Employment/engagement type\n• Compensation/Salary/Stipend\n• Joining date, Probation Period terms\n• Working hours or applicable schedule\n• Reporting structure\n• Applicable terms and conditions\n• Any Other relevant appointment terms\nThe candidate shall be required to review and accept the Offer Letter in the manner specified by BSmile."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:16:29",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "16",
+      "sectionTitle": "EMPLOYEE HANDBOOK AND ORGANISATIONAL POLICIES",
+      "pages": [
+        10
+      ],
+      "text": "The selected candidate shall be provided with the applicable Employee Handbook along with or during the offer and appointment process.\nThe candidate shall be expected to read, understand and comply with the policies, procedures, professional standards and workplace expectations contained therein.\nThe Employee Handbook shall operate alongside the Offer Letter and other applicable organisational policies."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:17:30",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "17",
+      "sectionTitle": "JOINING AND ONBOARDING",
+      "pages": [
+        11
+      ],
+      "text": "Following acceptance of the Offer Letter, the candidate shall be provided with a confirmed joining date.\nOn or around the date of joining, BSmile shall conduct an appropriate onboarding/orientation process.\nThe onboarding process may include:\n• Welcome and introduction to the organisation\n• Introduction to the team\n• Explanation of organisational structure\n• Explanation of reporting hierarchy\n• Introduction to relevant departments/personnel\n• Explanation of organisational workflow\n• Explanation of role and responsibilities\n• Introduction to applicable policies,procedures and documentation.\n• Other role-specific orientation or training\nThe extent of onboarding may vary according to the position and level of responsibility."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:18:31",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "18",
+      "sectionTitle": "CONFIDENTIALITY OF RECRUITMENT INFORMATION",
+      "pages": [
+        11
+      ],
+      "text": "All candidate information obtained during recruitment shall be treated as confidential.\nRecruitment information shall be shared only with personnel who are authorised or reasonably required to participate in the recruitment and selection process.\nInterview discussions, candidate evaluations, personal documents and other recruitment- related information shall not be disclosed unnecessarily to unauthorised individuals."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:19:32",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "19",
+      "sectionTitle": "CONFLICT OF INTEREST",
+      "pages": [
+        11
+      ],
+      "text": "Any person participating in the recruitment or selection process shall disclose any actual or potential conflict of interest involving a candidate.\nWhere a conflict may affect the fairness or objectivity of the selection process, management may reassign the relevant interviewer or decision-maker.\nPersonal relationships or external interests shall not improperly influence recruitment decisions."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:20:33",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "20",
+      "sectionTitle": "EQUAL AND FAIR OPPORTUNITY",
+      "pages": [
+        12
+      ],
+      "text": "BSmile shall seek to maintain a fair and professional recruitment process.\nEmployment decisions shall be based on legitimate requirements of the position, qualifications, competence, experience, professional suitability and organisational requirements.\nBSmile does not discriminate on the basis of race, caste, colour, religion, gender, sex, sexual orientation, age, disability, marital status, nationality, social or economic background, or any other status protected under applicable law, except where a specific requirement is a legitimate and lawful occupational requirement.\nSelection criteria shall be relevant to the position and applied consistently."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:21:34",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "21",
+      "sectionTitle": "RECRUITMENT OF INTERNS, CONSULTANTS AND PART-TIME",
+      "pages": [
+        12
+      ],
+      "text": "PROFESSIONALS Interns, consultants and part-time professionals may be recruited through a process appropriate to the nature of their engagement.\nThe organisation may modify the standard recruitment process based on:\n• Duration of engagement\n• Nature of responsibilities\n• Professional requirements\n• Level of supervision\n• Qualification requirements\n• Scope of work\nAll such engagements shall be subject to applicable documentation, confidentiality requirements and organisational policies."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:22:35",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "22",
+      "sectionTitle": "RECRUITMENT RECORDS",
+      "pages": [
+        12,
+        13
+      ],
+      "text": "BSmile shall maintain appropriate recruitment records, which may include:\n• Job description\n• Recruitment advertisement/poster\n• Candidate applications\n• Shortlisting records\n• Interview records/evaluations\n• Selection decision\n• Submitted documents\n• Offer Letter\n• Other relevant recruitment documentation\nRecruitment records shall be maintained and accessed in accordance with organisational requirements and applicable data/privacy obligations."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:23:36",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "23",
+      "sectionTitle": "EXCEPTIONS",
+      "pages": [
+        13
+      ],
+      "text": "Where exceptional circumstances require deviation from the standard recruitment process, such deviation shall require approval from the authorised management personnel.\nAny exception should be based on a legitimate organisational requirement and should not compromise professional standards, credential requirements or the integrity of the recruitment process."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:24:37",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "24",
+      "sectionTitle": "ROLES AND RESPONSIBILITIES",
+      "pages": [
+        13,
+        14
+      ],
+      "text": "Management Management shall:\n• Approve staffing requirements where applicable\n• Participate in the final selection process\n• Assess organisational and financial suitability\n• Approve final appointments\n• Approve exceptions to the recruitment process\nHiring Representative The relevant hiring representative shall:\n• Identify and communicate the staffing requirement\n• Define role requirements\n• Participate in shortlisting and interviews\n• Assess functional suitability\n• Coordinate with relevant professionals where required\nMarketing Team The Marketing Team shall:\n• Prepare recruitment creatives based on approved recruitment requirements\n• Publish recruitment content through approved channels\n• Support recruitment campaigns and advertisements\nInterview Panel The interview panel shall:\n• Conduct objective and role-relevant assessments\n• Assess technical and professional competence\n• Provide appropriate feedback/recommendations\n• Maintain confidentiality of candidate information\nCandidate Candidates shall:\n• Provide accurate and complete information\n• Submit required documents\n• Participate in the recruitment process in good faith\n• Disclose relevant information required for appointment\n• Comply with the terms of the Offer Letter and applicable organisational policies upon\njoining"
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:25:38",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "25",
+      "sectionTitle": "POLICY COMPLIANCE",
+      "pages": [
+        14
+      ],
+      "text": "All recruitment activities at BSmile The Mind Studio shall be conducted in accordance with this policy, the applicable organisational policies and applicable laws, regulations and professional requirements in force from time to time.\nWhere a specific professional or statutory requirement applies to a position, the relevant requirement shall take precedence over a general recruitment practice."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:26:39",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "26",
+      "sectionTitle": "POLICY REVIEW AND AMENDMENT",
+      "pages": [
+        15
+      ],
+      "text": "This policy shall be reviewed periodically by the management of BSmile The Mind Studio to ensure that it remains appropriate to the organisation's operational requirements and applicable professional and regulatory requirements.\nBSmile reserves the right to modify, amend or update this policy as required.\nAll amendments shall be communicated to the relevant personnel as appropriate."
+    },
+    {
+      "id": "hiring-recruitment-policy-v1:27:40",
+      "documentId": "hiring-recruitment-policy-v1",
+      "sectionNumber": "27",
+      "sectionTitle": "RECRUITMENT PROCESS SUMMARY",
+      "pages": [
+        15,
+        16
+      ],
+      "text": "Staffing Gap Identified\n↓\nPosition & Requirement Finalised\n↓\nQualification, Experience & Skill Criteria Defined\n↓\nRecruitment Content/JD Prepared\n↓\nMarketing & Recruitment Channels Activated\n↓\nApplications/Leads Received\n↓\nInitial Screening & Shortlisting\n↓\nRound 1 – Technical/Functional Interview\n↓\nAssessment of Aptitude, Attitude & Ability\n↓\nRound 2 – Management Interview\n↓\nFinal Selection & Management Approval\n↓\nDocument Submission\n↓\nBackground & Credential Verification\n↓\nOffer Letter Issued\n↓\nCandidate Acceptance & Signing\n↓\nJoining Date Confirmed\n↓\nWelcome & Organisational Orientation\n↓\nRole/Workflow/Hierarchy Explained\n↓\nEmployee Handbook & Applicable Policies Provided\n↓\nJoining & Onboarding Completed."
+    },
+    {
+      "id": "internship-policy-v1:1:1",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "1",
+      "sectionTitle": "PURPOSE",
+      "pages": [
+        1
+      ],
+      "text": "The Internship Programme at BSmile The Mind Studio is designed to provide interns with structured professional exposure to the functioning of a mental health organization.\nThe programme provides supervised opportunities to develop professional competencies relevant to the intern's area of study or assigned role, including professional communication, documentation, client interaction, organizational processes, teamwork, and workplace conduct.\nThe internship is intended to provide practical exposure while maintaining appropriate professional, ethical, and confidentiality standards applicable to the organization's work."
+    },
+    {
+      "id": "internship-policy-v1:2:2",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "2",
+      "sectionTitle": "SCOPE",
+      "pages": [
+        1
+      ],
+      "text": "This policy applies to all interns engaged by BSmile The Mind Studio, irrespective of their academic discipline, educational institution, internship duration, or assigned department.\nWhere an internship requires additional requirements based on the intern's academic programme, professional discipline, or specific assignment, such requirements may be communicated separately and shall be read together with this policy."
+    },
+    {
+      "id": "internship-policy-v1:3:3",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "3",
+      "sectionTitle": "ELIGIBILITY",
+      "pages": [
+        1,
+        2
+      ],
+      "text": "Internship opportunities may be offered to students or individuals who meet the educational, professional, or other requirements determined by BSmile The Mind Studio for the specific internship position.\nThe organization reserves the right to determine eligibility based on:\n• Academic background.\n• Relevant skills and competencies.\n• Internship requirements.\n• Availability of suitable supervisory resources.\n• Organizational requirements.\n• Any additional criteria established for a specific internship programme."
+    },
+    {
+      "id": "internship-policy-v1:4:4",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "4",
+      "sectionTitle": "INTERNSHIP DURATION",
+      "pages": [
+        2
+      ],
+      "text": "The duration of the internship will be determined by BSmile The Mind Studio based on the requirements of the internship programme and the applicable academic or institutional requirements.\nThe internship period, commencement date, and completion date will be communicated to the intern before the commencement of the internship.\nAny extension or modification of the internship period will require approval from the organization."
+    },
+    {
+      "id": "internship-policy-v1:5:5",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "5",
+      "sectionTitle": "OBJECTIVES OF THE INTERNSHIP",
+      "pages": [
+        2
+      ],
+      "text": "The internship programme is intended to provide interns with structured professional exposure to:\n• The functioning of a mental health organization.\n• Professional workplace practices.\n• Client interaction and communication, where applicable to the assigned role.\n• Documentation and reporting procedures.\n• Organizational coordination and teamwork.\n• Multidisciplinary professional interaction, where applicable.\n• Ethical and professional standards.\n• Confidentiality and appropriate professional boundaries.\n• Responsibilities associated with the intern's assigned role.\nThe nature and extent of exposure provided to each intern may vary according to the intern's academic background, assigned responsibilities, demonstrated capability, performance, and organizational requirements."
+    },
+    {
+      "id": "internship-policy-v1:6:6",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "6",
+      "sectionTitle": "INTERNSHIP RESPONSIBILITIES",
+      "pages": [
+        3
+      ],
+      "text": "Interns may be assigned responsibilities relevant to their area of study, assigned role, and the operational requirements of BSmile The Mind Studio.\nDepending on the nature of the internship, responsibilities may include:\n• Assisting with assigned administrative or operational activities.\n• Assisting with client-related coordination where appropriate.\n• Preparing and maintaining assigned documentation.\n• Preparing reports and maintaining records as directed.\n• Assisting relevant professional teams with assigned activities.\n• Participating in meetings, discussions, presentations, or other designated activities.\n• Supporting assigned projects or organizational initiatives.\n• Conducting Initial Assessments and completing Assessment documentation.\n• Carrying out other responsibilities reasonably assigned by the Internship Supervisor."
+    },
+    {
+      "id": "internship-policy-v1:6.1:7",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "6.1",
+      "sectionTitle": "Performance-Based Responsibilities",
+      "pages": [
+        3,
+        4
+      ],
+      "text": "Responsibilities will not necessarily be identical for all interns.\nThe level and nature of responsibility assigned to an intern will be determined based on:\n• Demonstrated capability.\n• Quality and accuracy of work.\n• Professional conduct.\n• Reliability and punctuality.\n• Ability to follow instructions.\n• Ability to work independently where appropriate.\n• Response to feedback.\n• Overall performance.\nAn intern may initially be assigned limited or closely supervised responsibilities. Additional responsibilities may be assigned progressively when the intern demonstrates the required level of competence and reliability.\nThe organization reserves the right to modify, increase, reduce, or reassign responsibilities based on the intern's performance and operational requirements."
+    },
+    {
+      "id": "internship-policy-v1:7:8",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "7",
+      "sectionTitle": "SUPERVISION AND REPORTING",
+      "pages": [
+        4
+      ],
+      "text": "Each intern will be assigned an Internship Supervisor or designated reporting authority.\nThe intern is expected to:\n• Report to the assigned supervisor as instructed.\n• Complete assigned responsibilities within the specified timelines.\n• Maintain regular communication regarding assigned work.\n• Submit daily task reports, weekly reports, or other documentation as required.\n• Seek clarification or professional guidance when required.\n• Follow reasonable instructions provided by the supervisor or authorized members of\nthe organization.\n• Report any difficulty, concern, or issue affecting assigned responsibilities in a timely\nmanner.\n• Requests for leave should also be communicated with their supervisor and except for\nemergency/sick leaves, intern should have prior approval from the supervising authority.\nThe Internship Supervisor will provide appropriate direction, supervision, and performance feedback based on the intern's responsibilities."
+    },
+    {
+      "id": "internship-policy-v1:8:9",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "8",
+      "sectionTitle": "CLINICAL AND PROFESSIONAL EXPOSURE",
+      "pages": [
+        4,
+        5
+      ],
+      "text": "Where relevant to the internship role, interns may be provided supervised exposure to:\n• Professional case discussions.\n• Multidisciplinary coordination.\n• Client intake and assessment procedures.\n• Documentation and reporting practices.\n• Treatment planning processes.\n• Professional communication.\n• Ethical practices within mental health services.\n• Organizational procedures related to client services.\nSuch exposure will be provided only to the extent considered appropriate by the organization and the supervising professional.\nInterns shall not independently undertake clinical, therapeutic, diagnostic, or other professional responsibilities that require a specific professional qualification, registration, or authorization."
+    },
+    {
+      "id": "internship-policy-v1:9:10",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "9",
+      "sectionTitle": "CLINIC TIMINGS AND ATTENDANCE",
+      "pages": [
+        5
+      ],
+      "text": "The clinic operates Monday to Saturday, from 9:00 AM to 5:00 PM.\nIntern attendance requirements may vary depending on:\n• Assigned responsibilities.\n• Internship requirements.\n• Scheduled activities.\n• Supervisory requirements.\n• Operational requirements of the organization.\nStandard Timings for Interns are from 10AM-4PM.Interns may be required to attend during all or part of the clinic's operating hours, as required.\nThe expected schedule will be communicated by the Internship Supervisor or designated authority.\nRegular attendance and punctuality are mandatory and will form part of the intern's overall performance assessment."
+    },
+    {
+      "id": "internship-policy-v1:10:11",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "10",
+      "sectionTitle": "LEAVE AND ABSENCE",
+      "pages": [
+        5,
+        6
+      ],
+      "text": "• Regular attendance is expected throughout the internship period.\n• Leave must be communicated to and approved by the Internship Supervisor in\nadvance, except where circumstances make prior communication impractical.\n• Medical leave may be subject to appropriate supporting documentation where\nrequired.\n• Unapproved absence may be recorded as a violation of internship requirements.\n• Repeated absence or persistent punctuality issues may negatively affect the intern's\nperformance evaluation and eligibility for successful completion of the internship.\n• The organization reserves the right to review the internship status of an intern in cases\nof prolonged or repeated absence."
+    },
+    {
+      "id": "internship-policy-v1:11:12",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "11",
+      "sectionTitle": "PROFESSIONAL CONDUCT",
+      "pages": [
+        6
+      ],
+      "text": "All interns are expected to maintain professional conduct throughout the internship.\nInterns shall:\n• Maintain professionalism in all interactions.\n• Treat clients, supervisors, psychologists, colleagues, and other staff members with\nrespect.\n• Maintain appropriate professional boundaries.\n• Follow organizational policies, procedures, and instructions.\n• Maintain punctuality and workplace discipline.\n• Communicate professionally and respectfully.\n• Take reasonable responsibility for assigned work.\n• Respond appropriately to feedback and supervision.\n• Avoid conduct that may adversely affect clients, staff members, or the reputation of\nBSmile The Mind Studio.\n• Uphold the ethical principles applicable to their area of study and professional\npractice."
+    },
+    {
+      "id": "internship-policy-v1:12:13",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "12",
+      "sectionTitle": "DRESS CODE",
+      "pages": [
+        6,
+        7
+      ],
+      "text": "Interns are required to maintain a neat and professional appearance while attending the organization.\nAppropriate professional attire may include:\n• Indian formal wear.\n• Western formal wear.\n• Other neat and professionally appropriate attire suitable for a mental health\nworkplace.\nThe organization may provide additional dress requirements where necessary for specific activities or responsibilities."
+    },
+    {
+      "id": "internship-policy-v1:13:14",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "13",
+      "sectionTitle": "CONFIDENTIALITY AND DATA PROTECTION",
+      "pages": [
+        7
+      ],
+      "text": "Due to the sensitive nature of mental health services, interns may have access to confidential client, clinical, employee, operational, or organizational information.\nAll such information must be treated as strictly confidential.\nInterns shall not:\n• Disclose confidential information to unauthorized persons.\n• Photograph or record client information without authorization.\n• Copy, download, forward, or share confidential records without authorization.\n• Discuss identifiable client information outside authorized professional settings.\n• Use organizational or client information for personal, academic, social media, or other\npurposes without prior authorization.\n• Retain confidential information after completion of the internship unless specifically\nauthorized.\nThe obligation of confidentiality continues after the completion or termination of the internship.\nAny breach of confidentiality may result in immediate discontinuation of the internship and may lead to further action as considered appropriate by the organization."
+    },
+    {
+      "id": "internship-policy-v1:14:15",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "14",
+      "sectionTitle": "USE OF ORGANIZATIONAL INFORMATION AND MATERIALS",
+      "pages": [
+        7,
+        8
+      ],
+      "text": "All documents, records, formats, internal processes, materials, data, and other information provided to interns for the purpose of their internship shall be used only for authorized internship-related activities.\nInterns shall not reproduce, distribute, publish, or share organizational materials without prior authorization.\nAny academic work, presentation, report, research, or other material prepared using organizational or client-related information must comply with confidentiality requirements and any specific instructions provided by the organization."
+    },
+    {
+      "id": "internship-policy-v1:15:16",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "15",
+      "sectionTitle": "PERFORMANCE ASSESSMENT",
+      "pages": [
+        8
+      ],
+      "text": "Intern performance will be assessed throughout the internship based on objective professional and work-related criteria.\nThe assessment may include:\n• Attendance and punctuality.\n• Professional behaviour.\n• Conduct towards clients and staff.\n• Communication and interpersonal skills.\n• Ability to complete assigned responsibilities.\n• Quality and accuracy of work.\n• Structure, clarity, and accuracy of documentation.\n• Timely submission of assigned reports.\n• Compliance with reporting requirements.\n• Ability to follow instructions.\n• Ability to incorporate feedback.\n• Initiative within the scope of assigned responsibilities.\n• Ability to work effectively with the team.\n• Overall professional development demonstrated during the internship."
+    },
+    {
+      "id": "internship-policy-v1:15.1:17",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "15.1",
+      "sectionTitle": "Final Assessment",
+      "pages": [
+        8,
+        9
+      ],
+      "text": "Where applicable, the final assessment will include:\n1. Final Report – Evaluation of the structure, clarity, content, accuracy, completeness, and submission discipline of the report.\n2. Final Presentation – Presentation of a topic or topics assigned by the Internship Supervisor relating to the intern's area of study, psychology, social work, mental health, or other relevant professional subjects.\n3. Overall Performance – Evaluation of attendance, punctuality, professional conduct, behaviour towards staff and clients, documentation, task completion, responsiveness to supervision, and overall performance during the internship.\nThe final report and presentation, together with the intern's overall performance throughout the internship, will form the basis of the final internship assessment."
+    },
+    {
+      "id": "internship-policy-v1:16:18",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "16",
+      "sectionTitle": "FEEDBACK AND PERFORMANCE REVIEW",
+      "pages": [
+        9
+      ],
+      "text": "Interns may receive feedback from the Internship Supervisor or other designated members of the organization during the internship.\nWhere performance does not meet the expected standard, the organization may:\n• Provide corrective feedback.\n• Clarify expected standards.\n• Provide additional supervision.\n• Modify assigned responsibilities.\n• Reduce the level of independent responsibility.\n• Review the intern's continuation in the programme."
+    },
+    {
+      "id": "internship-policy-v1:17:19",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "17",
+      "sectionTitle": "CERTIFICATE OF COMPLETION",
+      "pages": [
+        9,
+        10
+      ],
+      "text": "A Certificate of Completion may be issued upon satisfactory completion of the internship, subject to the organization's assessment.\nIssuance of the certificate will be subject to:\n• Completion of the prescribed internship period.\n• Satisfactory attendance and punctuality.\n• Compliance with professional conduct requirements.\n• Completion of assigned responsibilities.\n• Timely submission of required reports and documentation.\n• Completion of the required final report, where applicable.\n• Completion of the required final presentation, where applicable.\n• Satisfactory overall performance evaluation.\n• Compliance with confidentiality and organizational requirements.\nThe organization reserves the right to withhold the Certificate of Completion where the intern has not satisfactorily fulfilled the internship requirements.\nCompletion of an internship does not guarantee employment, consultancy, or any future engagement with BSmile The Mind Studio."
+    },
+    {
+      "id": "internship-policy-v1:18:20",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "18",
+      "sectionTitle": "STIPEND",
+      "pages": [
+        10
+      ],
+      "text": "Where applicable, BSmile The Mind Studio may provide a stipend to an intern based on the organization's applicable internship provisions.\nThe eligibility, amount, and payment of any stipend will be determined by the organization based on the intern's performance and the applicable terms communicated for the respective internship programme.\nA stipend, where provided, shall not be considered a salary or employment compensation unless otherwise expressly stated by the organization."
+    },
+    {
+      "id": "internship-policy-v1:19:21",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "19",
+      "sectionTitle": "TERMINATION OR DISCONTINUATION OF INTERNSHIP",
+      "pages": [
+        10,
+        11
+      ],
+      "text": "BSmile The Mind Studio reserves the right to discontinue an internship before the scheduled completion date in cases including, but not limited to:\n• Serious misconduct.\n• Breach of confidentiality.\n• Repeated unapproved absence.\n• Persistent punctuality issues.\n• Harassment or inappropriate behaviour.\n• Failure to follow reasonable instructions.\n• Failure to comply with organizational policies.\n• Misuse of confidential or organizational information.\n• Conduct that adversely affects clients, staff, or the organization.\n• Failure to maintain required professional standards.\n• Unsatisfactory performance.\n• Any other conduct considered inconsistent with the requirements of the internship.\nIn cases involving serious misconduct, confidentiality breaches, harassment, or other significant violations, the organization may discontinue the internship with immediate effect."
+    },
+    {
+      "id": "internship-policy-v1:20:22",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "20",
+      "sectionTitle": "DOCUMENTS REQUIRED BEFORE COMMENCEMENT",
+      "pages": [
+        11
+      ],
+      "text": "Depending on the nature and requirements of the internship, the organization may require interns to submit relevant documents before commencement, including:\n• Copy of Aadhaar Card or other valid identification.\n• Permission or recommendation letter from the concerned educational institution,\nwhere applicable.\n• College or university identification card, where applicable.\n• Internship-related documentation prescribed by the educational institution.\n• Any other documents reasonably required by the organization.\nWhere applicable, an internship registration fee may be charged. The amount and payment requirements will be communicated to the intern before commencement."
+    },
+    {
+      "id": "internship-policy-v1:21:23",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "21",
+      "sectionTitle": "ORGANIZATIONAL DISCRETION",
+      "pages": [
+        11,
+        12
+      ],
+      "text": "BSmile The Mind Studio reserves the right to determine:\n• The number of interns accepted.\n• Internship eligibility requirements.\n• Internship duration.\n• Assigned responsibilities.\n• Level of supervision.\n• Attendance requirements.\n• Performance standards.\n• Assessment methods.\n• Certificate eligibility.\n• Stipend eligibility, where applicable.\n• Continuation or discontinuation of the internship.\nThe organization may modify internship responsibilities or procedures based on operational, professional, or organizational requirements."
+    },
+    {
+      "id": "internship-policy-v1:22:24",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "22",
+      "sectionTitle": "POLICY COMPLIANCE",
+      "pages": [
+        12
+      ],
+      "text": "All interns are required to comply with this Internship Policy and any other applicable organizational policies, procedures, instructions, and professional standards communicated during the internship.\nFailure to comply with the requirements of this policy may result in corrective action, modification of responsibilities, withholding of the Certificate of Completion, or discontinuation of the internship, depending on the nature and severity of the matter."
+    },
+    {
+      "id": "internship-policy-v1:23:25",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "23",
+      "sectionTitle": "POLICY REVIEW AND AMENDMENT",
+      "pages": [
+        12
+      ],
+      "text": "BSmile The Mind Studio reserves the right to review, modify, update, or replace this policy as required based on organizational requirements, operational changes, professional standards, or applicable regulations.\nAny revised version of the policy shall supersede the previous version from its stated effective date."
+    },
+    {
+      "id": "internship-policy-v1:24:26",
+      "documentId": "internship-policy-v1",
+      "sectionNumber": "24",
+      "sectionTitle": "POLICY AUTHORITY",
+      "pages": [
+        12
+      ],
+      "text": "This policy is issued under the authority of BSmile The Mind Studio and shall serve as the standard Internship Policy applicable to interns engaged by the organization.\nSpecific internship programmes may include additional requirements based on the intern's academic discipline, role, or institutional requirements. Such requirements shall supplement this policy and shall not automatically replace the provisions contained herein."
+    }
+  ]
+}

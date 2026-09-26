@@ -150,7 +150,7 @@ export function sectionNavigation(
     )
       return "Data & Settings";
     if (
-      /^(Chat|Teams|Announcements|Notifications|Customer Feedback)$/.test(label)
+      /^(Chat|Teams|Genie|Announcements|Notifications|Customer Feedback)$/.test(label)
     )
       return "Communication";
     if (
@@ -200,6 +200,7 @@ export function navigationForProfile(role: string | null | undefined) {
 }
 
 export function adminRouteRequirement(path: string): PermissionRequirement {
+  if (path.startsWith("/admin/genie")) return {};
   if (path.startsWith("/admin/daily-work"))
     return anyOf("attendance.view", "attendance.manage");
   if (path === "/admin") return anyOf("admin.access");
@@ -479,6 +480,7 @@ export const adminNavigation: readonly NavigationGroup[] = [
     title: "COMMUNICATION",
     links: [
       { label: "Chat", href: "/admin/chat", requirement: anyOf("chat.use") },
+      { label: "Genie", href: "/admin/genie" },
       {
         label: "Announcements",
         href: "/admin/announcements",
@@ -733,6 +735,7 @@ export const employeeNavigation: readonly NavigationGroup[] = [
     title: "COMMUNICATION",
     links: [
       { label: "Chat", href: "/employee/chat", requirement: anyOf("chat.use") },
+      { label: "Genie", href: "/employee/genie" },
       { label: "Notifications", href: "/employee/notifications" },
       { label: "Profile", href: "/employee/profile" },
     ],
