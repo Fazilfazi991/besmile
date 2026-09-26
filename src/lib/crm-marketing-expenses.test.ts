@@ -35,14 +35,12 @@ describe('CRM Marketing Expenses card', () => {
     ], { start: '2026-09-12', end: '2026-09-14' })).toBe(30);
   });
 
-  it('uses Marketing only in the expense visual while preserving the existing Net Result', () => {
-    const display = crmFinanceDisplay(1000, 493276, 50);
+  it('shows only revenue and Marketing expenses in the CRM visual', () => {
+    const display = crmFinanceDisplay(1000, 50);
     expect(display.bars).toEqual([
       { label: 'Revenue', value: 1000, tone: 'bg-teal-600' },
       { label: 'Marketing Expenses', value: 50, tone: 'bg-rose-400' },
-      { label: 'Net', value: -492276, tone: 'bg-slate-700' },
     ]);
-    expect(display.netResult).toBe(-492276);
-    expect(crmFinanceDisplay(1000, 493276, null).bars[1].value).toBeNull();
+    expect(crmFinanceDisplay(1000, null).bars[1].value).toBeNull();
   });
 });
