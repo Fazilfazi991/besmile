@@ -5,7 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { adminRepository } from '@/lib/admin-repository';
-import { chartInr, compactInr } from '@/lib/finance-format';
+import { executiveInr } from '@/lib/finance-format';
 import { ModuleIcon } from '@/components/module-icon';
 import { executiveFirstName } from '@/lib/executive-dashboard';
 import { executiveKpiCharts } from '@/lib/dashboard-kpi-model';
@@ -117,13 +117,13 @@ export function DirectorExecutiveDashboard({ name }: { name?: string | null }) {
     </header>
     {(error || crmError) && <p className="director-inline-error" role="status">Some data could not be refreshed. The figures below are from the latest successful load.</p>}
     <div className="director-kpis">
-      <Kpi icon="Revenue" label="Revenue" value={compactInr(metrics.revenue)} change={period === 'month' ? metrics.revenueChange : null} noActivity={!metrics.revenue} href="/admin/finance" chart={charts.revenue} />
-      <Kpi icon="Income" label="Collections" value={compactInr(metrics.collections)} change={period === 'month' ? metrics.collectionsChange : null} noActivity={!metrics.collections} href="/admin/finance/income" chart={charts.collections} />
+      <Kpi icon="Revenue" label="Revenue" value={executiveInr(metrics.revenue)} change={period === 'month' ? metrics.revenueChange : null} noActivity={!metrics.revenue} href="/admin/finance" chart={charts.revenue} />
+      <Kpi icon="Income" label="Collections" value={executiveInr(metrics.collections)} change={period === 'month' ? metrics.collectionsChange : null} noActivity={!metrics.collections} href="/admin/finance/income" chart={charts.collections} />
       <Kpi icon="Leads" label="Leads this period" value={String(metrics.periodLeadCount)} detail={rangeLabel} href="/admin/crm" />
       <Kpi icon="Leads" label="Today's Leads" value={String(metrics.todayLeads)} detail="Canonical CRM date" href="/admin/crm" />
       <Kpi icon="Sales" label="Conversion rate" value={formatCrmConversionRate(crmSummary)} detail={rangeLabel} noActivity={!metrics.periodLeadCount} href="/admin/crm" chart={charts.conversion} />
       <Kpi icon="Leads" label="Active Leads — All Time" value={String(metrics.activeLeads)} detail="Live pipeline · not period filtered" href="/admin/crm/leads" chart={charts.leads} />
-      <Kpi icon="Invoices" label="Outstanding invoices" value={compactInr(metrics.outstanding)} detail={`${metrics.openInvoiceCount} open balance${metrics.openInvoiceCount === 1 ? '' : 's'}`} href="/admin/finance/invoices" warning chart={charts.invoices} />
+      <Kpi icon="Invoices" label="Outstanding invoices" value={executiveInr(metrics.outstanding)} detail={`${metrics.openInvoiceCount} open balance${metrics.openInvoiceCount === 1 ? '' : 's'}`} href="/admin/finance/invoices" warning chart={charts.invoices} valueFormatter={executiveInr} />
     </div>
     <div className="director-layout">
       <div className="director-trend-slot" style={{ gridColumn: '1 / -1', minWidth: 0 }}><Panel title="Revenue & sales trend" subtitle="Last 6 months" action={<Link href="/admin/finance/reports">View reports</Link>} className="director-trend-panel"><ExecutiveTrendChart rows={metrics.trend} /></Panel></div>
@@ -135,19 +135,19 @@ export function DirectorExecutiveDashboard({ name }: { name?: string | null }) {
   </section>;
 }
 
-function Kpi({ icon, label, value, change, changeUnit = '%', detail, href, warning = false, noActivity = false, chart }: any) { const positive = change !== null && change !== undefined && change >= 0; const showChange = !noActivity && change !== null && change !== undefined; return <Link href={href} className={`director-kpi${warning ? ' is-warning' : ''}`}><ModuleIcon label={icon} /><span><small>{label}</small><strong title={value}>{value}</strong>{showChange ? <em className={positive ? 'is-up' : 'is-down'}>{positive ? '↑' : '↓'} {Math.abs(change).toFixed(1)}{changeUnit} <i>vs last month</i></em> : <em>{noActivity ? 'No activity this period' : detail || 'Live business data'}</em>}{chart && <KpiMiniChart model={chart} />}</span></Link>; }
+function Kpi({ icon, label, value, change, changeUnit = '%', detail, href, warning = false, noActivity = false, chart, valueFormatter }: any) { const positive = change !== null && change !== undefined && change >= 0; const showChange = !noActivity && change !== null && change !== undefined; return <Link href={href} className={`director-kpi${warning ? ' is-warning' : ''}`}><ModuleIcon label={icon} /><span><small>{label}</small><strong title={value}>{value}</strong>{showChange ? <em className={positive ? 'is-up' : 'is-down'}>{positive ? '↑' : '↓'} {Math.abs(change).toFixed(1)}{changeUnit} <i>vs last month</i></em> : <em>{noActivity ? 'No activity this period' : detail || 'Live business data'}</em>}{chart && <KpiMiniChart model={chart} valueFormatter={valueFormatter} />}</span></Link>; }
 
 function Panel({ title, subtitle, action, children, className = '' }: any) { return <section className={`director-panel ${className}`}><header><span><h2>{title}</h2><p>{subtitle}</p></span>{action}</header><div className="director-panel-body">{children}</div></section>; }
 function Empty({ text }: { text: string }) { return <p className="director-empty">{text}</p>; }
 function dayPart() { const hour = new Date().getHours(); return hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'; }
 const shortNumber = (value: number) => new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-const chartSummary = (rows: any[]) => rows.map(row => `${row.label}: ${chartInr(row.revenue)} revenue and ${row.sales} sales`).join('; ');
+const chartSummary = (rows: any[]) => rows.map(row => `${row.label}: ${executiveInr(row.revenue)} revenue and ${row.sales} sales`).join('; ');
 
 function ExecutiveTrendChart({ rows }: { rows: any[] }) {
   if (rows.every(row => !row.revenue && !row.sales)) return <div className="director-chart-empty"><ModuleIcon label="Reports" /><b>No revenue or sales recorded</b><span>The last six months will appear here as activity is recorded.</span></div>;
   return <div className="director-chart" role="img" aria-label={chartSummary(rows)}><p className="sr-only">{chartSummary(rows)}</p><ResponsiveContainer width="100%" height={228}><ComposedChart data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}><CartesianGrid stroke="#e8eeef" strokeDasharray="3 4" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#6f7c8f', fontSize: 11 }} /><YAxis yAxisId="money" tickFormatter={shortNumber} tickLine={false} axisLine={false} width={48} tick={{ fill: '#6f7c8f', fontSize: 10 }} /><YAxis yAxisId="sales" orientation="right" allowDecimals={false} tickLine={false} axisLine={false} width={28} tick={{ fill: '#6f7c8f', fontSize: 10 }} /><Tooltip content={<TrendTooltip />} cursor={{ fill: 'rgba(15, 118, 110, .05)' }} /><Bar yAxisId="money" dataKey="revenue" name="Revenue" fill="#36ad9f" radius={[5, 5, 0, 0]} maxBarSize={40} /><Line yAxisId="sales" type="monotone" dataKey="sales" name="Sales" stroke="#4978d1" strokeWidth={2} dot={{ r: 3, fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 4 }} /></ComposedChart></ResponsiveContainer><div className="director-chart-key" aria-hidden="true"><span><i />Revenue</span><span><i />Sales</span></div></div>;
 }
-function TrendTooltip({ active, payload, label }: any) { if (!active || !payload?.length) return null; const values = Object.fromEntries(payload.map((item: any) => [item.dataKey, item.value])); return <div className="director-tooltip"><b>{label}</b><span>Revenue <strong>{chartInr(values.revenue)}</strong></span><span>Sales <strong>{Number(values.sales || 0).toLocaleString('en-IN')}</strong></span></div>; }
+function TrendTooltip({ active, payload, label }: any) { if (!active || !payload?.length) return null; const values = Object.fromEntries(payload.map((item: any) => [item.dataKey, item.value])); return <div className="director-tooltip"><b>{label}</b><span>Revenue <strong>{executiveInr(values.revenue)}</strong></span><span>Sales <strong>{Number(values.sales || 0).toLocaleString('en-IN')}</strong></span></div>; }
 
 function LeadPipeline({ rows }: { rows: any[] }) {
   if (!rows.length) return <div className="director-pipeline-empty"><span>No leads entered this period.</span><Link href="/admin/crm/leads">Open leads</Link></div>;

@@ -206,3 +206,5 @@ html[data-theme="colorful"] [data-testid="lead-performance-total"] { color: #fff
 html[data-theme="colorful"] [data-testid="lead-performance-card"] .recharts-cartesian-axis-tick-value { fill: #c7d3f4 !important; }
 html[data-theme="colorful"] [data-testid="lead-performance-card"] .recharts-line-curve { stroke: #4be0c9 !important; }
 html[data-theme="colorful"] [data-testid="lead-performance-card"] .text-slate-900 { color: #f7f9ff !important; }
+.director-kpi .kpi-chart-exact .kpi-chart-legend span { grid-template-columns: 6px minmax(0, 1fr); }
+.director-kpi .kpi-chart-exact .kpi-chart-legend b { grid-column: 2; overflow-wrap: anywhere; text-align: left; line-height: 1.25; }

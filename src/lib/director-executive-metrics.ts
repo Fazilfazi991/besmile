@@ -1,4 +1,4 @@
-import { compactInr } from './finance-format';
+import { executiveInr } from './finance-format';
 import {
   businessDateParts,
   isActiveLead,
@@ -37,7 +37,7 @@ export function buildDirectorMetrics(data: any, range: CrmDateRange, crmSummary:
   activeLeadRows.forEach((lead: any) => { const stage = lead.status?.name || 'Unassigned'; activeLeadMap.set(stage, (activeLeadMap.get(stage) || 0) + 1); });
   const activeLeadDistribution = [...activeLeadMap].map(([label, value], index) => ({ label, value, color: ['#14988c', '#4f86d9', '#8a68d6', '#dc729d', '#de9a35'][index % 5] }));
   const priorities = [
-    overdueInvoices.length && { icon: 'Invoices', label: `${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? '' : 's'}`, detail: `${compactInr(overdueBalance)} outstanding`, href: '/admin/finance/invoices', action: 'Review', tone: 'danger' },
+    overdueInvoices.length && { icon: 'Invoices', label: `${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? '' : 's'}`, detail: `${executiveInr(overdueBalance)} outstanding`, href: '/admin/finance/invoices', action: 'Review', tone: 'danger' },
     Number(data.summary?.followupsDue) > 0 && { icon: 'Follow-ups', label: `${data.summary.followupsDue} lead follow-up${data.summary.followupsDue === 1 ? '' : 's'} due`, detail: 'CRM follow-up required today', href: '/admin/crm/follow-ups', action: 'Follow up', tone: 'warning' },
     Number(data.summary?.overdueTasks) > 0 && { icon: 'Overdue tasks', label: `${data.summary.overdueTasks} overdue task${data.summary.overdueTasks === 1 ? '' : 's'}`, detail: 'Past the assigned due date', href: '/admin/tasks', action: 'Review', tone: 'info' },
     Number(data.summary?.pendingLeave) > 0 && { icon: 'Leave approvals', label: `${data.summary.pendingLeave} leave request${data.summary.pendingLeave === 1 ? '' : 's'} pending`, detail: 'Awaiting management decision', href: '/admin/leaves', action: 'Decide', tone: 'neutral' },

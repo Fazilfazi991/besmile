@@ -9,3 +9,8 @@ export const chartInr = (value: number | string | null | undefined) =>
   `INR ${new Intl.NumberFormat('en-IN', {
     maximumFractionDigits: 0,
   }).format(Number(value || 0))}`;
+
+export const executiveInr = (value: number | string | null | undefined) =>
+  `INR ${new Intl.NumberFormat('en-IN', {
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0))}`;
