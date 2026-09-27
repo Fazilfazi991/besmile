@@ -52,7 +52,7 @@ const monthKeys = ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-
 const transactionRows = monthKeys.flatMap((month, index) => [
   { id: `demo-income-${month}`, transaction_type: 'income', transaction_date: `${month}-08`, amount: 42000 + index * 4800 },
   { id: `demo-payment-${month}`, transaction_type: 'invoice_payment', transaction_date: `${month}-18`, amount: 26500 + index * 3200 },
-  { id: `demo-expense-${month}`, transaction_type: 'expense', transaction_date: `${month}-21`, amount: 14500 + index * 1300 },
+  { id: `demo-expense-${month}`, transaction_type: 'expense', transaction_date: `${month}-21`, amount: 14500 + index * 1300, expense_category: { name: ['Admin & Utilities', 'Marketing', 'Monthly Expenses'][index % 3] } },
 ]);
 
 const leadStatuses = ['New', 'Contacted', 'Qualified', 'Proposal', 'Won'];
