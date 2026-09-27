@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     const { data: profile } = await db
       .from('profiles')
-      .select('status,is_employee')
+      .select('status,is_employee,role')
       .eq('id', user.id)
       .maybeSingle();
     if (!canUseGenie(profile))

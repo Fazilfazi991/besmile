@@ -199,8 +199,8 @@ export function navigationForProfile(role: string | null | undefined) {
     : employeeNavigation;
 }
 
-export function adminRouteRequirement(path: string): PermissionRequirement {
-  if (path.startsWith("/admin/genie")) return {};
+export function adminRouteRequirement(path: string): PermissionRequirement | undefined {
+  if (path.startsWith("/admin/genie")) return undefined;
   if (path.startsWith("/admin/daily-work"))
     return anyOf("attendance.view", "attendance.manage");
   if (path === "/admin") return anyOf("admin.access");

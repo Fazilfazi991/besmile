@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BookOpenText, LockKeyhole, Send, ShieldCheck } from 'lucide-react';
+import { genieAcknowledgementReply } from '@/lib/genie-conversation';
 import type { GeniePolicyDocument, GenieSource } from '@/lib/genie-policy';
 import './genie-chat.css';
 
@@ -9,7 +10,7 @@ type ChatMessage = {
   id: string;
   role: 'assistant' | 'user';
   text: string;
-  status?: 'answered' | 'not_found' | 'error';
+  status?: 'answered' | 'conversation' | 'not_found' | 'error';
   sources?: GenieSource[];
 };
 
@@ -79,13 +80,44 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
   const [loading, setLoading] = useState(false);
   const [interactive, setInteractive] = useState(false);
   const messageCounter = useRef(0);
+  const threadRef = useRef<HTMLDivElement>(null);
+  const isNearThreadEnd = useRef(true);
+  const forceThreadEnd = useRef(true);
 
   useEffect(() => setInteractive(true), []);
+
+  useLayoutEffect(() => {
+    const thread = threadRef.current;
+    if (!thread || (!forceThreadEnd.current && !isNearThreadEnd.current)) return;
+    thread.scrollTop = thread.scrollHeight;
+    forceThreadEnd.current = false;
+    isNearThreadEnd.current = true;
+  }, [messages, loading]);
+
+  const trackThreadPosition = () => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    isNearThreadEnd.current = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 96;
+  };
 
   const ask = async (nextQuestion: string) => {
     const trimmed = nextQuestion.trim();
     if (!trimmed || loading) return;
     const userMessage: ChatMessage = { id: `user-${messageCounter.current += 1}`, role: 'user', text: trimmed };
+    const acknowledgement = genieAcknowledgementReply(trimmed);
+    forceThreadEnd.current = true;
+    if (acknowledgement) {
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${messageCounter.current += 1}`,
+        role: 'assistant',
+        text: acknowledgement,
+        status: 'conversation',
+        sources: [],
+      };
+      setMessages((current) => [...current, userMessage, assistantMessage]);
+      setQuestion('');
+      return;
+    }
     setMessages((current) => [...current, userMessage]);
     setQuestion('');
     setLoading(true);
@@ -98,7 +130,7 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
       const payload = await response.json() as {
         answer?: string;
         error?: string;
-        status?: 'answered' | 'not_found';
+        status?: 'answered' | 'conversation' | 'not_found';
         sources?: GenieSource[];
       };
       if (!response.ok) throw new Error(payload.error || 'Genie could not answer right now.');
@@ -150,7 +182,7 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
 
       <div className="genie-workspace">
         <section className="genie-chat-panel" aria-label="Chat with Genie">
-          <div className="genie-thread" aria-live="polite" aria-busy={loading}>
+          <div className="genie-thread" ref={threadRef} onScroll={trackThreadPosition} aria-live="polite" aria-busy={loading}>
             {messages.map((message) => (
               <article className={`genie-message genie-message-${message.role}${message.status ? ` is-${message.status}` : ''}`} key={message.id}>
                 {message.role === 'assistant' && <GenieMark small />}

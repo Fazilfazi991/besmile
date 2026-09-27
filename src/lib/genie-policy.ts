@@ -1,4 +1,5 @@
 import policyIndex from '@/data/genie-policy-index.json';
+import { genieAcknowledgementReply } from './genie-conversation';
 
 type PolicyDocument = {
   id: string;
@@ -29,7 +30,7 @@ export type GenieSource = {
 };
 
 export type GenieAnswer = {
-  status: 'answered' | 'not_found';
+  status: 'answered' | 'conversation' | 'not_found';
   answer: string;
   sources: GenieSource[];
 };
@@ -210,6 +211,9 @@ function internReportingNeedsBothPolicies(question: string) {
 
 export function answerPolicyQuestion(rawQuestion: string): GenieAnswer {
   const question = rawQuestion.trim().slice(0, 400);
+  const acknowledgement = genieAcknowledgementReply(question);
+  if (acknowledgement)
+    return { status: 'conversation', answer: acknowledgement, sources: [] };
   const ranked = rankChunks(question);
   const top = ranked[0];
   if (!top || top.score < 12 || top.baseCoverage < 0.34) {

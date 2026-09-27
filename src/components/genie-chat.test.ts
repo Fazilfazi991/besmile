@@ -14,10 +14,19 @@ describe('Genie chat experience', () => {
     expect(styles).toContain('.genie-message.is-not_found');
   });
 
+  it('keeps chronological messages at the bottom without interrupting deliberate history reading', () => {
+    expect(component).toContain('setMessages((current) => [...current, userMessage');
+    expect(component).toContain('thread.scrollTop = thread.scrollHeight');
+    expect(component).toContain('isNearThreadEnd.current');
+    expect(component).toContain('onScroll={trackThreadPosition}');
+    expect(component).toContain('genieAcknowledgementReply(trimmed)');
+  });
+
   it('supports tablet/mobile composition and both workspace themes', () => {
     expect(styles).toContain('@media(max-width:820px)');
     expect(styles).toContain('@media(max-width:600px)');
     expect(styles).toContain('font-size:16px');
+    expect(styles).toContain('height:max(560px,calc(100dvh - 200px))');
     expect(styles).toContain('html[data-theme="colorful"] .genie-page');
     expect(styles).toContain('@media(prefers-reduced-motion:reduce)');
   });

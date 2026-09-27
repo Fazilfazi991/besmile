@@ -38,6 +38,15 @@ describe('Genie approved-policy retrieval', () => {
     });
   });
 
+  it('answers acknowledgements before retrieval without changing unsupported-question behavior', () => {
+    expect(answerPolicyQuestion('okay')).toEqual({
+      status: 'conversation',
+      answer: 'Got it. Ask me anything else about the approved BSmile policies.',
+      sources: [],
+    });
+    expect(answerPolicyQuestion('Okay, where can I park my car?').status).toBe('not_found');
+  });
+
   it('surfaces both approved statements when intern reporting wording is ambiguous', () => {
     const result = answerPolicyQuestion('Who does an intern report to?');
     expect(result.status).toBe('answered');
