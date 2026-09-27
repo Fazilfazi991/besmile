@@ -9,6 +9,7 @@ import { assignmentProgressLabel, assignmentStatusLabel, completionUpdateError, 
 import { defaultTaskWorkSchedule, loadTaskWorkSchedule, taskCompletionSlaLabel } from '@/lib/task-sla';
 import { useAutoSizeTextareas } from '@/lib/use-auto-size-textareas';
 import { clientSafeError } from '@/lib/client-error';
+import { StaffReportResponses } from '@/components/staff-report-responses';
 
 const labels: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', completed: 'Completed' };
 const emptyTask = { title: '', description: '', priority: 'medium', due_date: '', assigneeIds: [] as string[] };
@@ -207,7 +208,7 @@ export default function AdminTasksPage() {
     {tasksRefetching && <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-2 text-sm text-sky-800" role="status" aria-live="polite">Refreshing tasks…</div>}
     {!shown.length ? <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">{tasksRefetching ? <><b>Loading tasks…</b><p className="mt-1 text-sm text-slate-500">Updating the selected task view.</p></> : <><b>{emptyTitle}</b><p className="mt-1 text-sm text-slate-500">{tasks.length ? 'Try changing or clearing the active filters.' : 'Create and assign the first task to get started.'}</p>{!tasks.length && <button className="mt-4 text-sm font-semibold text-teal-700" onClick={() => setCreateOpen(true)}>Create New Task</button>}</>}</div> : <><div className="space-y-3 md:hidden">{shown.map(task => <MobileTaskCard key={task.id} task={task} saving={saving} canDelete={canDelete} onOpen={() => setDetailTaskId(task.id)} onEdit={() => setEditing({ ...task, assigneeIds: task.task_assignments.map((assignment: any) => assignment.profile_id) })} onMove={status => void changeStatus(task, status)} onDelete={() => setDeleteTarget(task)} />)}</div><div className="hidden gap-4 md:grid md:grid-cols-3">{columns.map(column => <section onDragOver={event => event.preventDefault()} onDrop={event => { const task = tasks.find(item => item.id === event.dataTransfer.getData('text/task-id')); if (task) void changeStatus(task, column.id as 'todo'|'in_progress'|'completed'); }} className={`rounded-2xl border p-3 ${column.tone}`} key={column.id}><header className="flex items-center justify-between px-1 pb-3"><h2 className="flex items-center gap-2 text-sm font-bold text-slate-800"><i className={`h-2.5 w-2.5 rounded-full ${column.dot}`} />{column.title}</h2><span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold text-slate-600">{column.tasks.length}</span></header><div className="space-y-3">{column.tasks.map(task => <TaskCard key={task.id} task={task} saving={saving} canDelete={canDelete} onOpen={() => setDetailTaskId(task.id)} onEdit={() => setEditing({ ...task, assigneeIds: task.task_assignments.map((assignment: any) => assignment.profile_id) })} onMove={status => void changeStatus(task, status)} onDelete={() => setDeleteTarget(task)} />)}{!column.tasks.length && <p className="rounded-xl border border-dashed border-slate-200 bg-white/60 px-3 py-5 text-center text-xs text-slate-500">{column.empty}</p>}</div></section>)}</div></>}
 
-    {detailTask && <TaskDetail task={detailTask} schedule={schedule} onClose={() => setDetailTaskId(undefined)} />}
+    {detailTask && <TaskDetail task={detailTask} schedule={schedule} viewer={profile} onChanged={loadTasks} onClose={() => setDetailTaskId(undefined)} />}
     {completionTarget && <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/30 p-0 sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="completion-update-title"><article className="w-full rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-2xl"><h2 id="completion-update-title" className="text-xl font-bold">Complete task</h2><p className="mt-1 text-sm text-slate-600">Add the required completion update for {completionTarget.title}.</p><textarea autoFocus maxLength={taskCompletionUpdateMaxLength} className="input mt-4 min-h-28 w-full" placeholder="Describe what was completed" value={completionUpdate} onChange={event => setCompletionUpdate(event.target.value)} /><div className="mt-1 text-right text-xs text-slate-500">{completionUpdate.length}/{taskCompletionUpdateMaxLength}</div><div className="mt-4 flex justify-end gap-2"><button className="btn border" disabled={saving} onClick={() => { setCompletionTarget(undefined); setCompletionUpdate(''); }}>Cancel</button><button className="btn btn-primary" disabled={saving || Boolean(completionUpdateError(completionUpdate))} onClick={() => void completeTask()}>{saving ? 'Completing…' : 'Complete task'}</button></div></article></div>}
     {editing && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/30 p-4"><form className="card max-h-[90vh] w-full max-w-xl overflow-auto p-5" onSubmit={saveEdit}><button type="button" className="float-right text-sm underline" onClick={() => setEditing(null)}>Close</button><h2 className="text-xl font-bold">Edit task</h2><div className="mt-4 grid gap-3"><input name="title" required className="input" value={editing.title} onChange={event => setEditing({ ...editing, title: event.target.value })} /><textarea name="description" className="input min-h-20" value={editing.description || ''} onChange={event => setEditing({ ...editing, description: event.target.value })} /><div className="grid gap-3 sm:grid-cols-2"><select name="priority" className="input" value={editing.priority} onChange={event => setEditing({ ...editing, priority: event.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><input name="due_date" required className="input" type="date" value={editing.due_date || ''} onChange={event => setEditing({ ...editing, due_date: event.target.value })} /></div><label className="text-sm">Assignees<div className="mt-1 max-h-48 overflow-auto rounded border">{staff.map(person => <label className="flex gap-2 border-b p-2" key={person.id}><input type="checkbox" checked={editing.assigneeIds.includes(person.id)} onChange={() => setEditing({ ...editing, assigneeIds: editing.assigneeIds.includes(person.id) ? editing.assigneeIds.filter((id: string) => id !== person.id) : [...editing.assigneeIds, person.id] })} />{person.full_name}<small className="text-slate-500">{person.role?.replace('_', ' ')}</small></label>)}</div></label><button disabled={saving || !editing.assigneeIds.length} className="btn btn-primary">{saving ? 'Saving…' : 'Save task'}</button></div></form></div>}
     {deleteTarget && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/30 p-4"><article className="card w-full max-w-md p-5"><h2 className="text-xl font-bold">Delete task?</h2><p className="mt-2 text-sm text-slate-600">Deleting this task removes it from active task management and its related assignment, comments, and attachments according to the existing database cascade.</p><div className="mt-5 flex justify-end gap-2"><button className="btn border" disabled={saving} onClick={() => setDeleteTarget(undefined)}>Cancel</button><button className="btn bg-rose-700 text-white hover:bg-rose-800" disabled={saving} onClick={() => void deleteTask()}>{saving ? 'Deleting…' : 'Delete Task'}</button></div></article></div>}
@@ -355,10 +356,14 @@ function MobileTaskCard({
 function TaskDetail({
   task,
   schedule,
+  viewer,
+  onChanged,
   onClose,
 }: {
   task: any;
   schedule: ReturnType<typeof defaultTaskWorkSchedule>;
+  viewer: any;
+  onChanged: () => Promise<void>;
   onClose: () => void;
 }) {
   const assignments = task.task_assignments || [];
@@ -501,6 +506,14 @@ function TaskDetail({
                   <small className="text-slate-500">
                     {new Date(comment.created_at).toLocaleString()}
                   </small>
+                  {comment.author_profile?.role !== 'director' && comment.author_profile?.role !== 'chairman' && <StaffReportResponses
+                    reportId={comment.id}
+                    source="task_comment"
+                    ownerId={comment.author_id}
+                    responses={comment.staff_report_responses}
+                    viewer={viewer}
+                    onChanged={onChanged}
+                  />}
                 </div>
               ))}
             </div>

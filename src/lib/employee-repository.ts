@@ -13,6 +13,7 @@ import { operationalEmployeeStatuses } from "./employee-status";
 import { attendanceRpcError } from "./attendance-geofence";
 import { isChatMessageActive } from "./chat-message-state";
 import { compareConversationActivity, orderConversationsByActivity } from "./chat-conversation-order";
+import { attachStaffReportResponses } from "./staff-report-responses";
 const db = supabase as any;
 const required = () => {
   if (!db) throw new Error("Supabase is not configured.");
@@ -540,9 +541,10 @@ export const employeeRepository = {
     return data;
   },
   async myDailyWorkUpdate(profileId: string, workDate: string) {
-    const { data, error } = await required().from("daily_work_updates").select("*").eq("profile_id", profileId).eq("work_date", workDate).maybeSingle();
+    const r = required();
+    const { data, error } = await r.from("daily_work_updates").select("*").eq("profile_id", profileId).eq("work_date", workDate).maybeSingle();
     if (error) throw error;
-    return data;
+    return data ? (await attachStaffReportResponses(r, [data], "daily_work_update"))[0] : null;
   },
   async saveDailyWorkUpdate(profileId: string, workDate: string, summary: string) {
     const normalized = summary.trim();
@@ -553,9 +555,10 @@ export const employeeRepository = {
     return data;
   },
   async dailyWorkUpdates(workDate: string) {
-    const { data, error } = await required().from("daily_work_updates").select("id,profile_id,work_date,summary,created_at,updated_at,profile:profiles(full_name,employee_code,designation,department:departments(name))").eq("work_date", workDate).order("updated_at", { ascending: false });
+    const r = required();
+    const { data, error } = await r.from("daily_work_updates").select("id,profile_id,work_date,summary,created_at,updated_at,profile:profiles(full_name,employee_code,designation,department:departments(name))").eq("work_date", workDate).order("updated_at", { ascending: false });
     if (error) throw error;
-    return data || [];
+    return attachStaffReportResponses(r, data || [], "daily_work_update");
   },
   async attendanceHistory(userId: string) {
     const { data, error } = await required()
@@ -654,16 +657,17 @@ export const employeeRepository = {
     ]);
     if (taskError || commentError)
       throw new Error("Tasks could not be loaded. Please try again.");
+    const commentsWithResponses = await attachStaffReportResponses(r, comments || []);
     const profileIds = [
       ...new Set([
         ...(tasks || []).map((task: any) => task.created_by).filter(Boolean),
-        ...(comments || [])
+        ...commentsWithResponses
           .map((comment: any) => comment.author_id)
           .filter(Boolean),
       ]),
     ];
     const { data: people, error: peopleError } = profileIds.length
-      ? await r.from("profiles").select("id,full_name").in("id", profileIds)
+      ? await r.from("profiles").select("id,full_name,role").in("id", profileIds)
       : { data: [], error: null };
     if (peopleError)
       throw new Error("Tasks could not be loaded. Please try again.");
@@ -676,7 +680,7 @@ export const employeeRepository = {
         {
           ...task,
           created_by_profile: names.get(task.created_by) || null,
-          task_comments: (comments || [])
+          task_comments: commentsWithResponses
             .filter((comment: any) => comment.task_id === task.id)
             .map((comment: any) => ({
               ...comment,

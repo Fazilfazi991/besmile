@@ -208,3 +208,8 @@ html[data-theme="colorful"] [data-testid="lead-performance-card"] .recharts-line
 html[data-theme="colorful"] [data-testid="lead-performance-card"] .text-slate-900 { color: #f7f9ff !important; }
 .director-kpi .kpi-chart-exact .kpi-chart-legend span { grid-template-columns: 6px minmax(0, 1fr); }
 .director-kpi .kpi-chart-exact .kpi-chart-legend b { grid-column: 2; overflow-wrap: anywhere; text-align: left; line-height: 1.25; }
+
+/* Private staff-report replies stay attached to their update in both themes. */
+.staff-report-response+.staff-report-response{border-top:1px solid #e5eeec}.staff-report-response time{font-variant-numeric:tabular-nums}.staff-report-response-action{min-height:32px}
+html[data-theme="colorful"] .staff-report-responses{border-color:rgba(84,218,207,.35)}html[data-theme="colorful"] .staff-report-response+.staff-report-response{border-color:rgba(173,189,240,.16)}html[data-theme="colorful"] .staff-report-response b{color:#f4f7ff!important}html[data-theme="colorful"] .staff-report-response p,html[data-theme="colorful"] .staff-report-response time,html[data-theme="colorful"] .staff-report-responses small{color:#b9c5e8!important}html[data-theme="colorful"] .staff-report-response-action,html[data-theme="colorful"] .staff-report-response button{color:#63e1d3}
+@media(max-width:640px){.staff-report-response>div{align-items:flex-start;flex-direction:column}.staff-report-response time{white-space:normal}.staff-report-responses .btn{min-height:36px}}

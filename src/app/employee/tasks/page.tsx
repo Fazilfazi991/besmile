@@ -6,6 +6,7 @@ import { employeeRepository } from "@/lib/employee-repository";
 import { isOverdue } from "@/lib/task-rules";
 import { applyAssignmentStatus, canEmployeeChangeTaskStatus, completionUpdateError, taskCompletionUpdateMaxLength, taskCounts } from "@/lib/task-workspace";
 import { defaultTaskWorkSchedule, loadTaskWorkSchedule, taskCompletionSlaLabel } from "@/lib/task-sla";
+import { StaffReportResponses } from "@/components/staff-report-responses";
 const labels: Record<string, string> = {
   todo: "To Do",
   in_progress: "In Progress",
@@ -41,7 +42,9 @@ export default function TasksPage() {
   const loadTasks = async (currentProfile = profile) => {
     if (!currentProfile) return;
     try {
-      setTasks(await employeeRepository.myTasks(currentProfile.id));
+      const loaded = await employeeRepository.myTasks(currentProfile.id);
+      setTasks(loaded);
+      setDetail((current: any) => current ? loaded.find((item: any) => item.id === current.id) || current : current);
       setTaskError("");
     } catch (cause: any) {
       setTaskError(cause?.message || "Your task list could not be loaded. Please try again.");
@@ -484,6 +487,14 @@ export default function TasksPage() {
                     <small className="text-slate-500">
                       {new Date(comment.created_at).toLocaleString()}
                     </small>
+                    {comment.author_profile?.role !== 'director' && comment.author_profile?.role !== 'chairman' && <StaffReportResponses
+                      reportId={comment.id}
+                      source="task_comment"
+                      ownerId={comment.author_id}
+                      responses={comment.staff_report_responses}
+                      viewer={profile}
+                      onChanged={() => loadTasks(profile)}
+                    />}
                   </div>
                 ))
               ) : (

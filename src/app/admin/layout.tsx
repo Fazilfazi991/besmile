@@ -11,6 +11,7 @@ import { PageBackButton } from '@/components/page-back-button';
 import { serverAuthorizationRead, serverAuthorizationBoundary } from '@/lib/server-authorization-read';
 import { signedProfilePhotoUrl } from '@/lib/profile-photo';
 import '../workspace-density.css';
+import '../client-ui-audit.css';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const db = await serverSupabase();
