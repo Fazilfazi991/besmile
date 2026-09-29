@@ -36,6 +36,10 @@ const dailyWorkMigration = readFileSync(
   resolve(process.cwd(), "supabase/migrations/20260907203658_daily_work_updates.sql"),
   "utf8",
 );
+const release2Migration = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260929110000_release_2_workflows_and_client_sessions.sql"),
+  "utf8",
+);
 
 const request = () =>
   middleware(new NextRequest("http://localhost/employee/daily-work"));
@@ -114,6 +118,15 @@ describe("Daily Work Update access for active internal employees", () => {
       "public.has_permission('attendance.view') and public.in_management_tree(profile_id)",
     );
     expect(dailyWorkMigration).not.toMatch(/for (insert|update)[\s\S]*attendance\.(self|view_self)/i);
+    expect(release2Migration).toContain(
+      "create or replace function public.can_review_daily_work(target_profile_id uuid)",
+    );
+    expect(release2Migration).toContain('drop policy if exists "daily work updates created by owner"');
+    expect(release2Migration).toContain('drop policy if exists "daily work updates edited by owner"');
+    expect(release2Migration).toContain("owner_profile.status = 'active'");
+    expect(release2Migration).toContain("owner_profile.is_employee");
+    expect(release2Migration).toContain("owner_profile.workforce_visible");
+    expect(release2Migration).toContain("not coalesce(owner_profile.onboarding_required, false)");
   });
 
   it("leaves the management route permission contract unchanged", () => {

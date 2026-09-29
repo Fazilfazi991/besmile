@@ -20,7 +20,8 @@ describe('BSMILE workflow migration execution', () => {
       create schema if not exists auth;
       create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
       create or replace function auth.role() returns text language sql stable as $$ select 'service_role'::text $$;
-      create table public.profiles(id uuid primary key, email text, status text, role text, department_id uuid, designation text, updated_at timestamptz);
+      create table public.profiles(id uuid primary key, email text, status text, role text, department_id uuid, designation text, updated_at timestamptz, login_enabled boolean default true, is_employee boolean default true, workforce_visible boolean default true);
+      create table public.daily_work_updates(id uuid primary key, profile_id uuid, work_date date, summary text);
       create table public.patients(id uuid primary key, archived_at timestamptz, archived_by uuid, archive_reason text, deleted_at timestamptz, updated_at timestamptz);
       create table public.doctor_appointments(id uuid primary key, created_by uuid, patient_id uuid, deleted_at timestamptz, start_at timestamptz, status text);
       create table public.finance_invoices(id uuid primary key, patient_id uuid, sale_id uuid, tax numeric default 0, discount numeric default 0, archived_at timestamptz, status text);
@@ -40,7 +41,6 @@ describe('BSMILE workflow migration execution', () => {
     expect(result.rows[0].count).toBe(4);
 
     await db.exec(`
-      alter table public.profiles add column is_employee boolean default true, add column workforce_visible boolean default true;
       alter table public.crm_leads add column lead_date date, add column full_name text, add column phone text, add column gender text,
         add column profession text, add column reason_for_enquiry text, add column location text, add column source_id uuid,
         add column status_id uuid, add column temperature text, add column remarks text, add column assigned_to uuid, add column created_by uuid;

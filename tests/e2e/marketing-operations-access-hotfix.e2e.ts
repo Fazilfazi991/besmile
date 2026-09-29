@@ -164,13 +164,16 @@ test("approved Marketing staff receive full CRM and department Daily Work review
 
   const settings = await admin.from("company_attendance_settings").select("office_latitude,office_longitude").eq("id", true).single();
   if (settings.error) throw settings.error;
+  const workDate = new Date().toISOString().slice(0, 10);
+  const clearedAttendance = await admin.from("attendance")
+    .delete().in("profile_id", [manager.id, coordinator.id]).eq("work_date", workDate);
+  expect(clearedAttendance.error).toBeNull();
   for (const employee of [manager, coordinator]) {
     const location = { p_latitude: settings.data.office_latitude, p_longitude: settings.data.office_longitude, p_accuracy_metres: 1 };
     expect((await employee.client.rpc("record_self_attendance_location", { p_action: "clock_in", ...location })).error).toBeNull();
     expect((await employee.client.rpc("record_self_attendance_location", { p_action: "clock_out", ...location })).error).toBeNull();
   }
 
-  const workDate = new Date().toISOString().slice(0, 10);
   for (const [employee, summary] of [
     [manager, "Manager own update"],
     [coordinator, "Coordinator own update"],

@@ -83,6 +83,11 @@ test("active employees own their updates while manager scope remains unchanged",
     await createFixture("Psychologist", operationsId, "Psychologist", "psychologist"),
     await createFixture("Managed Staff", operationsId, "Ordinary Staff", "staff", { managerId: manager.id }),
   ];
+  const deniedEmployees = [
+    await createFixture("Inactive Staff", marketingId, "Ordinary Staff", "staff", { status: "inactive" }),
+    await createFixture("Terminated Staff", marketingId, "Ordinary Staff", "staff", { status: "terminated" }),
+    await createFixture("External Staff", marketingId, "External", "staff", { isEmployee: false }),
+  ];
   const workDate = new Date().toISOString().slice(0, 10);
 
   for (const [index, employee] of employees.entries()) {
@@ -120,6 +125,35 @@ test("active employees own their updates while manager scope remains unchanged",
     .select("summary").single();
   expect(edited.error).toBeNull();
   expect(edited.data?.summary).toBe("Edited own daily update");
+
+  for (const [index, denied] of deniedEmployees.entries()) {
+    const seededDate = `2099-02-0${index + 1}`;
+    const seeded = await admin.from("daily_work_updates").insert({
+      profile_id: denied.id,
+      work_date: seededDate,
+      summary: "Seeded denied-account update",
+    });
+    expect(seeded.error).toBeNull();
+
+    const ownRead = await denied.client.from("daily_work_updates")
+      .select("profile_id").eq("profile_id", denied.id).eq("work_date", seededDate);
+    expect(ownRead.error).toBeNull();
+    expect(ownRead.data).toEqual([]);
+
+    const ownEdit = await denied.client.from("daily_work_updates")
+      .update({ summary: "Forbidden denied-account edit" })
+      .eq("profile_id", denied.id).eq("work_date", seededDate)
+      .select("profile_id");
+    expect(ownEdit.error).toBeNull();
+    expect(ownEdit.data).toEqual([]);
+
+    const attempted = await denied.client.from("daily_work_updates").insert({
+      profile_id: denied.id,
+      work_date: "2099-01-02",
+      summary: "Forbidden inactive or external update",
+    });
+    expect(attempted.error).not.toBeNull();
+  }
 
   const managedStaff = employees[4];
   const managerView = await manager.client.from("daily_work_updates")
