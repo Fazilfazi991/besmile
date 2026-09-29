@@ -11,6 +11,67 @@ const clean = (value: unknown) => String(value || '').trim();
 const dateStart = (date: string) => new Date(`${date}T00:00:00`).toISOString();
 const dateEnd = (date: string) => new Date(`${date}T23:59:59.999`).toISOString();
 
+export const APPOINTMENT_CLIENT_PAGE_SIZE = 25;
+
+export type AppointmentClientOption = {
+  id: string;
+  full_name: string;
+  patient_number: string | null;
+  phone: string | null;
+  slug: string | null;
+};
+
+export type AppointmentClientPage = {
+  patients: AppointmentClientOption[];
+  hasMore: boolean;
+  nextOffset: number;
+};
+
+export async function fetchAppointmentClientPage(database: any, options: {
+  query?: string;
+  selectedPatient?: string;
+  offset?: number;
+  pageSize?: number;
+} = {}): Promise<AppointmentClientPage> {
+  const query = clean(options.query);
+  const selectedPatient = clean(options.selectedPatient);
+  const offset = Math.max(0, Math.trunc(Number(options.offset) || 0));
+  const pageSize = Math.min(100, Math.max(1, Math.trunc(Number(options.pageSize) || APPOINTMENT_CLIENT_PAGE_SIZE)));
+  let request = database
+    .from('patients')
+    .select('id,full_name,patient_number,phone,slug')
+    .is('deleted_at', null)
+    .order('full_name')
+    .order('id')
+    .range(offset, offset + pageSize);
+  if (query) request = request.ilike('full_name', `%${query}%`);
+
+  const [pageResult, selectedResult] = await Promise.all([
+    request,
+    selectedPatient
+      ? database.from('patients').select('id,full_name,patient_number,phone,slug').eq('id', selectedPatient).is('deleted_at', null).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (pageResult.error) throw pageResult.error;
+  if (selectedResult.error) throw selectedResult.error;
+
+  const pageRows = (pageResult.data || []) as AppointmentClientOption[];
+  const candidates = [selectedResult.data, ...pageRows.slice(0, pageSize)]
+    .filter(Boolean)
+    .filter((patient: AppointmentClientOption, index: number, rows: AppointmentClientOption[]) => rows.findIndex(row => row.id === patient.id) === index);
+  const eligibility = await Promise.all(candidates.map(async patient => {
+    const { data, error } = await database.rpc('appointment_patient_access', { action: 'create', target_patient: patient.id });
+    if (error) throw error;
+    return data === true;
+  }));
+
+  return {
+    patients: candidates.filter((_, index) => eligibility[index]),
+    hasMore: pageRows.length > pageSize,
+    nextOffset: offset + pageSize,
+  };
+}
+
 export type DoctorPayload = {
   doctor_name: string;
   specialization: string;
@@ -141,12 +202,8 @@ export const doctorSchedulingRepository = {
     if (error) throw error;
   },
 
-  async patients(query = '') {
-    let request = db().from('patients').select('id,full_name,patient_number,phone,slug').is('deleted_at', null).order('full_name').limit(40);
-    if (query.trim()) request = request.or(`full_name.ilike.%${query.trim()}%,patient_number.ilike.%${query.trim()}%,phone.ilike.%${query.trim()}%`);
-    const { data, error } = await request;
-    if (error) throw error;
-    return data || [];
+  async patients(query = '', selectedPatient?: string, offset = 0, pageSize = APPOINTMENT_CLIENT_PAGE_SIZE) {
+    return fetchAppointmentClientPage(db(), { query, selectedPatient, offset, pageSize });
   },
 
   async appointments(filters: { from?: string; to?: string; doctorId?: string; patientId?: string; status?: string } = {}) {

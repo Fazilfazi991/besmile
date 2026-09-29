@@ -23,6 +23,7 @@ const fmtTime = (value: string | Date) => new Intl.DateTimeFormat('en', { timeZo
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const can = (permissions: Record<string, boolean>, ...codes: string[]) => codes.some(code => permissions[code]);
 const psychologistFee = (amount: unknown) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(amount));
+const mergePatients = (current: any[], next: any[]) => [...current, ...next].filter((patient, index, rows) => rows.findIndex(row => row.id === patient.id) === index);
 
 export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, workspace = 'employee' }: { initialPatientId?: string; initialAppointmentId?: string; workspace?: 'admin' | 'employee' | 'clinician' }) {
   const [profile, setProfile] = useState<any>();
@@ -38,6 +39,11 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const [doctorFilter, setDoctorFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [patientFilter, setPatientFilter] = useState(initialPatientId || '');
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientOffset, setPatientOffset] = useState(0);
+  const [patientHasMore, setPatientHasMore] = useState(false);
+  const [patientLoading, setPatientLoading] = useState(false);
+  const [patientRefresh, setPatientRefresh] = useState(0);
   const [selected, setSelected] = useState<any>();
   const [doctorForm, setDoctorForm] = useState<any>(emptyDoctor);
   const [doctorFormOpen, setDoctorFormOpen] = useState(false);
@@ -56,11 +62,10 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const load = async () => {
     setLoading(true);
     try {
-      const [me, perms, doctorRows, patientRows, appointmentRows, counts] = await Promise.all([
+      const [me, perms, doctorRows, appointmentRows, counts] = await Promise.all([
         currentProfile(),
         doctorSchedulingRepository.permissions(),
         doctorSchedulingRepository.doctors(),
-        doctorSchedulingRepository.patients(),
         doctorSchedulingRepository.appointments({ from: dateKey(addDays(new Date(), -45)), to: dateKey(addDays(new Date(), 90)) }),
         doctorSchedulingRepository.summary(),
       ]);
@@ -71,7 +76,6 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         setManagedPayoutRates(Object.fromEntries(payoutSettings.map((setting: any) => [setting.doctor_id, Number(setting.default_session_payout)])));
       } else setManagedPayoutRates({});
       setDoctors(doctorRows);
-      setPatients(patientRows);
       setAppointments(appointmentRows);
       setSummary(counts);
       if (!handledInitialAppointment.current && initialAppointmentId) {
@@ -92,6 +96,24 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   };
 
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, []);
+
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(() => {
+      setPatientLoading(true);
+      void doctorSchedulingRepository.patients(patientQuery, appointmentForm.patient_id || initialPatientId).then(page => {
+        if (!active) return;
+        setPatients(page.patients);
+        setPatientOffset(page.nextOffset);
+        setPatientHasMore(page.hasMore);
+      }).catch(caught => {
+        if (active) setError(caught.message || 'Unable to load eligible clients.');
+      }).finally(() => {
+        if (active) setPatientLoading(false);
+      });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [patientQuery, appointmentForm.patient_id, initialPatientId, patientRefresh]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -119,6 +141,20 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const filteredAppointments = useMemo(() => appointments.filter(item => (!doctorFilter || item.doctor_id === doctorFilter) && (!patientFilter || item.patient_id === patientFilter) && (!statusFilter || item.status === statusFilter)), [appointments, doctorFilter, patientFilter, statusFilter]);
   const visibleDays = useMemo(() => daysForView(cursor, view), [cursor, view]);
   const currentDoctor = doctors.find(item => item.id === appointmentForm.doctor_id);
+
+  const loadMorePatients = async () => {
+    setPatientLoading(true);
+    try {
+      const page = await doctorSchedulingRepository.patients(patientQuery, appointmentForm.patient_id || initialPatientId, patientOffset);
+      setPatients(current => mergePatients(current, page.patients));
+      setPatientOffset(page.nextOffset);
+      setPatientHasMore(page.hasMore);
+    } catch (caught: any) {
+      setError(caught.message || 'Unable to load more eligible clients.');
+    } finally {
+      setPatientLoading(false);
+    }
+  };
 
   const editDoctor = (doctor: any) => {
     setDoctorForm({ id: doctor.id, doctor_name: doctor.doctor_name, specialization: doctor.specialization, qualification: doctor.qualification, phone: doctor.phone, email: doctor.email || '', consultation_duration_minutes: doctor.consultation_duration_minutes, status: doctor.status, notes: doctor.notes || '', clinician_type: doctor.clinician_type || 'outsourced', profile_id: doctor.profile_id || null, psychologist_session_payout: managedPayoutRates[doctor.id] ?? '' });
@@ -313,7 +349,10 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     {tab === 'Appointments' && <div className="doctor-two-column">
       <EmployeeSection title={reschedule ? 'Reschedule Appointment' : 'Create Appointment'} description="Select client, psychologist, date, then an available slot.">
         {canCreate || reschedule ? <form className="appointment-form" onSubmit={submitAppointment}>
+          {!reschedule && <input className="input" aria-label="Search clients" placeholder="Search clients by name" value={patientQuery} onChange={event => setPatientQuery(event.target.value)} onFocus={() => setPatientRefresh(value => value + 1)} />}
           <select className="input" required value={appointmentForm.patient_id} disabled={!!reschedule} onChange={e => setAppointmentForm({ ...appointmentForm, patient_id: e.target.value })}><option value="">Select client</option>{patients.map(patient => <option value={patient.id} key={patient.id}>{patient.full_name} {patient.patient_number ? `- ${patient.patient_number}` : ''}</option>)}</select>
+          {!reschedule && patientLoading && !patientHasMore && <small>Loading eligible clients...</small>}
+          {!reschedule && patientHasMore && <button className="btn border" type="button" disabled={patientLoading} onClick={() => void loadMorePatients()}>{patientLoading ? 'Loading clients...' : 'Load more clients'}</button>}
           <select className="input" required value={appointmentForm.doctor_id} disabled={!!reschedule} onChange={e => setAppointmentForm({ ...appointmentForm, doctor_id: e.target.value, slot: '' })}><option value="">Select psychologist</option>{doctors.filter(doctor => doctor.status === 'active' || doctor.id === appointmentForm.doctor_id).map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.doctor_name} - {doctor.specialization}</option>)}</select>
           {!reschedule && <label>Appointment Fee (INR)<input className="input" required type="number" min="0" step="0.01" value={appointmentForm.appointment_fee} onChange={e => setAppointmentForm({ ...appointmentForm, appointment_fee: e.target.value })} /></label>}
           {reschedule && reschedule.psychologist_fee_snapshot != null && <p className="text-sm text-slate-600"><b>Appointment Fee</b> {psychologistFee(reschedule.psychologist_fee_snapshot)}</p>}
