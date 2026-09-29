@@ -39,7 +39,7 @@ describe('clinician payout configuration', () => {
     expect(repository).toContain("rpc('set_psychologist_payout_setting'");
     expect(scheduling).toContain('Psychologist Session Payout');
     expect(scheduling).toContain('The scheduler enters each appointment fee separately.');
-    expect(scheduling).toContain('Appointment Fee (INR)');
+    expect(scheduling).toContain('Session Fee (INR)');
     expect(scheduling).not.toContain('doctorSchedulingRepository.psychologistPaymentRates()');
   });
 });

@@ -22,7 +22,7 @@ describe('appointment variable fee migration', () => {
 
   it('validates and persists a scheduler-entered fee on create and edit', () => {
     expect(repository.match(/validateAppointmentFee\(payload\.appointmentFee\)/g)).toHaveLength(2);
-    expect(repository.match(/appointment_fee: payload\.appointmentFee/g)).toHaveLength(2);
+    expect(repository.match(/client_session_fee: payload\.appointmentFee/g)).toHaveLength(2);
     expect(migration).toContain("'previous_appointment_fee', current_row.psychologist_fee_snapshot");
   });
 
