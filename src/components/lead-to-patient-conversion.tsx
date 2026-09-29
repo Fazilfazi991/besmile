@@ -1,13 +1,13 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent } from "react";
 
 type LeadToPatientConversionProps = {
   open: boolean;
   busy: boolean;
   error?: string;
   onClose: () => void;
-  onSubmit: (patientNumber: string) => Promise<boolean>;
+  onSubmit: () => Promise<boolean>;
 };
 
 export function LeadToPatientConversion({
@@ -17,15 +17,11 @@ export function LeadToPatientConversion({
   onClose,
   onSubmit,
 }: LeadToPatientConversionProps) {
-  const [patientNumber, setPatientNumber] = useState("");
-
   if (!open) return null;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalized = patientNumber.trim();
-    if (!normalized) return;
-    if (await onSubmit(normalized)) setPatientNumber("");
+    await onSubmit();
   };
 
   return (
@@ -43,20 +39,8 @@ export function LeadToPatientConversion({
           The lead remains in CRM. Matching contact and context fields will be
           copied to the new client record.
         </p>
-        <label className="mt-4 block text-sm font-semibold">
-          Client ID <span className="text-rose-700">*</span>
-          <input
-            autoFocus
-            className="input mt-1"
-            required
-            value={patientNumber}
-            onChange={(event) => setPatientNumber(event.target.value)}
-            placeholder="Enter unique Client ID"
-          />
-        </label>
-        <p className="mt-2 text-xs text-slate-500">
-          The Client ID must be unique. Validation errors keep your entered
-          value.
+        <p className="mt-4 rounded border border-brand/20 bg-brand/5 p-3 text-sm font-medium text-slate-700">
+          Client ID will be generated automatically.
         </p>
         {error ? (
           <p className="mt-3 rounded bg-rose-50 p-3 text-sm text-rose-800" role="alert">
@@ -68,10 +52,7 @@ export function LeadToPatientConversion({
             className="btn border"
             type="button"
             disabled={busy}
-            onClick={() => {
-              setPatientNumber("");
-              onClose();
-            }}
+            onClick={onClose}
           >
             Cancel
           </button>

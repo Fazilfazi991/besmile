@@ -332,11 +332,9 @@ export const employeeRepository = {
   async convertMyCrmLeadToPatient(
     _userId: string,
     leadId: string,
-    patientNumber: string,
   ) {
     const { data, error } = await required().rpc("convert_lead_to_patient", {
       target_lead: leadId,
-      requested_patient_number: patientNumber.trim(),
     });
     if (error) throw error;
     return Array.isArray(data) ? data[0] : data;

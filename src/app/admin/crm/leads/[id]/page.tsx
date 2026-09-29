@@ -183,18 +183,13 @@ export default function LeadDetail() {
       setBusy(false);
     }
   };
-  const convertPatient = async (patientNumber: string) => {
+  const convertPatient = async () => {
     setBusy(true);
     setPatientConversionError("");
     try {
-      const patient = await adminRepository.convertLeadToPatient(
-        id,
-        patientNumber,
-      );
+      await adminRepository.convertLeadToPatient(id);
       setPatientConversionOpen(false);
-      setMessage(
-        `Lead converted to client ${patient.patient_number || patientNumber}.`,
-      );
+      setMessage("Lead converted to client. BSMILE generated the Client ID automatically.");
       await load();
       return true;
     } catch (caught: any) {
@@ -399,7 +394,7 @@ export default function LeadDetail() {
           </p>
           {!convertedPatient && (
             <p className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              Need appointment booking? Convert to client first and assign the approved Client ID.
+              Need appointment booking? Convert to client first; BSMILE will generate the Client ID.
             </p>
           )}
           {existingSale ? (

@@ -14,6 +14,8 @@ describe('lead to patient conversion', () => {
     expect(migration).toContain('from public, anon, authenticated');
     expect(page).toContain('LeadToPatientConversion');
     expect(dialog).toContain('Convert to Client');
+    expect(dialog).toContain('Client ID will be generated automatically.');
+    expect(dialog).not.toContain('Enter unique Client ID');
     expect(page).toContain('convertLeadToPatient');
     expect(page).toContain('leadToPatientConversionError');
     expect(errors).toContain('That Client ID is already in use. Choose a different ID.');
