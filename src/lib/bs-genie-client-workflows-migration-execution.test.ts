@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const migration = readFileSync('supabase/migrations/20260929110000_release_2_workflows_and_client_sessions.sql', 'utf8');
+const sessionPaymentMigration = readFileSync('supabase/migrations/20260929184700_session_payment_ux_correction.sql', 'utf8');
 let db: PGlite | undefined;
 
 afterEach(async () => { await db?.close(); db = undefined; });
@@ -37,6 +38,8 @@ describe('BSMILE workflow migration execution', () => {
 
     await expect(db.exec(migration)).resolves.toBeDefined();
     await expect(db.exec(migration)).resolves.toBeDefined();
+    await expect(db.exec(sessionPaymentMigration)).resolves.toBeDefined();
+    await expect(db.exec(sessionPaymentMigration)).resolves.toBeDefined();
     const result = await db.query<{ count: number }>("select count(*)::int count from information_schema.columns where table_schema='public' and table_name='patient_sessions' and column_name in ('session_fee','invoice_id','idempotency_key','currency')");
     expect(result.rows[0].count).toBe(4);
 

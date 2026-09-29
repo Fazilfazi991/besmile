@@ -29,7 +29,9 @@ describe('BSMILE combined lifecycle migration', () => {
     expect(migration).toContain('finance_invoice_payments');
     expect(migration).toContain('patient_sessions_creator_request_unique');
     expect(migration).toContain('finance_invoice_payment_request_unique');
-    expect(patientWorkspace).toContain('Payment received now (INR)');
+    expect(patientWorkspace).toContain('Record payment now');
+    expect(patientWorkspace).toContain('Add Payment');
+    expect(patientWorkspace).toContain('Record Payment');
     expect(patientWorkspace).toContain('Outstanding: INR');
   });
 
