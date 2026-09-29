@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 afterEach(() => {vi.useRealTimers();vi.restoreAllMocks();});
 async function request() {
-  const result = middleware(new NextRequest('http://localhost/employee/daily-work'));
+  const result = middleware(new NextRequest('http://localhost/employee/attendance'));
   await vi.runAllTimersAsync();
   return result;
 }

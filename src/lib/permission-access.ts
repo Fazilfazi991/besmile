@@ -268,14 +268,8 @@ export function adminRouteRequirement(path: string): PermissionRequirement | und
 export function employeeRouteRequirement(
   path: string,
 ): PermissionRequirement | undefined {
-  if (path.startsWith("/employee/daily-work"))
-    return anyOf(
-      "attendance.self",
-      "attendance.view_self",
-      "attendance.view",
-      "attendance.manage",
-    );
   if (
+    path.startsWith("/employee/daily-work") ||
     path.startsWith("/employee/profile") ||
     path.startsWith("/employee/notifications")
   )
@@ -617,12 +611,6 @@ export const employeeNavigation: readonly NavigationGroup[] = [
       {
         label: "Daily Work Update",
         href: "/employee/daily-work",
-        requirement: anyOf(
-          "attendance.self",
-          "attendance.view_self",
-          "attendance.view",
-          "attendance.manage",
-        ),
       },
       { label: "My Calendar", href: "/employee/calendar" },
       { label: "Holiday Calendar", href: "/employee/holidays" },
