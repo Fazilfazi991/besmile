@@ -1,6 +1,6 @@
 'use client';
 /* The async Supabase query updates state only after it resolves. */
-/* eslint-disable react-hooks/set-state-in-effect, @next/next/no-html-link-for-pages */
+/* eslint-disable @next/next/no-html-link-for-pages */
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { currentProfile } from '@/lib/auth';
@@ -20,12 +20,15 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
   const [canEdit, setCanEdit] = useState(false);
   const [identityOnly, setIdentityOnly] = useState(false);
   const [scopeReady, setScopeReady] = useState(false);
+  const [canArchive, setCanArchive] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const load = async (value = query, identityOnlyOverride = identityOnly) => {
     const fields = identityOnlyOverride
-      ? 'id,patient_number,full_name,phone,email,source,status,slug,is_demo,created_at'
+      ? 'id,patient_number,full_name,phone,email,source,status,slug,is_demo,created_at,archived_at'
       : '*,assigned:profiles!patients_assigned_psychologist_id_fkey(full_name)';
     let request = db.from('patients').select(fields).is('deleted_at', null).order('created_at', { ascending: false }).limit(50);
+    request = showArchived ? request.not('archived_at', 'is', null) : request.is('archived_at', null);
     if (assignedOnly) {
       const profile = await currentProfile();
       if (!profile) { setPatients([]); return; }
@@ -43,11 +46,12 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
 
   useEffect(() => {
     void (async () => {
-      const permissionCodes = ['patients.edit', 'patients.view', 'patients.view_all', 'patients.view_assigned', 'patients.view_identity'];
+      const permissionCodes = ['patients.edit', 'patients.view', 'patients.view_all', 'patients.view_assigned', 'patients.view_identity', 'patients.archive'];
       const results = await Promise.all(permissionCodes.map(permission_code => db.rpc('has_permission', { permission_code })));
       const onlyIdentity = !!results[4].data && !results.slice(1, 4).some(result => !!result.data);
       setCanEdit(!!results[0].data && !onlyIdentity);
       setIdentityOnly(onlyIdentity);
+      setCanArchive(!!results[5].data);
       await load('', onlyIdentity);
       setScopeReady(true);
     })();
@@ -64,6 +68,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
         <option value="">All sources</option>
         {patientSourceOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}
       </select>
+      {canArchive && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={event => setShowArchived(event.target.checked)} /> Archived clients</label>}
       <button className="rounded border px-3" disabled={!scopeReady}>Search</button>
     </form>
     {error ? <div className="card p-5 text-rose-700">{error}</div> : !patients.length ? <div className="card p-8 text-center text-slate-600">No clients match these filters.</div> : <div className="client-table-scroll card max-w-full min-w-0 overflow-x-auto overscroll-x-contain" role="region" aria-label="Client records" tabIndex={0}><table className="w-full min-w-[1040px] table-fixed text-sm">
@@ -75,7 +80,7 @@ export function PatientList({ basePath = '/admin/patients', canCreate = true, ti
         <td className="break-all p-3">{patient.email || '-'}</td>
         <td className="break-words p-3">{patientSourceLabel(patient.source) || '-'}</td>
         {!identityOnly && <td className="break-words p-3">{patient.assigned?.full_name || 'Unassigned'}</td>}
-        <td className="p-3 capitalize">{patient.status}</td>
+        <td className="p-3 capitalize">{patient.archived_at ? 'archived' : patient.status}</td>
         <td className="whitespace-nowrap p-3"><a className="underline" href={patientPath(basePath, patient)}>Open</a>{canEdit && <a className="ml-3 underline" href={`${patientPath(basePath, patient)}?edit=1`}>Edit</a>}</td>
       </tr>)}</tbody>
     </table></div>}

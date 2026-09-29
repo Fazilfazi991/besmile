@@ -22,45 +22,23 @@ const patient = (index: number, patch: Partial<SyntheticPatient> = {}): Syntheti
 });
 
 function syntheticDatabase(rows: SyntheticPatient[]) {
-  const calls = { tables: [] as string[], rpcs: [] as { name: string; args: Record<string, unknown> }[] };
-
-  const from = (table: string) => {
-    calls.tables.push(table);
-    if (table !== 'patients') throw new Error(`Unexpected table: ${table}`);
-    let range: [number, number] | undefined;
-    let nameSearch = '';
-    let selectedId = '';
-    let activeOnly = false;
-    const execute = () => {
-      let data = rows.filter(row => row.visible);
-      if (activeOnly) data = data.filter(row => row.deleted_at === null);
-      if (selectedId) data = data.filter(row => row.id === selectedId);
-      if (nameSearch) data = data.filter(row => row.full_name.toLowerCase().includes(nameSearch));
-      data = [...data].sort((left, right) => left.full_name.localeCompare(right.full_name) || left.id.localeCompare(right.id));
-      if (range) data = data.slice(range[0], range[1] + 1);
-      return { data: data.map(({ deleted_at: _deletedAt, visible: _visible, eligible: _eligible, ...row }) => row), error: null };
-    };
-    const builder: any = {
-      select: () => builder,
-      is: (column: string, value: unknown) => { if (column === 'deleted_at' && value === null) activeOnly = true; return builder; },
-      order: () => builder,
-      range: (fromIndex: number, toIndex: number) => { range = [fromIndex, toIndex]; return builder; },
-      ilike: (column: string, value: string) => { if (column === 'full_name') nameSearch = value.replaceAll('%', '').toLowerCase(); return builder; },
-      eq: (column: string, value: string) => { if (column === 'id') selectedId = value; return builder; },
-      maybeSingle: async () => { const result = execute(); return { data: result.data[0] || null, error: null }; },
-      then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => Promise.resolve(execute()).then(resolve, reject),
-    };
-    return builder;
-  };
+  const calls = { rpcs: [] as { name: string; args: Record<string, unknown> }[] };
 
   const rpc = async (name: string, args: Record<string, unknown>) => {
     calls.rpcs.push({ name, args });
-    if (name !== 'appointment_patient_access') return { data: null, error: new Error(`Unexpected RPC: ${name}`) };
-    const row = rows.find(candidate => candidate.id === args.target_patient);
-    return { data: Boolean(row?.visible && row.deleted_at === null && row.eligible && args.action === 'create'), error: null };
+    if (name !== 'appointment_patient_options') return { data: null, error: new Error(`Unexpected RPC: ${name}`) };
+    const selectedId = String(args.selected_patient || '');
+    const search = String(args.search_text || '').toLowerCase();
+    const offset = Number(args.page_offset || 0);
+    const pageSize = Number(args.page_size || APPOINTMENT_CLIENT_PAGE_SIZE);
+    let data = rows.filter(row => row.visible && row.deleted_at === null && row.eligible);
+    data = data.filter(row => row.id === selectedId || !search || [row.full_name, row.patient_number, row.phone].some(value => String(value || '').toLowerCase().includes(search)));
+    data = [...data].sort((left, right) => Number(right.id === selectedId) - Number(left.id === selectedId) || left.full_name.localeCompare(right.full_name) || left.id.localeCompare(right.id));
+    data = data.slice(offset, offset + pageSize);
+    return { data: data.map(({ deleted_at: _deletedAt, visible: _visible, eligible: _eligible, ...row }) => row), error: null };
   };
 
-  return { database: { from, rpc }, calls };
+  return { database: { rpc }, calls };
 }
 
 describe('Release 1B appointment client selection', () => {
@@ -116,8 +94,7 @@ describe('Release 1B appointment client selection', () => {
 
     expect(leads).toEqual(before);
     expect(leads.filter(lead => lead.converted_at)).toHaveLength(1);
-    expect(calls.tables).toEqual(['patients']);
-    expect(new Set(calls.rpcs.map(call => call.name))).toEqual(new Set(['appointment_patient_access']));
+    expect(new Set(calls.rpcs.map(call => call.name))).toEqual(new Set(['appointment_patient_options']));
   });
 
   it('uses only current production schema contracts and exposes the bounded search controls', () => {
@@ -134,8 +111,10 @@ describe('Release 1B appointment client selection', () => {
     expect(accessMigration).toContain('function public.appointment_patient_access(action text, target_patient uuid)');
     expect(accessMigration).toContain("public.appointment_has_permission(action)");
     expect(accessMigration).toContain('public.patient_care_access(target_patient)');
-    expect(selectorRuntime).toContain(".rpc('appointment_patient_access'");
-    expect(selectorRuntime).not.toMatch(/archived_at|appointment_patient_options|patient_sessions|finance|crm_leads|insert\(|update\(|delete\(/);
+    expect(selectorRuntime).toContain(".rpc('appointment_patient_options'");
+    expect(selectorRuntime).toContain('page_offset: offset');
+    expect(selectorRuntime).toContain('page_size: Math.min(100, pageSize + 1)');
+    expect(selectorRuntime).not.toMatch(/\.from\('patients'\)|patient_sessions|finance|crm_leads|insert\(|update\(|delete\(/);
     expect(component).toContain('aria-label="Search clients"');
     expect(component).toContain('Load more clients');
     expect(repository).not.toContain('.limit(40)');

@@ -37,36 +37,33 @@ export async function fetchAppointmentClientPage(database: any, options: {
   const selectedPatient = clean(options.selectedPatient);
   const offset = Math.max(0, Math.trunc(Number(options.offset) || 0));
   const pageSize = Math.min(100, Math.max(1, Math.trunc(Number(options.pageSize) || APPOINTMENT_CLIENT_PAGE_SIZE)));
-  let request = database
-    .from('patients')
-    .select('id,full_name,patient_number,phone,slug')
-    .is('deleted_at', null)
-    .order('full_name')
-    .order('id')
-    .range(offset, offset + pageSize);
-  if (query) request = request.ilike('full_name', `%${query}%`);
-
   const [pageResult, selectedResult] = await Promise.all([
-    request,
+    database.rpc('appointment_patient_options', {
+      search_text: query || null,
+      page_offset: offset,
+      page_size: Math.min(100, pageSize + 1),
+      selected_patient: null,
+    }),
     selectedPatient
-      ? database.from('patients').select('id,full_name,patient_number,phone,slug').eq('id', selectedPatient).is('deleted_at', null).maybeSingle()
+      ? database.rpc('appointment_patient_options', {
+        search_text: null,
+        page_offset: 0,
+        page_size: 1,
+        selected_patient: selectedPatient,
+      })
       : Promise.resolve({ data: null, error: null }),
   ]);
   if (pageResult.error) throw pageResult.error;
   if (selectedResult.error) throw selectedResult.error;
 
   const pageRows = (pageResult.data || []) as AppointmentClientOption[];
-  const candidates = [selectedResult.data, ...pageRows.slice(0, pageSize)]
-    .filter(Boolean)
-    .filter((patient: AppointmentClientOption, index: number, rows: AppointmentClientOption[]) => rows.findIndex(row => row.id === patient.id) === index);
-  const eligibility = await Promise.all(candidates.map(async patient => {
-    const { data, error } = await database.rpc('appointment_patient_access', { action: 'create', target_patient: patient.id });
-    if (error) throw error;
-    return data === true;
-  }));
+  const selectedRow = ((selectedResult.data || []) as AppointmentClientOption[]).find(patient => patient.id === selectedPatient);
+  const candidates = [selectedRow, ...pageRows.slice(0, pageSize)]
+    .filter((patient): patient is AppointmentClientOption => Boolean(patient))
+    .filter((patient, index, rows) => rows.findIndex(row => row.id === patient.id) === index);
 
   return {
-    patients: candidates.filter((_, index) => eligibility[index]),
+    patients: candidates,
     hasMore: pageRows.length > pageSize,
     nextOffset: offset + pageSize,
   };
@@ -256,17 +253,18 @@ export const doctorSchedulingRepository = {
     });
   },
 
-  async createAppointment(payload: { patientId: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; appointmentFee: number; remarks?: string }) {
+  async createAppointment(payload: { patientId: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; appointmentFee: number; remarks?: string; requestKey?: string }) {
     const feeError = validateAppointmentFee(payload.appointmentFee);
     if (feeError) throw new Error(feeError);
-    const { data, error } = await db().rpc('create_doctor_appointment', {
+    const { data, error } = await db().rpc('create_doctor_appointment_v2', {
       target_patient: payload.patientId,
       target_doctor: payload.doctorId,
       appointment_start: payload.startAt,
       appointment_end: payload.endAt,
       appointment_consultation_type: payload.consultationType,
-      appointment_fee: payload.appointmentFee,
+      client_session_fee: payload.appointmentFee,
       appointment_remarks: payload.remarks || null,
+      request_key: payload.requestKey || crypto.randomUUID(),
     });
     if (error) throw error;
     return data;
@@ -275,13 +273,13 @@ export const doctorSchedulingRepository = {
   async updateAppointment(payload: { id: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; status: AppointmentStatus; appointmentFee: number; remarks?: string }) {
     const feeError = validateAppointmentFee(payload.appointmentFee);
     if (feeError) throw new Error(feeError);
-    const { data, error } = await db().rpc('update_doctor_appointment', {
+    const { data, error } = await db().rpc('update_doctor_appointment_v2', {
       target_appointment: payload.id,
       target_doctor: payload.doctorId,
       appointment_start: payload.startAt,
       appointment_end: payload.endAt,
       appointment_consultation_type: payload.consultationType,
-      appointment_fee: payload.appointmentFee,
+      client_session_fee: payload.appointmentFee,
       next_status: payload.status,
       appointment_remarks: payload.remarks || null,
     });
