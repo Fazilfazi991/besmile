@@ -18,7 +18,7 @@ describe('Performance and Communication navigation split', () => {
       'Appointment & Scheduling', 'Innovation Hub',
     ]);
     expect(sections.find(section => section.title === 'Communication')?.links.map(link => link.label)).toEqual([
-      'Customer Feedback', 'Chat', 'Announcements', 'Notifications',
+      'Customer Feedback', 'Chat', 'Genie', 'Announcements', 'Notifications',
     ]);
     expect(sections.some(section => section.title === 'Work Management')).toBe(false);
   });
@@ -26,7 +26,7 @@ describe('Performance and Communication navigation split', () => {
   it('keeps restricted staff filtering and hides empty parents', () => {
     const sections = sectionNavigation(filterNavigation(adminNavigation, new Set(['notifications.view'])));
     expect(sections.map(section => section.title)).toEqual(['Communication']);
-    expect(sections.find(section => section.title === 'Communication')?.links.map(link => link.label)).toEqual(['Notifications']);
+    expect(sections.find(section => section.title === 'Communication')?.links.map(link => link.label)).toEqual(['Genie', 'Notifications']);
     expect(sections.every(section => section.links.length > 0)).toBe(true);
   });
 

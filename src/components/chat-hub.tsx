@@ -437,7 +437,7 @@ export function ChatHub() {
       }
       return;
     }
-    const channelId = active.chat_conversations?.channel_id;
+    const channelId = active.chat_conversations?.channel_id || active.conversation_id;
     if (!channelId) {
       setError(
         "Message could not be sent because the conversation was not ready. Please reopen the chat and try again.",
@@ -703,6 +703,11 @@ export function ChatHub() {
     }
   };
   const switchConversation = (item: any) => {
+    if (item.conversation_id === activeRef.current?.conversation_id) {
+      setDetails(false);
+      setMessageQuery("");
+      return;
+    }
     messageRequest.current++;
     setMessages([]);
     setError("");
@@ -1074,7 +1079,7 @@ export function ChatHub() {
                     </button>
                   </span>
                 )}
-                {!active.chat_conversations?.channel_id && (
+                {!active.conversation_id && (
                   <small className="chat-composer-warning">
                     Conversation is preparing. Reopen this chat before sending a
                     message.
@@ -1109,7 +1114,7 @@ export function ChatHub() {
                     <audio src={voicePreview.url} controls preload="metadata" />
                     <span>{durationLabel(voicePreview.duration)}</span>
                     <button type="button" className="chat-voice-discard" onClick={discardVoice}>Discard</button>
-                    <button type="submit" className="chat-voice-send" disabled={sending || !active.chat_conversations?.channel_id}><span aria-hidden="true">➤</span> Send</button>
+                    <button type="submit" className="chat-voice-send" disabled={sending || !active.conversation_id}><span aria-hidden="true">➤</span> Send</button>
                   </div>
                 ) : (
                   <div className="chat-composer-main">
@@ -1136,7 +1141,7 @@ export function ChatHub() {
                       onKeyDown={submitKey}
                       onInput={(event) => resizeComposer(event.currentTarget)}
                       disabled={
-                        sending || !active.chat_conversations?.channel_id
+                        sending || !active.conversation_id
                       }
                     />
                     {mentionMatch && mentionCandidates.length > 0 && (
@@ -1160,7 +1165,7 @@ export function ChatHub() {
                       type="button"
                       className="chat-attach"
                       onClick={() => fileRef.current?.click()}
-                      disabled={sending || !!file || !active.chat_conversations?.channel_id}
+                      disabled={sending || !!file || !active.conversation_id}
                       aria-label="Attach file"
                     >
                       <PaperclipIcon />
@@ -1171,11 +1176,11 @@ export function ChatHub() {
                       className="chat-mic"
                       aria-label="Record voice message"
                       onClick={() => void startRecording()}
-                      disabled={sending || !!file || !active.chat_conversations?.channel_id}
+                      disabled={sending || !!file || !active.conversation_id}
                     >
                       <MicrophoneIcon />
                     </button>
-                    <button className="btn btn-primary" aria-label="Send" disabled={sending || !active.chat_conversations?.channel_id || (!text.trim() && !file)}>
+                    <button className="btn btn-primary" aria-label="Send" disabled={sending || !active.conversation_id || (!text.trim() && !file)}>
                       <SendIcon /> <span className="chat-send-label">{sending ? "Sending..." : "Send"}</span>
                     </button>
                   </div>
