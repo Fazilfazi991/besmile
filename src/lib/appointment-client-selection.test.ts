@@ -100,6 +100,7 @@ describe('Release 1B appointment client selection', () => {
   it('uses only current production schema contracts and exposes the bounded search controls', () => {
     const patientsMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/0037_patient_records_and_documents.sql'), 'utf8');
     const accessMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260922140945_sales_coordinator_lead_client_access.sql'), 'utf8');
+    const schedulerAccessMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260929141022_appointment_scheduler_client_access.sql'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/lib/doctor-scheduling-repository.ts'), 'utf8');
     const component = readFileSync(resolve(process.cwd(), 'src/components/doctor-scheduling.tsx'), 'utf8');
     const selectorRuntime = repository.slice(repository.indexOf('export async function fetchAppointmentClientPage'), repository.indexOf('export type DoctorPayload'));
@@ -111,6 +112,10 @@ describe('Release 1B appointment client selection', () => {
     expect(accessMigration).toContain('function public.appointment_patient_access(action text, target_patient uuid)');
     expect(accessMigration).toContain("public.appointment_has_permission(action)");
     expect(accessMigration).toContain('public.patient_care_access(target_patient)');
+    expect(schedulerAccessMigration).toContain("public.appointment_has_permission('create')");
+    expect(schedulerAccessMigration).not.toContain('and public.patient_care_access(p.id)');
+    expect(schedulerAccessMigration).toContain('p.deleted_at is null');
+    expect(schedulerAccessMigration).toContain('p.archived_at is null');
     expect(selectorRuntime).toContain(".rpc('appointment_patient_options'");
     expect(selectorRuntime).toContain('page_offset: offset');
     expect(selectorRuntime).toContain('page_size: Math.min(100, pageSize + 1)');
