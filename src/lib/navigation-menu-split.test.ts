@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeNavigationHref, adminNavigation, filterNavigation, sectionNavigation } from './permission-access';
+import { activeNavigationHref, adminNavigation, employeeNavigation, filterNavigation, sectionNavigation } from './permission-access';
 
 describe('Performance and Communication navigation split', () => {
   it('renders the ordered management menus and their existing destinations', () => {
@@ -11,22 +11,24 @@ describe('Performance and Communication navigation split', () => {
     ]);
     const sections = sectionNavigation(filterNavigation(adminNavigation, permissions));
     expect(sections.map(section => section.title)).toEqual([
-      'Overview', 'Operations', 'Performance', 'Communication', 'CRM', 'Finance', 'Data & Settings',
+      'Overview', 'Operations', 'Performance', 'Communication', 'Genie', 'CRM', 'Finance', 'Data & Settings',
     ]);
     expect(sections.find(section => section.title === 'Performance')?.links.map(link => link.label)).toEqual([
       'Staff Attendance', 'Daily Work Updates', 'My Calendar', 'Meetings', 'Leave Approvals', 'Tasks',
       'Appointment & Scheduling', 'Innovation Hub',
     ]);
     expect(sections.find(section => section.title === 'Communication')?.links.map(link => link.label)).toEqual([
-      'Customer Feedback', 'Chat', 'Genie', 'Announcements', 'Notifications',
+      'Customer Feedback', 'Chat', 'Announcements', 'Notifications',
     ]);
+    expect(sections.find(section => section.title === 'Genie')?.links.map(link => link.label)).toEqual(['Genie']);
     expect(sections.some(section => section.title === 'Work Management')).toBe(false);
   });
 
   it('keeps restricted staff filtering and hides empty parents', () => {
     const sections = sectionNavigation(filterNavigation(adminNavigation, new Set(['notifications.view'])));
-    expect(sections.map(section => section.title)).toEqual(['Communication']);
-    expect(sections.find(section => section.title === 'Communication')?.links.map(link => link.label)).toEqual(['Genie', 'Notifications']);
+    expect(sections.map(section => section.title)).toEqual(['Communication', 'Genie']);
+    expect(sections.find(section => section.title === 'Communication')?.links.map(link => link.label)).toEqual(['Notifications']);
+    expect(sections.find(section => section.title === 'Genie')?.links.map(link => link.label)).toEqual(['Genie']);
     expect(sections.every(section => section.links.length > 0)).toBe(true);
   });
 
@@ -34,5 +36,15 @@ describe('Performance and Communication navigation split', () => {
     expect(activeNavigationHref('/admin/attendance', adminNavigation)).toBe('/admin/attendance');
     expect(activeNavigationHref('/admin/chat', adminNavigation)).toBe('/admin/chat');
     expect(activeNavigationHref('/admin/notifications', adminNavigation)).toBe('/admin/notifications');
+  });
+
+  it('keeps Genie as one direct top-level destination in both workspace contexts', () => {
+    const adminGenie = sectionNavigation(filterNavigation(adminNavigation, new Set())).find(section => section.title === 'Genie');
+    const employeeGenie = sectionNavigation(filterNavigation(employeeNavigation, new Set())).find(section => section.title === 'Genie');
+
+    expect(adminGenie?.links).toEqual([expect.objectContaining({ label: 'Genie', href: '/admin/genie' })]);
+    expect(employeeGenie?.links).toEqual([expect.objectContaining({ label: 'Genie', href: '/employee/genie' })]);
+    expect(activeNavigationHref('/admin/genie', adminNavigation)).toBe('/admin/genie');
+    expect(activeNavigationHref('/employee/genie', employeeNavigation)).toBe('/employee/genie');
   });
 });

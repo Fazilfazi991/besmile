@@ -15,7 +15,7 @@ describe('Batch 13 sidebar navigation architecture', () => {
 
   it('derives compact sidebar sections from the canonical, permission-filtered links', () => {
     const sections = sectionNavigation(filterNavigation(adminNavigation, new Set(['dashboard.view', 'employees.view', 'crm.view_team', 'finance.dashboard.view', 'roles.manage'])));
-    expect(sections.map(section => section.title)).toEqual(['Overview', 'Operations', 'Communication', 'CRM', 'Finance', 'Data & Settings']);
+    expect(sections.map(section => section.title)).toEqual(['Overview', 'Operations', 'Genie', 'CRM', 'Finance', 'Data & Settings']);
     expect(sections.find(section => section.title === 'CRM')?.links.map(link => link.label)).toEqual(['CRM Dashboard', 'Leads Management', 'Follow-ups', 'Sales']);
     expect(sections.find(section => section.title === 'Data & Settings')?.links.map(link => link.label)).toEqual(['Profile', 'Roles & Access']);
   });
@@ -48,12 +48,12 @@ describe('Batch 13 sidebar navigation architecture', () => {
   });
 
   it.each([
-    ['director', new Set(['dashboard.view', 'employees.view', 'crm.view_team', 'finance.dashboard.view']), ['Overview', 'Operations', 'Communication', 'CRM', 'Finance', 'Data & Settings']],
-    ['general_manager', new Set(['dashboard.view', 'employees.view', 'tasks.assign', 'leave.review']), ['Overview', 'Operations', 'Performance', 'Communication', 'Data & Settings']],
-    ['assistant_manager', new Set(['dashboard.view', 'admin.shell', 'doctor_scheduling.view', 'psychologist_payments.view']), ['Overview', 'Performance', 'Communication', 'Finance', 'Data & Settings']],
-    ['psychologist', new Set(['dashboard.view', 'attendance.self', 'tasks.view_self', 'doctor_scheduling.view']), ['Overview', 'Performance', 'Communication', 'Data & Settings']],
-    ['guest_sales', new Set(['dashboard.view', 'crm.view_assigned']), ['Overview', 'Performance', 'Communication', 'CRM', 'Data & Settings']],
-    ['intern', new Set(['dashboard.view', 'tasks.view_self']), ['Overview', 'Performance', 'Communication', 'Data & Settings']],
+    ['director', new Set(['dashboard.view', 'employees.view', 'crm.view_team', 'finance.dashboard.view']), ['Overview', 'Operations', 'Genie', 'CRM', 'Finance', 'Data & Settings']],
+    ['general_manager', new Set(['dashboard.view', 'employees.view', 'tasks.assign', 'leave.review']), ['Overview', 'Operations', 'Performance', 'Genie', 'Data & Settings']],
+    ['assistant_manager', new Set(['dashboard.view', 'admin.shell', 'doctor_scheduling.view', 'psychologist_payments.view']), ['Overview', 'Performance', 'Communication', 'Genie', 'Finance', 'Data & Settings']],
+    ['psychologist', new Set(['dashboard.view', 'attendance.self', 'tasks.view_self', 'doctor_scheduling.view']), ['Overview', 'Performance', 'Communication', 'Genie', 'Data & Settings']],
+    ['guest_sales', new Set(['dashboard.view', 'crm.view_assigned']), ['Overview', 'Performance', 'Communication', 'Genie', 'CRM', 'Data & Settings']],
+    ['intern', new Set(['dashboard.view', 'tasks.view_self']), ['Overview', 'Performance', 'Communication', 'Genie', 'Data & Settings']],
   ] as const)('keeps %s sidebar sections limited to its effective permission cards', (role, permissions, expectedSections) => {
     const sections = sectionNavigation(filterNavigation(navigationForProfile(role), permissions));
     expect(sections.map(section => section.title)).toEqual(expectedSections);

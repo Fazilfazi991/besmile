@@ -123,6 +123,7 @@ export function sectionNavigation(
     { title: "Operations", links: [] },
     { title: "Performance", links: [] },
     { title: "Communication", links: [] },
+    { title: "Genie", links: [] },
     { title: "CRM", links: [] },
     { title: "Finance", links: [] },
     { title: "Data & Settings", links: [] },
@@ -149,8 +150,9 @@ export function sectionNavigation(
       href.includes("/ideas/categories")
     )
       return "Data & Settings";
+    if (label === "Genie") return "Genie";
     if (
-      /^(Chat|Teams|Genie|Announcements|Notifications|Customer Feedback)$/.test(label)
+      /^(Chat|Teams|Announcements|Notifications|Customer Feedback)$/.test(label)
     )
       return "Communication";
     if (
