@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const migration = readFileSync(
-  'supabase/migrations/20260929035313_release_2_chat_channel_compatibility.sql',
+  'supabase/migrations/20260929110001_release_2_chat_channel_compatibility.sql',
   'utf8',
 );
 const repository = readFileSync('src/lib/employee-repository.ts', 'utf8');

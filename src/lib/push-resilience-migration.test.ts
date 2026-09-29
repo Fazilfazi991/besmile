@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const migration = readFileSync(new URL('../../supabase/migrations/20260929035324_release_2_push_resilience.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../../supabase/migrations/20260929110002_release_2_push_resilience.sql', import.meta.url), 'utf8');
 const historicalMigration = readFileSync(new URL('../../supabase/migrations/20260925093947_rotate_push_dispatch_secret_to_vault.sql', import.meta.url), 'utf8');
 
 describe('Release 2 browser-push resilience migration', () => {

@@ -2,7 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 
-const migration = readFileSync('supabase/migrations/20260929035301_release_2_workflows_and_client_sessions.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20260929110000_release_2_workflows_and_client_sessions.sql', 'utf8');
 let db: PGlite | undefined;
 
 afterEach(async () => { await db?.close(); db = undefined; });

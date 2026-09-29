@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const migration = readFileSync(new URL('../../supabase/migrations/20260929035301_release_2_workflows_and_client_sessions.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../../supabase/migrations/20260929110000_release_2_workflows_and_client_sessions.sql', import.meta.url), 'utf8');
 const scheduling = readFileSync(new URL('./doctor-scheduling-repository.ts', import.meta.url), 'utf8');
 const schedulingUi = readFileSync(new URL('../components/doctor-scheduling.tsx', import.meta.url), 'utf8');
 const genieRoute = readFileSync(new URL('../app/api/genie/route.ts', import.meta.url), 'utf8');
@@ -16,6 +16,12 @@ describe('BSMILE combined lifecycle migration', () => {
     expect(migration).toContain("pg_advisory_xact_lock(pg_catalog.hashtextextended('genie-lead-phone:'||normalized_phone,0))");
     expect(genieRoute).toContain("'23505': { status: 409, message: 'A conflicting record already exists.' }");
     expect(genieRoute).not.toContain("known && detail ? detail");
+  });
+
+  it('replays a completed browser confirmation after the one-time token is cleared', () => {
+    expect(migration).toContain("workflow.status = 'completed' and expected_confirmation_token is null");
+    expect(migration).toContain("prior.request_payload->'draft' is distinct from workflow.draft");
+    expect(genieRoute).toContain('expected_confirmation_token: null');
   });
 
   it('keeps repeat-session receipts canonical and idempotent', () => {

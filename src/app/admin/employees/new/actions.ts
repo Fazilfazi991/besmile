@@ -61,8 +61,10 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   if (!isSecurityAdministratorRole(profileResult.data.role) && protectedManagementRoles.has(role)) return { error: 'Only a Super Admin can assign protected management roles.', fields };
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
+  const initialPassword = process.env.EMPLOYEE_INITIAL_PASSWORD;
+  if (!initialPassword) return { error: 'Employee account provisioning is not configured. Contact a system administrator.', fields };
   const { data: duplicate } = await admin.from('profiles')
-    .select('id,full_name,email,work_email,employee_code,department_id,designation,role,manager_id,joining_date,employment_type,status,employee_provision_request_id')
+    .select('id,full_name,email,work_email,employee_code,department_id,designation,role,manager_id,joining_date,employment_type,status,onboarding_required,employee_provision_request_id')
     .or(`email.eq.${loginEmail},employee_code.eq.${employeeCode}`).limit(1);
   if (duplicate?.length) {
     const completedRequest = duplicate[0];
@@ -79,6 +81,21 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
       && completedRequest.employment_type === (String(form.get('employment_type') || '').trim() || null)
       && completedRequest.status === status;
     if (!unchanged) return { error: 'This employee form submission was already used with different details. Reload the form before trying again.', fields };
+    if (completedRequest.onboarding_required) {
+      const existingAuth = await admin.auth.admin.getUserById(completedRequest.id);
+      if (existingAuth.error || !existingAuth.data.user) return { error: 'Unable to reconcile the authentication account. Retry shortly.', fields };
+      if (existingAuth.data.user.app_metadata?.employee_provision_request_id !== provisioningRequestId) {
+        const recovered = await admin.auth.admin.updateUserById(completedRequest.id, {
+          password: initialPassword,
+          app_metadata: {
+            ...existingAuth.data.user.app_metadata,
+            employee_provision_request_id: provisioningRequestId,
+            onboarding_required: true,
+          },
+        });
+        if (recovered.error) return { error: 'The employee profile is reserved, but account setup is incomplete. Retry this same form.', fields };
+      }
+    }
     revalidatePath('/admin/employees');
     return { success: `${fullName} was already created. They must verify ${loginEmail} and complete secure onboarding before using the workspace.` };
   }
@@ -88,8 +105,13 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   }
   const { data: department, error: departmentError } = await session.from('departments').select('id').eq('id', departmentId).eq('is_active', true).maybeSingle();
   if (departmentError || !department) return { error: 'Choose an active department.', fields };
-  const initialPassword = process.env.EMPLOYEE_INITIAL_PASSWORD;
-  if (!initialPassword) return { error: 'Employee account provisioning is not configured. Contact a system administrator.', fields };
+  const profileInsert = {
+    full_name: fullName, email: loginEmail, work_email: workEmail, employee_code: employeeCode,
+    phone: String(form.get('phone') || '').trim() || null, gender, department_id: departmentId,
+    designation, role, manager_id: managerId, joining_date: joiningDate,
+    employment_type: String(form.get('employment_type') || '').trim() || null,
+    status, onboarding_required: true, employee_provision_request_id: provisioningRequestId,
+  };
   let authUser: any;
   const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(loginEmail, {
     data: { employee_provision_request_id: provisioningRequestId },
@@ -105,12 +127,13 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
     password: initialPassword,
     app_metadata: { ...authUser.app_metadata, employee_provision_request_id: provisioningRequestId, onboarding_required: true },
   });
-  if (metadataUpdate.error) return { error: 'The invitation was created but account setup is incomplete. Retry this same form.', fields };
+  if (metadataUpdate.error) {
+    const reservation = await admin.from('profiles').insert({ id: authUser.id, ...profileInsert });
+    if (reservation.error) return { error: 'The invitation was created, but its recovery reservation could not be completed. Contact a system administrator before retrying.', fields };
+    return { error: 'The invitation was created but account setup is incomplete. Retry this same form.', fields };
+  }
   const { error: profileError } = await admin.from('profiles').insert({
-    id: authUser.id, full_name: fullName, email: loginEmail, work_email: workEmail, employee_code: employeeCode, phone: String(form.get('phone') || '').trim() || null, gender,
-    department_id: departmentId, designation, role, manager_id: managerId,
-    joining_date: joiningDate, employment_type: String(form.get('employment_type') || '').trim() || null,
-    status, onboarding_required: true, employee_provision_request_id: provisioningRequestId,
+    id: authUser.id, ...profileInsert,
   });
   if (profileError) {
     return { error: `${profileError.message} The invited account is retained so retrying this same form can recover safely.`, fields };

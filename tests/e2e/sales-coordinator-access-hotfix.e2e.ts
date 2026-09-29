@@ -123,7 +123,9 @@ test("Marketing and Operations Sales Coordinators retain the approved narrow wor
     for (const code of forbidden) expect(await permission(coordinator.client, code), code).toBe(false);
   }
   for (const ordinary of [marketingOrdinary, operationsOrdinary]) {
-    for (const code of ["attendance.self", "leads.view_all", "leads.create", "patients.view_identity"])
+    for (const code of ["leads.view_all", "leads.create", "patients.view_identity"])
+      expect(await permission(ordinary.client, code), code).toBe(false);
+    for (const code of ["attendance.manage", "attendance.view_team", "crm.manage_all"])
       expect(await permission(ordinary.client, code), code).toBe(false);
   }
   for (const code of [...allowed, ...forbidden])

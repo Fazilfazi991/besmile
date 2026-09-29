@@ -148,14 +148,18 @@ test("approved Marketing staff receive full CRM and department Daily Work review
     created_by: coordinator.id,
     note: "Approved local follow-up",
     followup_number: 1,
+    follow_up_at: new Date(Date.now() + 86400000).toISOString(),
   }).select("id,note").single();
   expect(followup.error).toBeNull();
 
   const sale = await coordinator.client.rpc("convert_crm_lead_to_sale", { target_lead: saleLead, sale_amount: 1000 });
   expect(sale.error).toBeNull();
-  const patient = await manager.client.rpc("convert_lead_to_patient", { target_lead: clientLead, requested_patient_number: "LOCAL-CLIENT" });
+  const patient = await manager.client.rpc("convert_lead_to_patient", { target_lead: clientLead, requested_patient_number: `LOCAL-${Date.now()}` });
   expect(patient.error).toBeNull();
-  const patientIdentity = await manager.client.from("patients").select("id,full_name,phone").eq("id", patient.data).single();
+  const patientResult = Array.isArray(patient.data) ? patient.data[0] : patient.data;
+  const patientId = typeof patientResult === "string" ? patientResult : patientResult?.patient_id;
+  expect(patientId).toBeTruthy();
+  const patientIdentity = await manager.client.from("patients").select("id,full_name,phone").eq("id", patientId).single();
   expect(patientIdentity.error).toBeNull();
 
   const settings = await admin.from("company_attendance_settings").select("office_latitude,office_longitude").eq("id", true).single();

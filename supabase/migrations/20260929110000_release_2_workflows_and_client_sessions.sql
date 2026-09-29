@@ -297,7 +297,14 @@ begin
     where request_row.actor_id=auth.uid() and request_row.action_type=workflow.action_type and request_row.idempotency_key=request_key;
   if prior.id is not null and prior.result_id is not null then
     replay_payload:=jsonb_build_object('draft_id',workflow.id,'version',expected_version,'confirmation_token',expected_confirmation_token,'draft',workflow.draft);
-    if prior.request_payload is distinct from replay_payload then
+    if prior.draft_id is distinct from workflow.id
+      or (prior.request_payload->>'version')::integer is distinct from expected_version
+      or prior.request_payload->'draft' is distinct from workflow.draft
+      or (
+        not (workflow.status = 'completed' and expected_confirmation_token is null)
+        and prior.request_payload is distinct from replay_payload
+      )
+    then
       raise exception 'This operation key was already used for a different Genie payload.' using errcode='22023';
     end if;
     return query select workflow.action_type, prior.result_id, true;

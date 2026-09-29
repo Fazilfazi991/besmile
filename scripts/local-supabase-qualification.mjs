@@ -180,7 +180,7 @@ try {
     target_draft: leadDraft.id, expected_version: leadDraft.version, expected_confirmation_token: leadToken, request_key: leadDraft.idempotency_key,
   }, 'confirm Genie lead');
   const leadReplay = await rpc(clients.gm, 'confirm_genie_action', {
-    target_draft: leadDraft.id, expected_version: leadDraft.version, expected_confirmation_token: leadToken, request_key: leadDraft.idempotency_key,
+    target_draft: leadDraft.id, expected_version: leadDraft.version, expected_confirmation_token: null, request_key: leadDraft.idempotency_key,
   }, 'replay Genie lead');
   assert.equal(leadReplay[0].result_id, leadResult[0].result_id);
   assert.equal(leadReplay[0].replayed, true);
