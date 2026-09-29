@@ -8,6 +8,7 @@ import { CompactEmptyState, CompactPageHeader, DataTableShell, ModuleTabs, Modul
 import { crmFollowupState, filterCrmLeads } from "@/lib/crm-lead-workspace";
 import { paginateRecords } from "@/lib/leave-workspace";
 import { defaultCrmLeadDate, isValidCrmLeadDate } from "@/lib/crm-lead-date";
+import { isConvertedClient } from "@/lib/client-conversion";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyFilters = { query: "", status: "", source: "", assignee: "", from: "", to: "", followup: "", unassigned: false };
@@ -119,7 +120,7 @@ export default function LeadManagement() {
       item.next_follow_up_at &&
       String(item.next_follow_up_at).slice(0, 10) < today(),
   ).length;
-  const converted = leads.filter((lead) => lead.converted_at).length;
+  const converted = leads.filter(isConvertedClient).length;
   const paginated = useMemo(() => paginateRecords(shown, page, pageSize), [shown, page, pageSize]);
   const statusTabs = [
     { value: "", label: "All", count: leads.length },

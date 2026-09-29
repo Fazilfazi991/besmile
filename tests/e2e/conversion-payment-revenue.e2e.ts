@@ -33,10 +33,10 @@ test('Director records a fully-paid conversion once and leaves no outstanding ba
     await received.fill('1000');
     await page.getByLabel('Receiving account *').selectOption({ index: 1 });
     await page.getByLabel('Payment method *').selectOption('bank_transfer');
-    const convertButton = page.getByRole('button', { name: 'Convert to sale' });
+    const convertButton = page.getByRole('button', { name: 'Record sale only' });
     await convertButton.scrollIntoViewIfNeeded();
     await convertButton.click({ force: true });
-    await expect(page.getByText('Lead converted to a sale.')).toBeVisible();
+    await expect(page.getByText('Sale recorded. Client conversion is unchanged.')).toBeVisible();
     await assertNoRawDatabaseError(page);
 
     const sale = await fixtureAdmin.from('crm_sales').select('id,sale_value').eq('lead_id', lead.data.id).single();

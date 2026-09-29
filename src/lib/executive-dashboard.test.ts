@@ -28,7 +28,8 @@ describe('director executive dashboard rules', () => {
     expect(isActiveLead({ status: { name: 'Contacted' } })).toBe(true);
     expect(isActiveLead({ status: { name: 'Closed' } })).toBe(false);
     expect(isActiveLead({ status: { name: 'Disqualified' } })).toBe(false);
-    expect(isActiveLead({ status: { name: 'Converted' }, converted_at: '2026-09-01' })).toBe(false);
+    expect(isActiveLead({ status: { name: 'Converted' }, converted_patient_id: 'patient-1', converted_at: '2026-09-01' })).toBe(false);
+    expect(isActiveLead({ status: { name: 'Contacted' }, converted_at: '2026-09-01', converted_patient_id: null })).toBe(true);
     expect(isActiveLead({ archived_at: '2026-09-01' })).toBe(false);
   });
 

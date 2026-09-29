@@ -13,17 +13,19 @@ type Lead = {
   created_at: string;
   archived_at: string | null;
   converted_at: string | null;
+  converted_patient_id: string | null;
   status: { name: string; sort_order: number };
   source: { name: string };
 };
 
 const leads: Lead[] = [
-  { lead_date: '2026-09-22', created_at: '2026-09-01T08:00:00Z', archived_at: null, converted_at: '2026-09-22T09:00:00Z', status: { name: 'Converted', sort_order: 4 }, source: { name: 'Outdoor Marketing' } },
-  { lead_date: '2026-09-21', created_at: '2026-09-22T08:00:00Z', archived_at: null, converted_at: null, status: { name: 'New', sort_order: 1 }, source: { name: 'Referral' } },
-  { lead_date: '2026-09-01', created_at: '2026-08-10T08:00:00Z', archived_at: null, converted_at: '2026-09-10T09:00:00Z', status: { name: 'Converted', sort_order: 4 }, source: { name: 'Outdoor Marketing' } },
-  { lead_date: '2026-09-10', created_at: '2026-09-11T08:00:00Z', archived_at: null, converted_at: null, status: { name: 'Contacted', sort_order: 2 }, source: { name: 'Website' } },
-  { lead_date: '2026-09-05', created_at: '2026-09-05T08:00:00Z', archived_at: '2026-09-06T08:00:00Z', converted_at: null, status: { name: 'New', sort_order: 1 }, source: { name: 'Outdoor Marketing' } },
-  { lead_date: '2026-08-31', created_at: '2026-09-22T08:00:00Z', archived_at: null, converted_at: null, status: { name: 'New', sort_order: 1 }, source: { name: 'Website' } },
+  { lead_date: '2026-09-22', created_at: '2026-09-01T08:00:00Z', archived_at: null, converted_at: '2026-09-22T09:00:00Z', converted_patient_id: 'patient-1', status: { name: 'Converted', sort_order: 4 }, source: { name: 'Outdoor Marketing' } },
+  { lead_date: '2026-09-21', created_at: '2026-09-22T08:00:00Z', archived_at: null, converted_at: null, converted_patient_id: null, status: { name: 'New', sort_order: 1 }, source: { name: 'Referral' } },
+  { lead_date: '2026-09-01', created_at: '2026-08-10T08:00:00Z', archived_at: null, converted_at: '2026-09-10T09:00:00Z', converted_patient_id: 'patient-2', status: { name: 'Converted', sort_order: 4 }, source: { name: 'Outdoor Marketing' } },
+  { lead_date: '2026-09-10', created_at: '2026-09-11T08:00:00Z', archived_at: null, converted_at: null, converted_patient_id: null, status: { name: 'Contacted', sort_order: 2 }, source: { name: 'Website' } },
+  { lead_date: '2026-09-05', created_at: '2026-09-05T08:00:00Z', archived_at: '2026-09-06T08:00:00Z', converted_at: null, converted_patient_id: null, status: { name: 'New', sort_order: 1 }, source: { name: 'Outdoor Marketing' } },
+  { lead_date: '2026-08-31', created_at: '2026-09-22T08:00:00Z', archived_at: null, converted_at: null, converted_patient_id: null, status: { name: 'New', sort_order: 1 }, source: { name: 'Website' } },
+  { lead_date: '2026-09-09', created_at: '2026-09-09T08:00:00Z', archived_at: null, converted_at: '2026-09-09T09:00:00Z', converted_patient_id: null, status: { name: 'Contacted', sort_order: 2 }, source: { name: 'Website' } },
 ];
 
 function inRange(value: string | null, range: CrmDateRange) {
@@ -34,7 +36,7 @@ function inRange(value: string | null, range: CrmDateRange) {
 function canonicalSummary(range: CrmDateRange, rows = leads): CrmDashboardSummary {
   const visible = rows.filter(row => !row.archived_at);
   const period = visible.filter(row => inRange(row.lead_date, range));
-  const converted = visible.filter(row => inRange(row.converted_at, range));
+  const converted = visible.filter(row => row.converted_patient_id && inRange(row.converted_at, range));
   const group = (key: 'status' | 'source') => [...period.reduce((map, row) => map.set(row[key].name, (map.get(row[key].name) || 0) + 1), new Map<string, number>())].map(([name, count]) => ({ name, count }));
   return {
     periodLeads: period.length,
@@ -80,9 +82,13 @@ describe('cross-dashboard CRM metric consistency', () => {
   it('uses lead_date rather than created_at, excludes archived leads, and includes custom boundaries', () => {
     expect(canonicalSummary(ranges.Today).periodLeads).toBe(1);
     expect(canonicalSummary(ranges['This Week']).periodLeads).toBe(2);
-    expect(canonicalSummary(ranges['This Month']).periodLeads).toBe(4);
-    expect(canonicalSummary(ranges.Custom).periodLeads).toBe(2);
+    expect(canonicalSummary(ranges['This Month']).periodLeads).toBe(5);
+    expect(canonicalSummary(ranges.Custom).periodLeads).toBe(3);
     expect(canonicalSummary(ranges.Custom).sources).toContainEqual({ name: 'Outdoor Marketing', count: 1 });
+  });
+
+  it('does not count a sale-only timestamp as a converted client', () => {
+    expect(canonicalSummary(ranges.Custom).converted).toBe(1);
   });
 
   it('formats 5 of 89 consistently and safely handles zero leads and conversions', () => {

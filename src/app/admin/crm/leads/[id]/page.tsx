@@ -171,7 +171,7 @@ export default function LeadDetail() {
         third_session_date: sale.third_session_date || null,
         created_by: profile.id,
       });
-      setMessage("Lead converted to a sale.");
+      setMessage("Sale recorded. Client conversion is unchanged.");
       await load();
     } catch (caught: any) {
       setError(
@@ -393,7 +393,15 @@ export default function LeadDetail() {
           </div>
         </section>
         <section className="card p-5">
-          <h2 className="font-bold">Sale conversion</h2>
+          <h2 className="font-bold">Sale / Invoice</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Records a sale, invoice, and optional payment. It does not create a client or enable appointments.
+          </p>
+          {!convertedPatient && (
+            <p className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              Need appointment booking? Convert to client first and assign the approved Client ID.
+            </p>
+          )}
           {existingSale ? (
             <div className="mt-3 space-y-2 text-sm">
               <p>
@@ -404,6 +412,7 @@ export default function LeadDetail() {
                 <b>Closing date:</b> {existingSale.closing_date}
               </p>
               <p>{existingSale.service_details || "No service details."}</p>
+              {!convertedPatient && <p className="font-medium text-amber-800">Sale recorded; no client record is linked yet.</p>}
               <Link
                 className="text-brand font-semibold"
                 href="/admin/crm/sales"
@@ -479,7 +488,7 @@ export default function LeadDetail() {
                 }
               />
               <button className="btn btn-primary" disabled={busy}>
-                Convert to sale
+                Record sale only
               </button>
             </form>
           )}

@@ -1,3 +1,5 @@
+import { isConvertedClient } from './client-conversion';
+
 export const EXECUTIVE_DASHBOARD_ROLES = ['director'] as const;
 
 export function executiveFirstName(name?: string | null) {
@@ -60,6 +62,6 @@ export function percentageChange(current: number, previous: number) {
 }
 
 export function isActiveLead(lead: any) {
-  if (lead.archived_at || lead.converted_at) return false;
+  if (lead.archived_at || isConvertedClient(lead)) return false;
   return !/^(closed|disqualified|converted)$/i.test(String(lead.status?.name || '').trim());
 }

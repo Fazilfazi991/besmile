@@ -86,14 +86,14 @@ describe('Release 1B appointment client selection', () => {
 
   it('performs read-only selection without creating clients, reconverting leads, or changing CRM metrics', async () => {
     const convertedAt = '2026-09-20T09:30:00Z';
-    const leads = [{ id: 'lead-1', converted_at: convertedAt }, { id: 'lead-2', converted_at: null }];
+    const leads = [{ id: 'lead-1', converted_at: convertedAt, converted_patient_id: 'patient-1' }, { id: 'lead-2', converted_at: convertedAt, converted_patient_id: null }];
     const before = structuredClone(leads);
     const { database, calls } = syntheticDatabase([patient(1)]);
 
     await fetchAppointmentClientPage(database, { query: 'Client 001' });
 
     expect(leads).toEqual(before);
-    expect(leads.filter(lead => lead.converted_at)).toHaveLength(1);
+    expect(leads.filter(lead => lead.converted_patient_id)).toHaveLength(1);
     expect(new Set(calls.rpcs.map(call => call.name))).toEqual(new Set(['appointment_patient_options']));
   });
 
