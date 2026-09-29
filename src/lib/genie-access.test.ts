@@ -28,11 +28,12 @@ describe('Genie internal access boundary', () => {
     expect(permissionAllows(new Set(), adminRouteRequirement('/admin/genie'))).toBe(true);
   });
 
-  it('keeps the API data surface limited to session, minimal profile access, and policy retrieval', () => {
+  it('keeps the API data surface permission-scoped for policy and approved workflows', () => {
     const route = readFileSync(resolve(process.cwd(), 'src/app/api/genie/route.ts'), 'utf8');
     expect(route).toContain(".from('profiles')");
-    expect(route).toContain(".select('status,is_employee,role')");
-    expect(route).not.toMatch(/patients|leads|finance|payroll|employee_repository|private_profile/i);
+    expect(route).toContain(".select('id,status,is_employee,role,onboarding_required')");
+    expect(route).toContain("rpc('confirm_genie_action'");
+    expect(route).not.toMatch(/from\(['"](?:patients|payroll|employee_salary_settings)/i);
     expect(route).toContain("'Cache-Control': 'private, no-store, max-age=0'");
   });
 });

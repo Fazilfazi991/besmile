@@ -22,6 +22,8 @@ describe('Genie chat experience', () => {
     expect(component).toContain('onScroll={trackThreadPosition}');
     expect(component).not.toContain('genieAcknowledgementReply(trimmed)');
     expect(component).toContain("fetch('/api/genie'");
+    expect(component).toContain('requestAnimationFrame(scrollToLatest)');
+    expect(component).toContain('conversationId: conversationId.current');
   });
 
   it('supports tablet/mobile composition and both workspace themes', () => {
@@ -50,8 +52,8 @@ describe('Genie chat experience', () => {
     expect(styles).toContain('.app-shell:has(.genie-page) .app-content{padding-bottom:var(--workspace-pad)}');
   });
 
-  it('states the privacy boundary in the product UI', () => {
-    expect(component).toContain('No client, CRM, Finance, or private profile data is available to Genie.');
-    expect(component).toContain('Approved policies only');
+  it('states the permission and confirmation boundary in the product UI', () => {
+    expect(component).toContain('Actions are permission-checked, reviewed, confirmed');
+    expect(component).toContain('Permission-aware');
   });
 });

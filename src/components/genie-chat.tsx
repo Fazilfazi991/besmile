@@ -2,6 +2,7 @@
 
 import { FormEvent, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BookOpenText, LockKeyhole, Send, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 import type { GeniePolicyDocument, GenieSource } from '@/lib/genie-policy';
 import './genie-chat.css';
 
@@ -11,6 +12,7 @@ type ChatMessage = {
   text: string;
   status?: 'answered' | 'conversation' | 'not_found' | 'error';
   sources?: GenieSource[];
+  created?: { type: string; id: string; href: string };
 };
 
 const STARTER_QUESTIONS = [
@@ -30,7 +32,7 @@ const POLICY_DATE_FORMATTER = new Intl.DateTimeFormat('en-GB', {
 const WELCOME: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
-  text: 'Hi, I’m Genie. Ask me about the Employee Handbook, Hiring & Recruitment Policy, or Internship Policy. I’ll answer only from those approved documents.',
+  text: 'Hi, I’m Genie. I can answer from approved policies or guide you through creating a lead, task, or expense.',
 };
 
 function GenieMark({ small = false }: { small?: boolean }) {
@@ -82,6 +84,7 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
   const threadRef = useRef<HTMLDivElement>(null);
   const isNearThreadEnd = useRef(true);
   const forceThreadEnd = useRef(true);
+  const conversationId = useRef(globalThis.crypto?.randomUUID?.() || '');
 
   useEffect(() => setInteractive(true), []);
 
@@ -89,9 +92,14 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
     const thread = threadRef.current;
     if (messages.length === 1 && !loading) return;
     if (!thread || (!forceThreadEnd.current && !isNearThreadEnd.current)) return;
-    thread.scrollTop = thread.scrollHeight;
-    forceThreadEnd.current = false;
-    isNearThreadEnd.current = true;
+    const scrollToLatest = () => {
+      thread.scrollTop = thread.scrollHeight;
+      forceThreadEnd.current = false;
+      isNearThreadEnd.current = true;
+    };
+    scrollToLatest();
+    const frame = window.requestAnimationFrame(scrollToLatest);
+    return () => window.cancelAnimationFrame(frame);
   }, [messages, loading]);
 
   const trackThreadPosition = () => {
@@ -112,13 +120,14 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
       const response = await fetch('/api/genie', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: trimmed }),
+        body: JSON.stringify({ question: trimmed, conversationId: conversationId.current }),
       });
       const payload = await response.json() as {
         answer?: string;
         error?: string;
         status?: 'answered' | 'conversation' | 'not_found';
         sources?: GenieSource[];
+        created?: { type: string; id: string; href: string };
       };
       if (!response.ok) throw new Error(payload.error || 'Genie could not answer right now.');
       setMessages((current) => [...current, {
@@ -127,6 +136,7 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
         text: payload.answer || 'I couldn’t find that in the approved policies.',
         status: payload.status,
         sources: payload.sources || [],
+        created: payload.created,
       }]);
     } catch (error) {
       setMessages((current) => [...current, {
@@ -161,10 +171,10 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
               <h1 id="genie-title">Genie</h1>
               <span><ShieldCheck size={13} /> Internal</span>
             </div>
-            <p>BSmile’s approved policy assistant</p>
+            <p>BSmile’s policy and workflow assistant</p>
           </div>
         </div>
-        <div className="genie-scope-pill"><LockKeyhole size={14} /> Approved policies only</div>
+        <div className="genie-scope-pill"><LockKeyhole size={14} /> Permission-aware</div>
       </header>
 
       <div className="genie-workspace">
@@ -176,6 +186,7 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
                 <div className="genie-message-content">
                   <span className="genie-speaker">{message.role === 'assistant' ? 'Genie' : 'You'}</span>
                   <p>{message.text}</p>
+                  {message.created && <Link className="mt-2 inline-block text-xs font-bold text-teal-700 underline" href={message.created.href}>Open created {message.created.type}</Link>}
                   {message.sources && message.sources.length > 0 && <SourceReferences sources={message.sources} />}
                 </div>
               </article>
@@ -202,14 +213,14 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
           </div>
 
           <form className="genie-composer" onSubmit={submit}>
-            <label htmlFor="genie-question">Ask a policy question</label>
+            <label htmlFor="genie-question">Ask a policy question or create a record</label>
             <div>
               <textarea
                 id="genie-question"
                 value={question}
                 maxLength={400}
                 rows={1}
-                placeholder="e.g. What is the leave approval process?"
+                placeholder="Ask a policy question or create a lead, task, or expense"
                 onChange={(event) => setQuestion(event.target.value)}
                 onKeyDown={handleComposerKey}
                 disabled={!interactive || loading}
@@ -225,8 +236,8 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
         <aside className="genie-policy-shelf" aria-label="Approved policy library">
           <div>
             <span className="genie-shelf-kicker">Knowledge scope</span>
-            <h2>Three approved sources</h2>
-            <p>Genie cannot browse the web or search any BSmile operational records.</p>
+            <h2>Approved policy sources</h2>
+            <p>Policy answers remain grounded here. Action workflows use only authorized application choices.</p>
           </div>
           <ol>
             {documents.map((document, index) => (
@@ -243,7 +254,7 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
             <ShieldCheck size={18} />
             <div>
               <b>Private by design</b>
-              <p>No client, CRM, Finance, or private profile data is available to Genie.</p>
+              <p>Actions are permission-checked, reviewed, confirmed, and saved to the normal modules.</p>
             </div>
           </div>
         </aside>
