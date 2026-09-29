@@ -17,6 +17,7 @@ describe('Genie chat experience', () => {
   it('keeps message order and sends every reply to the server before generic small talk handling', () => {
     expect(component).toContain('setMessages((current) => [...current, userMessage');
     expect(component).toContain('thread.scrollTop = thread.scrollHeight');
+    expect(component).toContain('if (messages.length === 1 && !loading) return;');
     expect(component).toContain('isNearThreadEnd.current');
     expect(component).toContain('onScroll={trackThreadPosition}');
     expect(component).not.toContain('genieAcknowledgementReply(trimmed)');
@@ -27,9 +28,18 @@ describe('Genie chat experience', () => {
     expect(styles).toContain('@media(max-width:820px)');
     expect(styles).toContain('@media(max-width:600px)');
     expect(styles).toContain('font-size:16px');
-    expect(styles).toContain('height:max(560px,calc(100dvh - 200px))');
+    expect(styles).toContain('.genie-chat-panel{height:100%;min-height:0}');
     expect(styles).toContain('html[data-theme="colorful"] .genie-page');
     expect(styles).toContain('@media(prefers-reduced-motion:reduce)');
+  });
+
+  it('fills the authenticated shell without guessed heights or an outer page scrollbar', () => {
+    expect(styles).toContain('.app-shell:has(.genie-page){height:100dvh;min-height:0;overflow:hidden}');
+    expect(styles).toContain('.app-shell:has(.genie-page) .app-content{display:flex;min-height:0;flex:1;flex-direction:column;overflow:hidden}');
+    expect(styles).toContain('.genie-thread{min-height:0;overflow-y:auto');
+    expect(styles).toContain('scroll-padding-block:22px');
+    expect(styles).not.toContain('height:calc(100dvh - 118px)');
+    expect(styles).not.toContain('min-height:430px');
   });
 
   it('places the existing mobile navigation after Genie instead of overlaying it', () => {

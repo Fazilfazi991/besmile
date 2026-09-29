@@ -87,6 +87,7 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
 
   useLayoutEffect(() => {
     const thread = threadRef.current;
+    if (messages.length === 1 && !loading) return;
     if (!thread || (!forceThreadEnd.current && !isNearThreadEnd.current)) return;
     thread.scrollTop = thread.scrollHeight;
     forceThreadEnd.current = false;
