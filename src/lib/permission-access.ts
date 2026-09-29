@@ -202,7 +202,11 @@ export function navigationForProfile(role: string | null | undefined) {
 export function adminRouteRequirement(path: string): PermissionRequirement | undefined {
   if (path.startsWith("/admin/genie")) return undefined;
   if (path.startsWith("/admin/daily-work"))
-    return anyOf("attendance.view", "attendance.manage");
+    return anyOf(
+      "attendance.view",
+      "attendance.manage",
+      "daily_work.review_department",
+    );
   if (path === "/admin") return anyOf("admin.access");
   if (path === "/admin/profile") return anyOf("admin.access", "dashboard.view");
   if (path === "/admin/my-attendance") return anyOf("attendance.self");
@@ -404,7 +408,11 @@ export const adminNavigation: readonly NavigationGroup[] = [
       {
         label: "Daily Work Updates",
         href: "/admin/daily-work",
-        requirement: anyOf("attendance.view", "attendance.manage"),
+        requirement: anyOf(
+          "attendance.view",
+          "attendance.manage",
+          "daily_work.review_department",
+        ),
       },
       {
         label: "My Calendar",
@@ -611,6 +619,11 @@ export const employeeNavigation: readonly NavigationGroup[] = [
       {
         label: "Daily Work Update",
         href: "/employee/daily-work",
+      },
+      {
+        label: "Daily Work Reports",
+        href: "/admin/daily-work",
+        requirement: anyOf("daily_work.review_department"),
       },
       { label: "My Calendar", href: "/employee/calendar" },
       { label: "Holiday Calendar", href: "/employee/holidays" },

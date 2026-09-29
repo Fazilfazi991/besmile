@@ -70,7 +70,9 @@ async function authorizeRequest(request: NextRequest, response: NextResponse) {
     if ((isSuperAdmin || isManagement) && path.startsWith('/employee')) return redirectWithCookies(request, response, '/admin');
     if (path === '/employee') return redirectWithCookies(request, response, await employeeLandingPath());
     if (path.startsWith('/admin')) {
-      if (!isSuperAdmin && !isManagement && !await hasAnyPermission(['admin.shell'])) return redirectWithCookies(request, response, '/unauthorized');
+      const isDepartmentDailyWorkReviewer = path.startsWith('/admin/daily-work')
+        && await hasAnyPermission(['daily_work.review_department']);
+      if (!isSuperAdmin && !isManagement && !isDepartmentDailyWorkReviewer && !await hasAnyPermission(['admin.shell'])) return redirectWithCookies(request, response, '/unauthorized');
       if (path.startsWith('/admin/access') && !isSecurityAdministratorRole(profile.role)) return redirectWithCookies(request, response, '/unauthorized');
       const requirement = adminRouteRequirement(path);
       if (requirement && !await hasAnyPermission(requirement.anyOf || [])) return redirectWithCookies(request, response, '/unauthorized');
