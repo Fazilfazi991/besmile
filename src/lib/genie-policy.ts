@@ -1,5 +1,5 @@
 import policyIndex from '@/data/genie-policy-index.json';
-import { genieAcknowledgementReply } from './genie-conversation';
+import { genieAcknowledgementReply, withoutLeadingGenieGreeting } from './genie-conversation';
 
 type PolicyDocument = {
   id: string;
@@ -210,10 +210,11 @@ function internReportingNeedsBothPolicies(question: string) {
 }
 
 export function answerPolicyQuestion(rawQuestion: string): GenieAnswer {
-  const question = rawQuestion.trim().slice(0, 400);
-  const acknowledgement = genieAcknowledgementReply(question);
+  const message = rawQuestion.trim().slice(0, 400);
+  const acknowledgement = genieAcknowledgementReply(message);
   if (acknowledgement)
     return { status: 'conversation', answer: acknowledgement, sources: [] };
+  const question = withoutLeadingGenieGreeting(message);
   const ranked = rankChunks(question);
   const top = ranked[0];
   if (!top || top.score < 12 || top.baseCoverage < 0.34) {

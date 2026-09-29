@@ -2,7 +2,6 @@
 
 import { FormEvent, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BookOpenText, LockKeyhole, Send, ShieldCheck } from 'lucide-react';
-import { genieAcknowledgementReply } from '@/lib/genie-conversation';
 import type { GeniePolicyDocument, GenieSource } from '@/lib/genie-policy';
 import './genie-chat.css';
 
@@ -104,20 +103,7 @@ export function GenieChat({ documents }: { documents: GeniePolicyDocument[] }) {
     const trimmed = nextQuestion.trim();
     if (!trimmed || loading) return;
     const userMessage: ChatMessage = { id: `user-${messageCounter.current += 1}`, role: 'user', text: trimmed };
-    const acknowledgement = genieAcknowledgementReply(trimmed);
     forceThreadEnd.current = true;
-    if (acknowledgement) {
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${messageCounter.current += 1}`,
-        role: 'assistant',
-        text: acknowledgement,
-        status: 'conversation',
-        sources: [],
-      };
-      setMessages((current) => [...current, userMessage, assistantMessage]);
-      setQuestion('');
-      return;
-    }
     setMessages((current) => [...current, userMessage]);
     setQuestion('');
     setLoading(true);

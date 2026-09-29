@@ -44,7 +44,32 @@ describe('Genie approved-policy retrieval', () => {
       answer: 'Got it. Ask me anything else about the approved BSmile policies.',
       sources: [],
     });
+    expect(answerPolicyQuestion('good morning')).toEqual({
+      status: 'conversation',
+      answer: 'Good morning! How can I help?',
+      sources: [],
+    });
     expect(answerPolicyQuestion('Okay, where can I park my car?').status).toBe('not_found');
+    const mixedPolicy = answerPolicyQuestion('Hi, what is the leave policy?');
+    expect(mixedPolicy.status).toBe('answered');
+    expect(mixedPolicy.sources.length).toBeGreaterThan(0);
+    expect(answerPolicyQuestion('Hi, add a lead').status).not.toBe('conversation');
+  });
+
+  it.each([
+    'Hi',
+    'Hello',
+    'Good morning',
+    'Good afternoon',
+    'Good evening',
+    'Thanks',
+    'Thank you',
+    'OK',
+    'Understood',
+  ])('answers pure small talk %s without policy sources', (message) => {
+    const result = answerPolicyQuestion(message);
+    expect(result.status).toBe('conversation');
+    expect(result.sources).toEqual([]);
   });
 
   it('surfaces both approved statements when intern reporting wording is ambiguous', () => {

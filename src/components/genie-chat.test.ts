@@ -14,12 +14,13 @@ describe('Genie chat experience', () => {
     expect(styles).toContain('.genie-message.is-not_found');
   });
 
-  it('keeps chronological messages at the bottom without interrupting deliberate history reading', () => {
+  it('keeps message order and sends every reply to the server before generic small talk handling', () => {
     expect(component).toContain('setMessages((current) => [...current, userMessage');
     expect(component).toContain('thread.scrollTop = thread.scrollHeight');
     expect(component).toContain('isNearThreadEnd.current');
     expect(component).toContain('onScroll={trackThreadPosition}');
-    expect(component).toContain('genieAcknowledgementReply(trimmed)');
+    expect(component).not.toContain('genieAcknowledgementReply(trimmed)');
+    expect(component).toContain("fetch('/api/genie'");
   });
 
   it('supports tablet/mobile composition and both workspace themes', () => {
