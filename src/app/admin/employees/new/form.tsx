@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { DepartmentSelect } from '@/components/department-select';
-import { useActionState, useMemo } from 'react';
+import { useActionState, useMemo, useState } from 'react';
 import { createEmployee, type CreateEmployeeState } from './actions';
 import { genderOptions } from '@/lib/gender';
 import { employeeStatuses, employeeStatusLabel } from '@/lib/employee-status';
@@ -37,6 +37,10 @@ export function EmployeeCreateForm({
   const departmentOptions = useMemo(() => Array.isArray(departments) ? departments.filter((item) => item?.id && item?.name) : [], [departments]);
   const managerOptions = useMemo(() => Array.isArray(managers) ? managers.filter((item) => item?.id && item?.full_name) : [], [managers]);
   const values = state.fields || {};
+  const [workEmail, setWorkEmail] = useState(values.work_email || '');
+  const [loginEmail, setLoginEmail] = useState(values.login_email || values.work_email || '');
+  const [loginEmailEdited, setLoginEmailEdited] = useState(Boolean(values.login_email && values.login_email !== values.work_email));
+  const [provisioningRequestId] = useState(() => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const roleOptions = canCreateProtectedRoles ? [...roles, ...protectedRoles] : roles;
   const cannotSubmit = pending || !!referenceError || departmentOptions.length === 0;
 
@@ -47,7 +51,7 @@ export function EmployeeCreateForm({
           <p className="eyebrow">People</p>
           <h1 className="text-2xl font-bold">Add employee</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Creates an employee profile and sends a secure password-setup invitation.
+            Creates an employee profile, provisions the selected login email, and sends a verification invitation.
           </p>
         </div>
       </div>
@@ -78,11 +82,16 @@ export function EmployeeCreateForm({
       )}
 
       <form action={action} className="card grid min-w-0 gap-4 p-5 md:grid-cols-2">
+        <input type="hidden" name="provisioning_request_id" value={provisioningRequestId} />
         <Field label="Full name" required>
           <input name="full_name" className="input" required defaultValue={values.full_name || ''} />
         </Field>
         <Field label="Work email" required>
-          <input name="email" type="email" className="input" required defaultValue={values.email || ''} />
+          <input name="work_email" type="email" className="input" required value={workEmail} onChange={(event) => { const next = event.target.value; setWorkEmail(next); if (!loginEmailEdited) setLoginEmail(next); }} />
+        </Field>
+        <Field label="Login email" required>
+          <input name="login_email" type="email" className="input" required value={loginEmail} onChange={(event) => { setLoginEmailEdited(true); setLoginEmail(event.target.value); }} />
+          <small className="mt-1 block text-slate-500">Defaults from work email. Editing it keeps the two addresses independent.</small>
         </Field>
         <Field label="Phone">
           <input name="phone" type="tel" className="input" defaultValue={values.phone || ''} />
@@ -138,7 +147,7 @@ export function EmployeeCreateForm({
         </Field>
         <div className="flex items-end">
           <button className="btn btn-primary w-full" disabled={cannotSubmit}>
-            {pending ? 'Creating employee...' : 'Create employee and send invitation'}
+            {pending ? 'Creating employee...' : 'Create employee and send verification'}
           </button>
         </div>
       </form>

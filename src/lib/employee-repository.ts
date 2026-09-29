@@ -1028,8 +1028,10 @@ export const employeeRepository = {
     mention_profile_ids?: string[];
   }) {
     const r = required();
-    const { file, mention_profile_ids = [], ...message } = payload;
-    if (!message.conversation_id || !message.channel_id)
+    const { file, mention_profile_ids = [], ...messageWithLegacyChannel } = payload;
+    const message = { ...messageWithLegacyChannel };
+    delete message.channel_id;
+    if (!message.conversation_id)
       throw new Error(
         "Message could not be sent because the conversation was not ready. Please reopen the chat and try again.",
       );

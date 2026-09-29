@@ -13,8 +13,21 @@ const protectedManagementRoles = new Set(['chairman', 'director', 'general_manag
 
 export type CreateEmployeeState = { error?: string; success?: string; fields?: Record<string, string> };
 
+async function findProvisioningUser(admin: any, email: string, requestId: string) {
+  for (let page = 1; page <= 5; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const match = data.users.find((user: any) => user.email?.toLowerCase() === email);
+    // Only administrator-controlled metadata can prove that this Auth account
+    // belongs to the provisioning attempt. user_metadata is user-editable.
+    if (match) return match.app_metadata?.employee_provision_request_id === requestId ? match : null;
+    if (data.users.length < 200) break;
+  }
+  return undefined;
+}
+
 export async function createEmployee(_: CreateEmployeeState, form: FormData): Promise<CreateEmployeeState> {
-  const fields = Object.fromEntries(['full_name', 'email', 'phone', 'gender', 'employee_code', 'department_id', 'designation', 'role', 'manager_id', 'joining_date', 'employment_type', 'status'].map((key) => [key, String(form.get(key) || '')]));
+  const fields = Object.fromEntries(['full_name', 'work_email', 'login_email', 'phone', 'gender', 'employee_code', 'department_id', 'designation', 'role', 'manager_id', 'joining_date', 'employment_type', 'status', 'provisioning_request_id'].map((key) => [key, String(form.get(key) || '')]));
   const session = await serverSupabase();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return { error: 'Please sign in again.', fields };
@@ -27,7 +40,9 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   if (!profileResult.data || profileResult.data.status !== 'active' || !permissionResult.data) return { error: 'You do not have permission to create employees.', fields };
 
   const fullName = String(form.get('full_name') || '').trim();
-  const email = String(form.get('email') || '').trim().toLowerCase();
+  const workEmail = String(form.get('work_email') || '').trim().toLowerCase();
+  const loginEmail = String(form.get('login_email') || '').trim().toLowerCase();
+  const provisioningRequestId = String(form.get('provisioning_request_id') || '').trim();
   const employeeCode = String(form.get('employee_code') || '').trim();
   const gender = normalizeGender(String(form.get('gender') || ''));
   const designation = String(form.get('designation') || '').trim();
@@ -38,32 +53,68 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
   const rawJoiningDate = String(form.get('joining_date') || '');
   let joiningDate: string | null = null;
   try { joiningDate = rawJoiningDate ? normalizeDateOnly(rawJoiningDate) : null; } catch { return { error: 'Joining date must be a valid calendar date.', fields }; }
-  if (!fullName || !email || !employeeCode || !gender || !departmentId || !designation || !operationalRoles.has(role)) return { error: 'Full name, email, gender, Official ID, department, designation, and a valid operational role are required.', fields };
+  if (!fullName || !workEmail || !loginEmail || !employeeCode || !gender || !departmentId || !designation || !operationalRoles.has(role)) return { error: 'Full name, work email, login email, gender, Official ID, department, designation, and a valid operational role are required.', fields };
   if (!employeeStatuses.includes(status as typeof employeeStatuses[number])) return { error: 'Choose a valid employee status.', fields };
-  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: 'Enter a valid work email address.', fields };
+  if (!/^\S+@\S+\.\S+$/.test(workEmail)) return { error: 'Enter a valid work email address.', fields };
+  if (!/^\S+@\S+\.\S+$/.test(loginEmail)) return { error: 'Enter a valid login email address.', fields };
+  if (!/^[a-zA-Z0-9._:-]{12,128}$/.test(provisioningRequestId)) return { error: 'The employee form expired. Reload it and try again.', fields };
   if (!isSecurityAdministratorRole(profileResult.data.role) && protectedManagementRoles.has(role)) return { error: 'Only a Super Admin can assign protected management roles.', fields };
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
-  const { data: duplicate } = await admin.from('profiles').select('id').or(`email.eq.${email},employee_code.eq.${employeeCode}`).limit(1);
-  if (duplicate?.length) return { error: 'An employee with that email address or Official ID already exists.', fields };
+  const { data: duplicate } = await admin.from('profiles')
+    .select('id,full_name,email,work_email,employee_code,department_id,designation,role,manager_id,joining_date,employment_type,status,employee_provision_request_id')
+    .or(`email.eq.${loginEmail},employee_code.eq.${employeeCode}`).limit(1);
+  if (duplicate?.length) {
+    const completedRequest = duplicate[0];
+    if (completedRequest.employee_provision_request_id !== provisioningRequestId) return { error: 'An employee with that login email address or Official ID already exists.', fields };
+    const unchanged = completedRequest.full_name === fullName
+      && completedRequest.email?.toLowerCase() === loginEmail
+      && completedRequest.work_email?.toLowerCase() === workEmail
+      && completedRequest.employee_code === employeeCode
+      && completedRequest.department_id === departmentId
+      && completedRequest.designation === designation
+      && completedRequest.role === role
+      && completedRequest.manager_id === managerId
+      && completedRequest.joining_date === joiningDate
+      && completedRequest.employment_type === (String(form.get('employment_type') || '').trim() || null)
+      && completedRequest.status === status;
+    if (!unchanged) return { error: 'This employee form submission was already used with different details. Reload the form before trying again.', fields };
+    revalidatePath('/admin/employees');
+    return { success: `${fullName} was already created. They must verify ${loginEmail} and complete secure onboarding before using the workspace.` };
+  }
   if (managerId) {
     const { data: manager } = await admin.from('profiles').select('id,status,role,is_employee,workforce_visible,removed_at').eq('id', managerId).maybeSingle();
     if (!manager || manager.status !== 'active' || manager.removed_at || !((manager.is_employee && manager.workforce_visible) || ['chairman', 'director'].includes(manager.role))) return { error: 'Choose an active employee as the reporting manager.', fields };
   }
   const { data: department, error: departmentError } = await session.from('departments').select('id').eq('id', departmentId).eq('is_active', true).maybeSingle();
   if (departmentError || !department) return { error: 'Choose an active department.', fields };
-  const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email);
-  if (inviteError || !invitation.user) return { error: inviteError?.message || 'The employee invitation could not be created.', fields };
+  const initialPassword = process.env.EMPLOYEE_INITIAL_PASSWORD;
+  if (!initialPassword) return { error: 'Employee account provisioning is not configured. Contact a system administrator.', fields };
+  let authUser: any;
+  const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(loginEmail, {
+    data: { employee_provision_request_id: provisioningRequestId },
+  });
+  if (invitation?.user) {
+    authUser = invitation.user;
+  } else {
+    try { authUser = await findProvisioningUser(admin, loginEmail, provisioningRequestId); }
+    catch { return { error: 'Unable to reconcile the authentication account. Retry shortly.', fields }; }
+    if (!authUser) return { error: inviteError?.message || 'That login email already belongs to another account.', fields };
+  }
+  const metadataUpdate = await admin.auth.admin.updateUserById(authUser.id, {
+    password: initialPassword,
+    app_metadata: { ...authUser.app_metadata, employee_provision_request_id: provisioningRequestId, onboarding_required: true },
+  });
+  if (metadataUpdate.error) return { error: 'The invitation was created but account setup is incomplete. Retry this same form.', fields };
   const { error: profileError } = await admin.from('profiles').insert({
-    id: invitation.user.id, full_name: fullName, email, employee_code: employeeCode, phone: String(form.get('phone') || '').trim() || null, gender,
+    id: authUser.id, full_name: fullName, email: loginEmail, work_email: workEmail, employee_code: employeeCode, phone: String(form.get('phone') || '').trim() || null, gender,
     department_id: departmentId, designation, role, manager_id: managerId,
     joining_date: joiningDate, employment_type: String(form.get('employment_type') || '').trim() || null,
-    status,
+    status, onboarding_required: true, employee_provision_request_id: provisioningRequestId,
   });
   if (profileError) {
-    await admin.auth.admin.deleteUser(invitation.user.id);
-    return { error: profileError.message, fields };
+    return { error: `${profileError.message} The invited account is retained so retrying this same form can recover safely.`, fields };
   }
   revalidatePath('/admin/employees');
-  return { success: `${fullName} was created and invited to set their password.` };
+  return { success: `${fullName} was created. They must verify ${loginEmail} and change the initial password before using the workspace.` };
 }

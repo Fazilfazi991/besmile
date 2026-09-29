@@ -45,9 +45,13 @@ async function authorizeRequest(request: NextRequest, response: NextResponse) {
   if (protectedPath && !user) return redirectWithCookies(request, response, '/sign-in');
 
   if (user) {
-    const { data: profile } = await authorizationRead(signal => supabase.from('profiles').select('role,status,is_employee').eq('id', user.id).abortSignal(signal).maybeSingle(), 'middleware.profile');
+    const { data: profile } = await authorizationRead(signal => supabase.from('profiles').select('role,status,is_employee,onboarding_required').eq('id', user.id).abortSignal(signal).maybeSingle(), 'middleware.profile');
     if (!profile) return redirectWithCookies(request, response, '/unauthorized');
     if (profile.status === 'inactive' || profile.status === 'terminated') return redirectWithCookies(request, response, '/sign-in?inactive=1');
+    if (profile.onboarding_required) {
+      if (path === '/onboarding/password') return response;
+      return redirectWithCookies(request, response, '/onboarding/password');
+    }
     const isSuperAdmin = profile.role === 'super_admin';
     const isManagement = isManagementRole(profile.role);
     const isOutsourcedClinician = profile.is_employee === false;
@@ -63,6 +67,7 @@ async function authorizeRequest(request: NextRequest, response: NextResponse) {
       }
       return '/employee/profile';
     };
+    if (path === '/onboarding/password') return redirectWithCookies(request, response, isOutsourcedClinician ? '/clinician/schedule' : isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath());
     if (path === '/') return redirectWithCookies(request, response, isOutsourcedClinician ? '/clinician/schedule' : isSuperAdmin || isManagement ? workspaceLandingPath(profile.role) : await employeeLandingPath());
     if (isOutsourcedClinician && (path.startsWith('/employee') || path.startsWith('/admin'))) return redirectWithCookies(request, response, '/clinician/schedule');
     if (!isOutsourcedClinician && path.startsWith('/clinician')) return redirectWithCookies(request, response, isSuperAdmin || isManagement ? '/admin' : await employeeLandingPath());
@@ -87,4 +92,4 @@ async function authorizeRequest(request: NextRequest, response: NextResponse) {
   return response;
 }
 
-export const config = { matcher: ['/', '/employee/:path*', '/admin/:path*', '/clinician/:path*'] };
+export const config = { matcher: ['/', '/employee/:path*', '/admin/:path*', '/clinician/:path*', '/onboarding/:path*'] };
