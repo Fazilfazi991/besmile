@@ -1,7 +1,54 @@
+import {
+  resolveGenieOption,
+  type GenieOptionAliases,
+  type GenieOptionMatch,
+  type GenieOptionResolution,
+} from './genie-option-resolver';
+
 export type GenieActionType = 'lead' | 'task' | 'expense';
 export type GenieChoice = { id: string; name: string };
 export type GenieChoices = { sources?: GenieChoice[]; statuses?: GenieChoice[]; employees?: GenieChoice[]; accounts?: GenieChoice[]; categories?: GenieChoice[] };
 const marketingExpenseTypes = ['Digital Marketing Expenses', 'Performance Marketing Expenses', 'Other Marketing Expenses'] as const;
+const marketingExpenseOptions: GenieChoice[] = marketingExpenseTypes.map(name => ({ id: name, name }));
+const paymentMethodOptions: GenieChoice[] = [
+  { id: 'cash', name: 'Cash' },
+  { id: 'bank_transfer', name: 'Bank transfer' },
+  { id: 'upi', name: 'UPI' },
+  { id: 'card', name: 'Card' },
+];
+const priorityOptions: GenieChoice[] = ['low', 'medium', 'high'].map(value => ({ id: value, name: value[0].toUpperCase() + value.slice(1) }));
+
+export const genieOptionAliases: Record<'account' | 'category' | 'marketingType' | 'paymentMethod' | 'priority', GenieOptionAliases> = {
+  account: {
+    Cash: ['cash account', 'cash on hand'],
+    'Primary Bank': ['bank', 'bank account', 'primary bank account', 'main bank'],
+  },
+  category: {
+    'Admin & Utilities': ['admin and utilities', 'admin utilities', 'utilities'],
+    Capital: ['capital expense', 'capex'],
+    Marketing: ['marketing expense', 'marketing expenses'],
+    'Monthly Expenses': ['monthly expense', 'recurring monthly expense', 'monthly'],
+    Other: ['other expense', 'miscellaneous', 'misc expense'],
+    'Psychologist session payout': ['psychologist payout', 'session payout', 'psychologist payment'],
+  },
+  marketingType: {
+    'Digital Marketing Expenses': ['digital marketing', 'digital', 'digital ads', 'digital advertising', 'online marketing', 'online ads'],
+    'Performance Marketing Expenses': ['performance marketing', 'performance', 'performance ads', 'paid performance', 'perf marketing'],
+    'Other Marketing Expenses': ['other marketing', 'other marketing expense'],
+  },
+  paymentMethod: {
+    Cash: ['cash payment'],
+    'Bank transfer': ['bank', 'bank payment', 'transfer', 'banking'],
+    UPI: ['upi payment'],
+    Card: ['card payment', 'credit card', 'debit card'],
+  },
+  priority: {},
+};
+
+export type GenieWorkflowFieldResolution =
+  | (GenieOptionMatch & { patch: Record<string, unknown> })
+  | Exclude<GenieOptionResolution, GenieOptionMatch>
+  | null;
 
 export const confirmationWords = /^(?:confirm|save|create it|yes,? create|yes,? save)$/i;
 export const cancellationWords = /^(?:cancel|never mind|nevermind|stop)$/i;
@@ -34,6 +81,50 @@ const choice = (value: string, choices: GenieChoice[] = []) => {
   return matches.length === 1 ? matches[0].id : null;
 };
 
+const resolvedPatch = (resolution: GenieOptionResolution, patch: (option: GenieChoice) => Record<string, unknown>): GenieWorkflowFieldResolution =>
+  resolution.status === 'match' ? { ...resolution, patch: patch(resolution.option) } : resolution;
+
+export function resolveWorkflowFieldInput(
+  action: GenieActionType,
+  field: string | undefined,
+  input: string,
+  choices: GenieChoices,
+): GenieWorkflowFieldResolution {
+  if (!field) return null;
+  if (field === 'source_id') return resolvedPatch(resolveGenieOption({ input, options: choices.sources || [] }), option => ({ source_id: option.id }));
+  if (field === 'status_id') return resolvedPatch(resolveGenieOption({ input, options: choices.statuses || [] }), option => ({ status_id: option.id }));
+  if (field === 'priority' && action === 'task') return resolvedPatch(resolveGenieOption({ input, options: priorityOptions, aliases: genieOptionAliases.priority }), option => ({ priority: option.id }));
+  if (action !== 'expense') return null;
+  if (field === 'account_id') {
+    return resolvedPatch(resolveGenieOption({ input, options: choices.accounts || [], aliases: genieOptionAliases.account }), option => ({ account_id: option.id }));
+  }
+  if (field === 'expense_category_id') {
+    const category = resolveGenieOption({ input, options: choices.categories || [], aliases: genieOptionAliases.category });
+    if (category.status === 'ambiguous') return category;
+    if (category.status === 'match' && ['exact', 'normalized', 'alias'].includes(category.confidence)) {
+      return resolvedPatch(category, option => ({ expense_category_id: option.id, expense_category_name: option.name }));
+    }
+    const marketing = choices.categories?.find(option => option.name === 'Marketing');
+    if (marketing) {
+      const subtype = resolveGenieOption({ input, options: marketingExpenseOptions, aliases: genieOptionAliases.marketingType });
+      if (subtype.status !== 'no_match') {
+        return resolvedPatch(subtype, option => ({ expense_category_id: marketing.id, expense_category_name: marketing.name, expense_subcategory: option.id }));
+      }
+    }
+    if (category.status === 'match') {
+      return resolvedPatch(category, option => ({ expense_category_id: option.id, expense_category_name: option.name }));
+    }
+    return category;
+  }
+  if (field === 'expense_subcategory') {
+    return resolvedPatch(resolveGenieOption({ input, options: marketingExpenseOptions, aliases: genieOptionAliases.marketingType }), option => ({ expense_subcategory: option.id }));
+  }
+  if (field === 'payment_method') {
+    return resolvedPatch(resolveGenieOption({ input, options: paymentMethodOptions, aliases: genieOptionAliases.paymentMethod }), option => ({ payment_method: option.id }));
+  }
+  return null;
+}
+
 export function workflowDefaults(action: GenieActionType, actorId: string, today: string, choices: GenieChoices) {
   if (action === 'lead') return { lead_date: today, assigned_to: actorId, temperature: 'cold', status_id: choices.statuses?.[0]?.id || '' };
   if (action === 'task') return { priority: 'medium', assignee_ids: [] as string[] };
@@ -62,8 +153,10 @@ export function parseWorkflowInput(action: GenieActionType, message: string, cur
     if (focusedField === 'full_name') next.full_name = direct;
     if (focusedField === 'phone') next.phone = direct.replace(/[^\d+]/g, '');
     if (focusedField === 'lead_date' && isoDate(direct)) next.lead_date = direct;
-    if (focusedField === 'source_id') next.source_id = choice(direct, choices.sources);
-    if (focusedField === 'status_id') next.status_id = choice(direct, choices.statuses);
+    if (focusedField === 'source_id' || focusedField === 'status_id') {
+      const resolution = resolveWorkflowFieldInput(action, focusedField, direct, choices);
+      if (resolution?.status === 'match') Object.assign(next, resolution.patch);
+    }
     if (focusedField === 'assigned_to') next.assigned_to = choice(direct, choices.employees);
   } else if (action === 'task') {
     const title = text.match(/\btask(?:\s+(?:called|titled|to))?\s+(.+?)(?=\s+(?:due|for|assign(?:ed)?|priority)\b|[,;]|$)/i)?.[1];
@@ -75,6 +168,10 @@ export function parseWorkflowInput(action: GenieActionType, message: string, cur
     if (employeeName) { const id = choice(employeeName, choices.employees); if (id) next.assignee_ids = [id]; }
     if (focusedField === 'title') next.title = direct;
     if (focusedField === 'due_date' && isoDate(direct)) next.due_date = direct;
+    if (focusedField === 'priority') {
+      const resolution = resolveWorkflowFieldInput(action, focusedField, direct, choices);
+      if (resolution?.status === 'match') Object.assign(next, resolution.patch);
+    }
     if (focusedField === 'assignee_ids') { const id = choice(direct, choices.employees); if (id) next.assignee_ids = [id]; }
   } else {
     const amount = text.match(/(?:inr|rs\.?|₹)?\s*([0-9]+(?:\.[0-9]{1,2})?)/i)?.[1];
@@ -84,10 +181,13 @@ export function parseWorkflowInput(action: GenieActionType, message: string, cur
     if (description) next.description = description.trim();
     const accountName = text.match(/account\s+([a-z0-9 &_-]+?)(?=\s+(?:category|paid|via|date)\b|[,;]|$)/i)?.[1];
     const categoryName = text.match(/category\s+([a-z0-9 &_-]+?)(?=\s+(?:account|paid|via|date)\b|[,;]|$)/i)?.[1];
-    if (accountName) next.account_id = choice(accountName, choices.accounts);
+    if (accountName) {
+      const resolution = resolveWorkflowFieldInput(action, 'account_id', accountName, choices);
+      if (resolution?.status === 'match') Object.assign(next, resolution.patch);
+    }
     if (categoryName) {
-      next.expense_category_id = choice(categoryName, choices.categories);
-      next.expense_category_name = choices.categories?.find(item => item.id === next.expense_category_id)?.name || '';
+      const resolution = resolveWorkflowFieldInput(action, 'expense_category_id', categoryName, choices);
+      if (resolution?.status === 'match') Object.assign(next, resolution.patch);
     }
     const expenseSubtype = marketingExpenseTypes.find(type => lower.includes(type.toLowerCase()));
     if (expenseSubtype) next.expense_subcategory = expenseSubtype;
@@ -95,14 +195,11 @@ export function parseWorkflowInput(action: GenieActionType, message: string, cur
     if (method) next.payment_method = method.replace(' ', '_');
     if (focusedField === 'amount' && Number(direct) > 0) next.amount = String(Number(direct));
     if (focusedField === 'transaction_date' && isoDate(direct)) next.transaction_date = direct;
-    if (focusedField === 'account_id') next.account_id = choice(direct, choices.accounts);
-    if (focusedField === 'expense_category_id') {
-      next.expense_category_id = choice(direct, choices.categories);
-      next.expense_category_name = choices.categories?.find(item => item.id === next.expense_category_id)?.name || '';
+    if (['account_id', 'expense_category_id', 'expense_subcategory', 'payment_method'].includes(focusedField || '')) {
+      const resolution = resolveWorkflowFieldInput(action, focusedField, direct, choices);
+      if (resolution?.status === 'match') Object.assign(next, resolution.patch);
     }
-    if (focusedField === 'expense_subcategory') next.expense_subcategory = marketingExpenseTypes.find(type => type.toLowerCase() === direct.toLowerCase()) || '';
     if (focusedField === 'description') next.description = direct;
-    if (focusedField === 'payment_method' && /^(cash|bank transfer|bank_transfer|upi|card)$/i.test(direct)) next.payment_method = direct.toLowerCase().replace(' ', '_');
   }
   return next;
 }
@@ -122,6 +219,23 @@ export const workflowQuestion = (field: string, choices: GenieChoices) => {
   const fixed = field === 'expense_subcategory' ? marketingExpenseTypes : undefined;
   return `What ${labels[field] || field} should I use?${list?.length ? ` Choose: ${list.map(item => item.name).join(', ')}.` : fixed ? ` Choose: ${fixed.join(', ')}.` : ''}`;
 };
+
+const clarificationLabel: Record<string, string> = {
+  source_id: 'lead source',
+  status_id: 'lead status',
+  priority: 'priority',
+  account_id: 'account',
+  expense_category_id: 'expense category',
+  expense_subcategory: 'Marketing expense type',
+  payment_method: 'payment method',
+};
+
+export function workflowResolutionQuestion(field: string, resolution: Exclude<GenieWorkflowFieldResolution, GenieOptionMatch & { patch: Record<string, unknown> } | null>) {
+  const label = clarificationLabel[field] || labels[field] || field;
+  const names = resolution.options.map(option => option.name);
+  if (resolution.status === 'ambiguous') return `Did you mean ${names.join(' or ')}?`;
+  return `I couldn't identify the ${label}.${names.length ? ` You can choose ${names.join(' or ')}.` : ''}`;
+}
 
 export function workflowSummary(action: GenieActionType, draft: Record<string, any>, choices: GenieChoices) {
   const name = (items: GenieChoice[]|undefined,id: string) => items?.find(item => item.id===id)?.name || id;

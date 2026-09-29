@@ -4,7 +4,8 @@ import { genieConversationReply } from '@/lib/genie-conversation';
 import { answerPolicyQuestion } from '@/lib/genie-policy';
 import {
   cancellationWords, confirmationWords, genieActionIntent, missingWorkflowFields,
-  parseWorkflowInput, restartWords, workflowDefaults, workflowQuestion, workflowSummary,
+  parseWorkflowInput, resolveWorkflowFieldInput, restartWords, workflowDefaults,
+  workflowQuestion, workflowResolutionQuestion, workflowSummary,
   type GenieActionType, type GenieChoices,
 } from '@/lib/genie-workflow';
 import { serverSupabase } from '@/lib/supabase-server';
@@ -117,7 +118,13 @@ export async function POST(request: Request) {
       const edit = question.match(/^change\s+([a-z ]+?)\s+to\s+(.+)$/i);
       const focused = edit ? aliases[edit[1].trim().toLowerCase().replace('due ','')] : active.missing_fields?.[0];
       const input = edit ? edit[2] : question;
-      const draft = parseWorkflowInput(action, input, active.draft || {}, choices, focused);
+      const resolution = resolveWorkflowFieldInput(action, focused, input, choices);
+      if (resolution && resolution.status !== 'match') {
+        return NextResponse.json({ status: 'conversation', answer: workflowResolutionQuestion(focused, resolution), sources: [] }, { headers: responseHeaders });
+      }
+      const draft = resolution?.status === 'match'
+        ? { ...(active.draft || {}), ...resolution.patch }
+        : parseWorkflowInput(action, input, active.draft || {}, choices, focused);
       const missing = missingWorkflowFields(action, draft);
       const confirmationToken = missing.length ? null : crypto.randomUUID();
       const updated = await db.rpc('update_genie_workflow_draft', {
@@ -128,7 +135,8 @@ export async function POST(request: Request) {
         target_confirmation_token: confirmationToken,
       });
       if (updated.error) throw updated.error;
-      const answer = missing.length ? workflowQuestion(missing[0], choices) : `${workflowSummary(action, draft, choices)}\n\nReply “confirm” to save, “change … to …” to edit, or “cancel”.`;
+      const resolved = resolution?.status === 'match' && resolution.confidence !== 'exact' ? `${resolution.option.name}. ` : '';
+      const answer = missing.length ? `${resolved}${workflowQuestion(missing[0], choices)}` : `${workflowSummary(action, draft, choices)}\n\nReply “confirm” to save, “change … to …” to edit, or “cancel”.`;
       return NextResponse.json({ status: 'conversation', answer, sources: [] }, { headers: responseHeaders });
     }
 
