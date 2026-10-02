@@ -2,6 +2,8 @@
 
 The public demo is entirely local and does not connect to Supabase. It uses the real Besmile Director application shell, canonical navigation, Director dashboard components, and selected production UI components with fictional TypeScript data in `src/demo/`.
 
+The Director dashboard is copied from deployed production commit `88ed4708ca5eb945917e12f99163751d3da9f03d` on `production-readiness`. Only the Director dashboard, its pure calculation helpers, and scoped styles are synchronized; production authentication, database migrations, and integrations are not copied. Today, Week, Month, and Custom reporting periods use fictional local summaries. Fixture dates roll forward with the current business month. The browser Supabase client remains disabled in demo mode even if database settings are accidentally present.
+
 ## Run locally
 
 Copy `.env.demo.example` to `.env.local` and run `pnpm dev`. The only required settings are:

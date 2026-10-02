@@ -1,5 +1,15 @@
 import { demoAppointments, demoPatients, demoUser } from './demo-data';
 import { navigationPermissionCodes } from '@/lib/permission-access';
+import { currentCrmBusinessDate, type CrmDashboardSummary } from '@/lib/crm-dashboard-e1';
+
+const demoToday = currentCrmBusinessDate();
+const demoMonth = new Date(`${demoToday}T00:00:00Z`);
+const demoDate = (monthsAgo: number, day: number) => {
+  const date = new Date(Date.UTC(demoMonth.getUTCFullYear(), demoMonth.getUTCMonth() - monthsAgo, 1));
+  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  date.setUTCDate(Math.min(day, monthsAgo === 0 ? demoMonth.getUTCDate() : lastDay));
+  return date.toISOString().slice(0, 10);
+};
 
 /** Demo-only capability set. Production permissions are resolved from Supabase. */
 export const demoDirectorPermissions = new Set(navigationPermissionCodes);
@@ -48,20 +58,20 @@ export const demoDirectorEmployees = employeeNames.map((full_name, index) => ({
   department: { name: departments[index % departments.length] },
 }));
 
-const monthKeys = ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
+const monthKeys = Array.from({ length: 6 }, (_, index) => demoDate(5 - index, 1).slice(0, 7));
 const transactionRows = monthKeys.flatMap((month, index) => [
-  { id: `demo-income-${month}`, transaction_type: 'income', transaction_date: `${month}-08`, amount: 42000 + index * 4800 },
-  { id: `demo-payment-${month}`, transaction_type: 'invoice_payment', transaction_date: `${month}-18`, amount: 26500 + index * 3200 },
-  { id: `demo-expense-${month}`, transaction_type: 'expense', transaction_date: `${month}-21`, amount: 14500 + index * 1300, expense_category: { name: ['Admin & Utilities', 'Marketing', 'Monthly Expenses'][index % 3] } },
+  { id: `demo-income-${month}`, transaction_type: 'income', transaction_date: demoDate(5 - index, 8), amount: 42000 + index * 4800 },
+  { id: `demo-payment-${month}`, transaction_type: 'invoice_payment', transaction_date: demoDate(5 - index, 18), amount: 26500 + index * 3200 },
+  { id: `demo-expense-${month}`, transaction_type: 'expense', transaction_date: demoDate(5 - index, 21), amount: 14500 + index * 1300, expense_category: { name: ['Admin & Utilities', 'Marketing', 'Monthly Expenses'][index % 3] } },
 ]);
 
 const leadStatuses = ['New', 'Contacted', 'Qualified', 'Proposal', 'Won'];
 const demoLeads = Array.from({ length: 24 }, (_, index) => ({
   id: `demo-lead-${index + 1}`,
   full_name: `Prospect ${['Aster', 'Beacon', 'Cedar', 'Delta'][index % 4]} ${index + 1}`,
-  lead_date: `2026-${String(4 + (index % 6)).padStart(2, '0')}-${String(3 + (index % 20)).padStart(2, '0')}`,
-  created_at: `2026-${String(4 + (index % 6)).padStart(2, '0')}-05T09:00:00.000Z`,
-  converted_at: index % 5 === 0 ? `2026-${String(5 + (index % 5)).padStart(2, '0')}-20T09:00:00.000Z` : null,
+  lead_date: demoDate(index % 3, 1 + (index % 20)),
+  created_at: `${demoDate(index % 3, 1 + (index % 20))}T09:00:00.000Z`,
+  converted_at: index % 5 === 0 ? `${demoDate(index % 3, 1 + (index % 20))}T09:00:00.000Z` : null,
   status: { name: leadStatuses[index % leadStatuses.length], sort_order: index % leadStatuses.length },
   temperature: index % 4 === 0 ? 'hot' : 'warm',
 }));
@@ -71,7 +81,7 @@ const demoInvoices = Array.from({ length: 6 }, (_, index) => ({
   status: index === 0 ? 'sent' : index === 1 ? 'overdue' : 'partially_paid',
   tax: 500,
   discount: 0,
-  due_date: `2026-09-${String(5 + index).padStart(2, '0')}`,
+  due_date: demoDate(1, 5 + index),
   finance_invoice_items: [{ quantity: 1, rate: 18000 + index * 2500 }],
   finance_invoice_payments: index > 1 ? [{ amount: 5000 }] : [],
 }));
@@ -82,8 +92,27 @@ export const demoDirectorDashboardData = {
   leads: demoLeads,
   sales: demoLeads.filter((lead) => lead.converted_at).map((lead, index) => ({ id: `demo-sale-${index + 1}`, closing_date: lead.converted_at?.slice(0, 10) })),
   invoices: demoInvoices,
-  summary: { employees: demoDirectorEmployees.length - 1, presentToday: 7, lateToday: 1, onLeave: 1, pendingLeave: 3, openTasks: 8, overdueTasks: 2, pendingDocuments: 2, unreadNotifications: 4, leads: demoLeads.length, newLeads: 4, followupsDue: 5, hotLeads: 6, sales: 5 },
+  summary: { employees: demoDirectorEmployees.length - 1, presentToday: 7, lateToday: 1, onLeave: 1, pendingLeave: 3, openTasks: 8, overdueTasks: 2, pendingDocuments: 2, unreadNotifications: 4, leads: demoLeads.length, newLeads: 4, todayLeads: demoLeads.filter(lead => lead.lead_date === demoToday).length, followupsDue: 5, hotLeads: 6, sales: 5 },
 };
+
+/** Mirrors the dashboard response using fictional fixtures only; never calls an API. */
+export function demoDirectorCrmSummary(start: string, end: string): CrmDashboardSummary {
+  const leads = demoLeads.filter(lead => lead.lead_date >= start && lead.lead_date <= end);
+  const daily = [...new Set(leads.map(lead => lead.lead_date))].sort().map(date => ({
+    date, leads: leads.filter(lead => lead.lead_date === date).length,
+    converted: leads.filter(lead => lead.lead_date === date && lead.converted_at).length,
+  }));
+  return {
+    periodLeads: leads.length, converted: leads.filter(lead => lead.converted_at).length,
+    contacted: leads.filter(lead => lead.status.name === 'Contacted').length,
+    assessment: leads.filter(lead => lead.status.name === 'Qualified').length,
+    daily,
+    statuses: leadStatuses.map(name => ({ name, count: leads.filter(lead => lead.status.name === name).length })),
+    sources: [{ name: 'Website (demo)', count: leads.length }],
+    followups: { due: 5, overdue: 2, upcoming: 3, completed: 4 },
+    financeAllowed: true, revenue: 0, expenses: 0,
+  };
+}
 
 export const demoDirectorModules = {
   clinicians: clinicianNames.map((full_name, index) => ({ id: `demo-clinician-${index + 1}`, full_name, designation: 'Clinician', department: { name: 'Clinical Services' }, email: `clinician-${index + 1}@example.com` })),

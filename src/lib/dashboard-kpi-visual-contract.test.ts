@@ -12,7 +12,7 @@ describe('dashboard KPI visual contract', () => {
     expect(operational).toContain('<KpiMiniChart model={kpi.chart} />');
     expect(operational.match(/chart: charts\./g)).toHaveLength(8);
     expect(director.match(/chart={charts\./g)).toHaveLength(5);
-    expect(director).toContain('<KpiMiniChart model={chart} />');
+    expect(director).toContain('<KpiMiniChart model={chart} valueFormatter={valueFormatter} />');
   });
 
   it('preserves all KPI navigation destinations', () => {
