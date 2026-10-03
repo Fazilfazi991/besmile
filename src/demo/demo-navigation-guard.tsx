@@ -7,28 +7,6 @@ import { useMobileNavigation } from '@/components/mobile-navigation';
 export function DemoNavigationGuard() {
   const { mobileOpen, setMobileOpen } = useMobileNavigation();
   useEffect(()=>{
-    let queued=false;
-    const update=()=>{
-      queued=false;
-      document.querySelectorAll<HTMLElement>('.public-demo-shell .overflow-x-auto').forEach(region=>{
-        const scrolls=region.scrollWidth>region.clientWidth+2;
-        let hint=region.previousElementSibling as HTMLElement|null;
-        if(scrolls&&!hint?.classList.contains('demo-scroll-cue')){hint=document.createElement('p');hint.className='demo-scroll-cue';hint.textContent='Swipe or scroll horizontally to see every column.';region.before(hint);}
-        if(hint?.classList.contains('demo-scroll-cue'))hint.hidden=!scrolls;
-        if(scrolls){region.tabIndex=0;region.setAttribute('role','region');region.setAttribute('aria-label','Scrollable fictional records');}
-      });
-      document.querySelectorAll<HTMLInputElement|HTMLSelectElement>('.public-demo-shell input,.public-demo-shell select').forEach(field=>{
-        if(field.getAttribute('aria-label')||field.labels?.length)return;
-        const text=field instanceof HTMLSelectElement?field.options[0]?.text:field.placeholder;
-        if(text)field.setAttribute('aria-label',text);
-      });
-    };
-    const schedule=()=>{if(!queued){queued=true;requestAnimationFrame(update);}};
-    const observer=new MutationObserver(schedule);observer.observe(document.body,{childList:true,subtree:true});
-    window.addEventListener('resize',schedule);schedule();
-    return()=>{observer.disconnect();window.removeEventListener('resize',schedule);};
-  },[]);
-  useEffect(()=>{
     if (!mobileOpen) return;
     const dialog=document.querySelector<HTMLElement>('.mobile-launcher-layer');
     if (!dialog) return;

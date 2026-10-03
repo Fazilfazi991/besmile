@@ -81,22 +81,23 @@ export default function EmployeesPage() {
           <option value="removed">Removed / inactive</option>
           <option value="all">All</option>
         </select>
-        <input className="input" placeholder="Search name, email, phone, or employee ID" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <select className="input" value={role} onChange={(event) => setRole(event.target.value)}>
+        <input aria-label={isDemoMode() ? "Search fictional employees" : undefined} className="input" placeholder="Search name, email, phone, or employee ID" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <select className="input" aria-label={isDemoMode() ? "Filter employee role" : undefined} value={role} onChange={(event) => setRole(event.target.value)}>
           <option value="">All roles</option>
           {roles.map((value) => <option key={value}>{value}</option>)}
         </select>
-        <select className="input" value={department} onChange={(event) => setDepartment(event.target.value)}>
+        <select className="input" aria-label={isDemoMode() ? "Filter employee department" : undefined} value={department} onChange={(event) => setDepartment(event.target.value)}>
           <option value="">All departments</option>
           {departments.map((value) => <option key={value}>{value}</option>)}
         </select>
-        <select className="input" value={status} onChange={(event) => setStatus(event.target.value)}>
+        <select className="input" aria-label={isDemoMode() ? "Filter employee status" : undefined} value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="">All statuses</option>
           {employeeStatuses.map((value) => <option value={value} key={value}>{employeeStatusLabel(value)}</option>)}
         </select>
         <button className="btn border" onClick={() => void load()}>Search</button>
       </div>
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto" role={isDemoMode() ? 'region' : undefined} aria-label={isDemoMode() ? 'Scrollable fictional employee records' : undefined} tabIndex={isDemoMode() ? 0 : undefined}>
+        {isDemoMode() && <p className="demo-scroll-cue">Swipe or scroll horizontally to see every column.</p>}
         <table className="w-full min-w-[980px] text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>{['Employee', 'Employee ID', 'Role', 'Department', 'Designation', 'Joined', 'Status', 'Action'].map((label) => <th className="px-4 py-3 text-left" key={label}>{label}</th>)}</tr>
