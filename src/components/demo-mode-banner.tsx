@@ -10,8 +10,8 @@ export function DemoModeBanner() {
       role="status"
     >
       <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
-        <strong className="font-bold">Fusion Ventures Demo</strong>
-        <span className="text-amber-900/80">Synthetic data • Changes reset when the page reloads</span>
+        <strong className="font-bold">Fictional demo</strong>
+        <span className="text-amber-900/80">Reload to reset · No external sends</span>
       </div>
     </aside>
   );

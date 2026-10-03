@@ -1,0 +1,52 @@
+.public-demo-shell .app-main,.public-demo-shell .app-content{min-width:0}
+.public-demo-shell .demo-module-heading{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.public-demo-shell .demo-module-heading p{margin-top:6px;max-width:65ch}
+.public-demo-shell .demo-table-wrap{min-width:0;overflow-x:auto;overscroll-behavior-x:contain}
+.public-demo-shell .demo-table-wrap table{min-width:650px}
+.public-demo-shell .demo-scroll-cue{padding:10px 14px;color:#475569;font-size:13px;border-bottom:1px solid #e2e8f0}
+.public-demo-shell .demo-table-wrap:focus-visible{outline:2px solid #087f77;outline-offset:3px}
+.public-demo-shell .demo-tasks-mobile{display:none}
+.public-demo-shell .demo-profile-summary{display:flex;gap:16px;align-items:center;margin-bottom:24px;min-width:0}
+.public-demo-shell .demo-profile-summary>div{min-width:0;overflow-wrap:anywhere}
+.public-demo-shell .status-badge{max-width:none;font-size:12px;line-height:1.4}
+.public-demo-shell .demo-avatar{display:grid;place-items:center;width:64px;height:64px;flex:none;border-radius:16px;background:#e4f5f2;color:#07675f;font-size:24px;font-weight:700}
+.public-demo-shell .demo-profile-fields,.public-demo-shell .demo-profile-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-block:20px}
+.public-demo-shell .demo-profile-fields dt{font-size:13px;color:#475569;margin-bottom:4px}
+.public-demo-shell .demo-profile-fields dd{font-weight:600;overflow-wrap:anywhere}
+.public-demo-shell .demo-profile-form label{display:grid;gap:7px;font-size:14px;font-weight:600}
+.public-demo-shell .demo-profile-form input{width:100%;min-width:0;min-height:44px;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font-size:16px}
+.public-demo-shell .demo-profile-actions{display:flex;flex-wrap:wrap;gap:10px;grid-column:1/-1}
+.public-demo-shell .demo-notice{padding:14px;background:#e4f5f2;color:#075b54;border-radius:12px}
+.public-demo-shell .demo-team-list{border-top:1px solid #cbd5e1}
+.public-demo-shell .demo-team-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid #e2e8f0;min-height:64px}
+.public-demo-shell .demo-team-row>span{min-width:0}.public-demo-shell .demo-team-row small{display:block;color:#475569;margin-top:5px}.public-demo-shell .demo-team-row>span+span{font-size:13px;color:#087f77;flex-shrink:0}
+@media(max-width:900px){
+ .public-demo-shell .app-content{padding:16px 14px calc(108px + env(safe-area-inset-bottom))}
+ .public-demo-shell .app-topbar>.text-sm{display:none}
+ .public-demo-shell button,.public-demo-shell a.btn,.public-demo-shell .text-button,.public-demo-shell .page-back-button,.public-demo-shell input,.public-demo-shell select{min-height:44px!important}
+ .public-demo-shell td a{display:inline-flex;min-height:44px;align-items:center}
+ .public-demo-shell button{min-width:44px}
+ .public-demo-shell input,.public-demo-shell select,.public-demo-shell textarea{font-size:16px}
+ .public-demo-shell .director-period-options button{min-height:44px}
+ .public-demo-shell .director-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;padding:0}
+ .public-demo-shell .director-kpi{min-width:0;min-height:170px;grid-column:auto}
+ .public-demo-shell .director-kpi .kpi-chart{max-width:100%}
+ .public-demo-shell .director-kpi .kpi-chart-legend{grid-template-columns:1fr}
+ .public-demo-shell .director-kpi .kpi-chart-legend span:nth-child(n+3){display:grid}
+ .public-demo-shell .director-finance-stat strong,.public-demo-shell .director-profit strong,.public-demo-shell .metric-card b{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+ .public-demo-shell .demo-tasks-desktop{display:none}
+ .public-demo-shell .demo-tasks-mobile{display:block;border-top:1px solid #cbd5e1}
+ .public-demo-shell .demo-task-row{padding:18px 0;border-bottom:1px solid #cbd5e1}
+ .public-demo-shell .demo-task-row h2{font-size:16px;font-weight:700;line-height:1.4;margin-bottom:10px}
+ .public-demo-shell .demo-task-row dl{display:grid;grid-template-columns:70px minmax(0,1fr);gap:6px 12px;font-size:14px;margin-bottom:12px}
+ .public-demo-shell .demo-task-row dt{color:#475569}
+ .public-demo-shell .demo-task-row dd{overflow-wrap:anywhere}
+ .public-demo-shell .demo-profile-fields,.public-demo-shell .demo-profile-form{grid-template-columns:1fr}
+ .public-demo-shell .demo-team-row{align-items:flex-start;flex-wrap:wrap;gap:8px}
+ .public-demo-shell .overflow-x-auto{min-width:0;max-width:100%}
+ .public-demo-shell .overflow-x-auto table{min-width:650px}
+ .public-demo-shell .list-item{flex-wrap:wrap;min-width:0}
+ .public-demo-shell .status-badge{white-space:normal}
+ .public-demo-shell .mobile-module-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:360px){.public-demo-shell .director-kpis{grid-template-columns:1fr}.public-demo-shell .demo-profile-summary{gap:12px}.public-demo-shell .demo-avatar{width:52px;height:52px;font-size:20px}}

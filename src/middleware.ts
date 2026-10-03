@@ -16,6 +16,11 @@ export async function middleware(request: NextRequest) {
     const path = request.nextUrl.pathname;
     if (path === '/') return NextResponse.redirect(new URL('/sign-in', request.url));
     if (path === '/employee') return NextResponse.redirect(new URL('/admin', request.url));
+    if (path.startsWith('/employee/') || path.startsWith('/clinician/')) {
+      const suffix = path.replace(/^\/(employee|clinician)/, '');
+      const aliases: Record<string, string> = { '/dashboard': '', '/schedule': '/doctor-scheduling' };
+      return NextResponse.redirect(new URL(`/admin${aliases[suffix] ?? suffix}`, request.url));
+    }
     if (path.startsWith('/admin') && !isDemoNativeRoute(path)) {
       const target = new URL('/admin/demo-module', request.url);
       target.searchParams.set('from', path);

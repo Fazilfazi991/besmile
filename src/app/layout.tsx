@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   ...(isDemoMode() ? { robots: { index: false, follow: false } } : {}),
 };
 
-export const viewport: Viewport = { themeColor: '#0f766e' };
+export const viewport: Viewport = { themeColor: '#0f766e', ...(isDemoMode() ? { viewportFit: 'cover' as const } : {}) };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
