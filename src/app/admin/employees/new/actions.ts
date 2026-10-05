@@ -87,6 +87,7 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
       if (existingAuth.data.user.app_metadata?.employee_provision_request_id !== provisioningRequestId) {
         const recovered = await admin.auth.admin.updateUserById(completedRequest.id, {
           password: initialPassword,
+          email_confirm: true,
           app_metadata: {
             ...existingAuth.data.user.app_metadata,
             employee_provision_request_id: provisioningRequestId,
@@ -97,7 +98,7 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
       }
     }
     revalidatePath('/admin/employees');
-    return { success: `${fullName} was already created. They must verify ${loginEmail} and complete secure onboarding before using the workspace.` };
+    return { success: `${fullName} was already created. They must complete password onboarding before using the workspace.` };
   }
   if (managerId) {
     const { data: manager } = await admin.from('profiles').select('id,status,role,is_employee,workforce_visible,removed_at').eq('id', managerId).maybeSingle();
@@ -113,31 +114,40 @@ export async function createEmployee(_: CreateEmployeeState, form: FormData): Pr
     status, onboarding_required: true, employee_provision_request_id: provisioningRequestId,
   };
   let authUser: any;
-  const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(loginEmail, {
-    data: { employee_provision_request_id: provisioningRequestId },
+  // Staff use the configured initial credential and mandatory password onboarding.
+  // Create this authorized account directly so provisioning does not depend on
+  // delivery of an invitation that would immediately be auto-confirmed anyway.
+  const { data: creation, error: creationError } = await admin.auth.admin.createUser({
+    email: loginEmail,
+    password: initialPassword,
+    email_confirm: true,
+    app_metadata: { employee_provision_request_id: provisioningRequestId, onboarding_required: true },
   });
-  if (invitation?.user) {
-    authUser = invitation.user;
+  if (creation?.user) {
+    authUser = creation.user;
   } else {
     try { authUser = await findProvisioningUser(admin, loginEmail, provisioningRequestId); }
     catch { return { error: 'Unable to reconcile the authentication account. Retry shortly.', fields }; }
-    if (!authUser) return { error: inviteError?.message || 'That login email already belongs to another account.', fields };
+    if (!authUser) return { error: creationError?.message || 'That login email already belongs to another account.', fields };
   }
   const metadataUpdate = await admin.auth.admin.updateUserById(authUser.id, {
     password: initialPassword,
+    // This account belongs to this authorized employee creation request. Keep
+    // global confirmation enabled; confirm only when provisioning its password.
+    email_confirm: true,
     app_metadata: { ...authUser.app_metadata, employee_provision_request_id: provisioningRequestId, onboarding_required: true },
   });
   if (metadataUpdate.error) {
     const reservation = await admin.from('profiles').insert({ id: authUser.id, ...profileInsert });
-    if (reservation.error) return { error: 'The invitation was created, but its recovery reservation could not be completed. Contact a system administrator before retrying.', fields };
-    return { error: 'The invitation was created but account setup is incomplete. Retry this same form.', fields };
+    if (reservation.error) return { error: 'The authentication account was created, but its recovery reservation could not be completed. Contact a system administrator before retrying.', fields };
+    return { error: 'The authentication account was created but account setup is incomplete. Retry this same form.', fields };
   }
   const { error: profileError } = await admin.from('profiles').insert({
     id: authUser.id, ...profileInsert,
   });
   if (profileError) {
-    return { error: `${profileError.message} The invited account is retained so retrying this same form can recover safely.`, fields };
+    return { error: `${profileError.message} The authentication account is retained so retrying this same form can recover safely.`, fields };
   }
   revalidatePath('/admin/employees');
-  return { success: `${fullName} was created. They must verify ${loginEmail} and change the initial password before using the workspace.` };
+  return { success: `${fullName} was created with their login email confirmed. They must change the initial password before using the workspace.` };
 }
