@@ -1,10 +1,9 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { serverSupabase } from '@/lib/supabase-server';
 
-export type OnboardingState = { error?: string };
+export type OnboardingState = { error?: string; success?: boolean };
 
 export async function completePasswordOnboarding(_: OnboardingState, form: FormData): Promise<OnboardingState> {
   const password = String(form.get('password') || '');
@@ -20,7 +19,7 @@ export async function completePasswordOnboarding(_: OnboardingState, form: FormD
   if (!user.email_confirmed_at) return { error: 'Verify your login email before changing the initial password.' };
   const { data: profile, error: profileError } = await db.from('profiles').select('onboarding_required').eq('id', user.id).maybeSingle();
   if (profileError || !profile) return { error: 'Unable to verify your employee profile.' };
-  if (!profile.onboarding_required) redirect('/');
+  if (!profile.onboarding_required) return { success: true };
   const { error: passwordError } = await db.auth.updateUser({ password });
   const alreadyChangedOnPriorAttempt = passwordError
     && /different from the old password/i.test(passwordError.message || '');
@@ -29,5 +28,5 @@ export async function completePasswordOnboarding(_: OnboardingState, form: FormD
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
   const { error: completionError } = await admin.rpc('complete_employee_onboarding', { target_profile: user.id });
   if (completionError) return { error: 'Password changed, but onboarding could not be completed. Submit the same password again.' };
-  redirect('/');
+  return { success: true };
 }

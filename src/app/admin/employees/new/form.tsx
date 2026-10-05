@@ -51,7 +51,7 @@ export function EmployeeCreateForm({
           <p className="eyebrow">People</p>
           <h1 className="text-2xl font-bold">Add employee</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Creates an employee profile, provisions the selected login email, and sends a verification invitation.
+            Creates an employee profile and confirms the selected login email. The employee must change the initial password before using the workspace.
           </p>
         </div>
       </div>
@@ -147,7 +147,7 @@ export function EmployeeCreateForm({
         </Field>
         <div className="flex items-end">
           <button className="btn btn-primary w-full" disabled={cannotSubmit}>
-            {pending ? 'Creating employee...' : 'Create employee and send verification'}
+            {pending ? 'Creating employee...' : 'Create employee'}
           </button>
         </div>
       </form>
