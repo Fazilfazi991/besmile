@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import Link from "next/link";
+import { EmployeeIdentityEditor } from "@/components/employee-identity-editor";
 import { useParams, useRouter } from "next/navigation";
 import { adminRepository } from "@/lib/admin-repository";
 import { currentProfile } from "@/lib/auth";
@@ -98,6 +99,9 @@ export default function AdminEmployeeProfile() {
           employeeRepository.hasPermission("employees.status.manage"),
           employeeRepository.hasPermission("employees.remove"),
         ]);
+      const identityView = await employeeRepository.hasPermission("employees.identity.view");
+      const identityEdit = await employeeRepository.hasPermission("employees.identity.edit");
+      if (!canViewEmployees && (identityView || identityEdit)) { setViewer({ ...admin, identityOnly: true }); return; }
       if (!canViewEmployees)
         throw new Error(
           "You do not have permission to view employee profiles.",
@@ -110,6 +114,7 @@ export default function AdminEmployeeProfile() {
       setViewer({
         ...admin,
         canEditEmployees: canEditEmployees || canManageEmployees,
+        canIdentityEdit: identityEdit,
         canStatusEmployees: canStatusEmployees || canManageEmployees,
         canRemoveEmployees,
         canManageAccess: admin.role === "super_admin",
@@ -242,6 +247,7 @@ export default function AdminEmployeeProfile() {
         managers: employees,
       });
       setEdit({
+        employee_code: profile.employee_code || "",
         full_name: profile.full_name || "",
         phone: profile.phone || "",
         gender: normalizeGender(profile.gender),
@@ -269,6 +275,7 @@ export default function AdminEmployeeProfile() {
     try {
       const managerError = reportingManagerError(editOptions.managers, profile.id, payload.manager_id as string | null, String(edit.designation));
       if (managerError) throw new Error(managerError);
+      if (!viewer?.canIdentityEdit) delete (payload as any).employee_code;
       await adminRepository.updateEmployee(profile.id, payload as any);
       notifyOrganizationChanged();
       setNotice("Employee updated successfully.");
@@ -304,6 +311,7 @@ export default function AdminEmployeeProfile() {
       first.focus();
     }
   };
+  if (viewer?.identityOnly) return <EmployeeIdentityEditor employeeId={id} />;
   if (!profile || !data)
     return (
       <section className="mx-auto max-w-[1320px] space-y-4">
@@ -321,7 +329,7 @@ export default function AdminEmployeeProfile() {
       </section>
     );
   const canEdit =
-    Boolean(viewer?.canEditEmployees) && canManageEmployee(viewer, profile);
+    (Boolean(viewer?.canEditEmployees) && canManageEmployee(viewer, profile)) || (Boolean(viewer?.canIdentityEdit) && (Boolean(viewer?.canEditEmployees) || !["super_admin", "chairman", "director", "general_manager"].includes(profile.role)));
   const canChangeStatus =
     Boolean(viewer?.canStatusEmployees) &&
     canChangeEmployeeStatus(viewer, profile);
@@ -530,6 +538,7 @@ export default function AdminEmployeeProfile() {
               <div className="grid gap-3 md:grid-cols-2">
                 {[
                   ["Full name", "full_name", "text"],
+                  ...(viewer?.canIdentityEdit ? [["Employee Code", "employee_code", "text"]] : []),
                   ["Phone", "phone", "tel"],
                   ["Designation", "designation", "text"],
                   ["Joining date", "joining_date", "date"],

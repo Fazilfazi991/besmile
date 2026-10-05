@@ -86,6 +86,7 @@ export const doctorSchedulingRepository = {
   async permissions() {
     const codes = [
       'doctor_scheduling.view',
+      'outsourced_clinicians.manage',
       'doctor_scheduling.manage_doctors',
       'clinician.availability.manage_all',
       'doctor_scheduling.create_appointments',
@@ -111,7 +112,8 @@ export const doctorSchedulingRepository = {
     const permissions = Object.fromEntries(codes.map(code => [code, allowed.has(code)]));
     if (clinician.data) {
       permissions['clinician.schedule.view_own'] = true;
-      permissions['clinician.availability.manage_own'] = true;
+      const managed = await db().rpc('can_manage_clinician', { target_doctor: clinician.data });
+      permissions['clinician.availability.manage_own'] = !managed.error && !!managed.data;
       permissions['clinician.appointments.view_own'] = true;
     }
     return permissions;

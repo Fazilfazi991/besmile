@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!profile) redirect('/unauthorized');
   if (profile.status === 'inactive' || profile.status === 'terminated') redirect('/sign-in?inactive=1');
   const allowed = await serverAuthorizationBoundary(() => grantedPermissions(db, navigationPermissionCodes));
-  if (profile.role !== 'super_admin' && !isManagementRole(profile.role) && !allowed.has('admin.shell') && !allowed.has('daily_work.review_department')) redirect('/employee/dashboard');
+  if (profile.role !== 'super_admin' && !isManagementRole(profile.role) && !allowed.has('admin.shell') && !allowed.has('daily_work.review_department') && !allowed.has('employees.identity.view') && !allowed.has('employees.identity.edit') && !allowed.has('outsourced_clinicians.manage') && !allowed.has('clinical_followups.view_operational')) redirect('/employee/dashboard');
   const isEmployeeShell = profile.role !== 'super_admin' && !isManagementRole(profile.role);
   const visibleGroups = filterNavigation(navigationForProfile(profile.role), allowed);
   const name = profile.full_name || profile.email || 'BSmile User';

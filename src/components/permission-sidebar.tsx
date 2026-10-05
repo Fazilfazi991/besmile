@@ -62,6 +62,7 @@ export function PermissionSidebar({
   profileHref: string;
 }) {
   const pathname = usePathname();
+  const clinicianWorkspace = profileHref.startsWith('/clinician/');
   const navRef = useRef<HTMLElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const flyoutRef = useRef<HTMLElement>(null);
@@ -121,10 +122,12 @@ export function PermissionSidebar({
     [sections],
   );
   const todayHref =
+    (clinicianWorkspace ? allLinks.find(link => link.label === 'My Schedule')?.href : undefined) ||
     allLinks.find((link) => /dashboard|home|overview/i.test(link.label))?.href ||
     allLinks[0]?.href ||
     profileHref;
   const tasksHref =
+    (clinicianWorkspace ? allLinks.find(link => link.label === 'My Clients')?.href : undefined) ||
     allLinks.find((link) => /tasks?/i.test(link.label))?.href || todayHref;
   const teamsHref = allLinks.find((link) => /^(chat|teams)$/i.test(link.label))?.href;
   const recentLinks = recentHrefs
@@ -675,8 +678,7 @@ export function PermissionSidebar({
           href={todayHref}
           onClick={() => rememberDestination(todayHref)}
         >
-          <ModuleIcon label="Dashboard" />
-          <span>Today</span>
+          {clinicianWorkspace ? <><ModuleIcon label="My Schedule" /><span>Schedule</span></> : <><ModuleIcon label="Dashboard" /><span>Today</span></>}
         </Link>
         <Link
           className={activeHref === tasksHref ? "active" : undefined}
@@ -684,8 +686,7 @@ export function PermissionSidebar({
           href={tasksHref}
           onClick={() => rememberDestination(tasksHref)}
         >
-          <ModuleIcon label="Tasks" />
-          <span>Tasks</span>
+          {clinicianWorkspace ? <><ModuleIcon label="My Clients" /><span>Clients</span></> : <><ModuleIcon label="Tasks" /><span>Tasks</span></>}
         </Link>
         {teamsHref ? (
           <Link
@@ -695,7 +696,7 @@ export function PermissionSidebar({
             onClick={() => rememberDestination(teamsHref)}
           >
             <ModuleIcon label="Teams" />
-            <span>Teams</span>
+            {clinicianWorkspace ? <span>Chat</span> : <span>Teams</span>}
           </Link>
         ) : (
           <button className="mobile-bottom-teams" type="button" aria-label="Teams unavailable" disabled>

@@ -10,7 +10,7 @@ describe('patient document signed access endpoint', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), is: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: { storage_key: 'patient/document.pdf' }, error: null }), insert: vi.fn().mockResolvedValue({ error: null }) };
-    mocks.db = { auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'assistant' } } }) }, from: vi.fn().mockReturnValue(query), rpc: vi.fn().mockResolvedValue({ data: true, error: null }) };
+    mocks.db = { auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'assistant' } } }) }, from: vi.fn().mockReturnValue(query), rpc: vi.fn().mockImplementation(async (name: string) => ({ data: name !== 'is_external_profile', error: null })) };
     mocks.sign.mockResolvedValue('https://qa.example/document');
   });
   const request = () => POST(new Request('http://localhost/api', { method: 'POST' }), { params: Promise.resolve({ patientId: 'patient', documentId: 'document' }) });
@@ -44,5 +44,11 @@ describe('patient document signed access endpoint', () => {
     const result = await request();
     expect(result.status).toBe(400);
     expect(await result.text()).not.toContain('raw SQL');
+  });
+  it('external downloads use the scoped audit RPC', async () => {
+    mocks.db.rpc.mockResolvedValue({ data: true, error: null });
+    expect((await request()).status).toBe(200);
+    expect(mocks.db.rpc).toHaveBeenCalledWith('record_clinician_document_download', { target_document: 'document' });
+    expect(query.insert).not.toHaveBeenCalled();
   });
 });

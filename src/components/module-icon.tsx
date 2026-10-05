@@ -1,5 +1,5 @@
 import {
-  AlarmClock, BadgeDollarSign, Banknote, Bell, BriefcaseBusiness, CalendarCheck, CalendarClock,
+  AlarmClock, BadgeDollarSign, Banknote, Bell, Brain, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarPlus,
   CalendarDays, CalendarHeart, CalendarRange, ChartNoAxesCombined, CheckCheck, CircleDollarSign, Clock3,
   ChevronRight, CirclePlus, ClipboardCheck, ClipboardList, ContactRound, Database, FileChartColumn,
   FileText, FileUp, FolderOpen, Gauge, Grid3X3, HandCoins, Handshake, HeartHandshake, Landmark,
@@ -13,7 +13,7 @@ import { iconNameForLabel } from '@/lib/module-icon-map';
 type ModuleIconProps = { label: string; className?: string };
 
 const ICONS: Record<string, LucideIcon> = {
-  AlarmClock, BadgeDollarSign, Banknote, Bell, BriefcaseBusiness, CalendarCheck, CalendarClock,
+  AlarmClock, BadgeDollarSign, Banknote, Bell, Brain, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarPlus,
   CalendarDays, CalendarHeart, CalendarRange, ChartNoAxesCombined, CheckCheck, CircleDollarSign,
   ChevronRight, CirclePlus, ClipboardCheck, ClipboardList, Clock3, ContactRound, Database, FileChartColumn,
   FileText, FileUp, FolderOpen, Gauge, Grid3X3, HandCoins, Handshake, HeartHandshake, Landmark,

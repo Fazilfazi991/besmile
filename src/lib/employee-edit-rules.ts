@@ -16,7 +16,8 @@ export function normalizeDateOnly(value: unknown): string | null {
 export function employeeEditPayload(input: EmployeeEditInput) {
   const gender = normalizeGender(String(input.gender || ''));
   return {
-    ...input,
+    ...Object.fromEntries(Object.entries(input).filter(([key]) => ['full_name','phone','gender','employee_code','department_id','designation','manager_id','joining_date','employment_type'].includes(key))),
+    ...(Object.hasOwn(input, 'employee_code') ? { employee_code: String(input.employee_code || '').trim() || null } : {}),
     gender: gender || null,
     department_id: input.department_id || null,
     manager_id: input.manager_id || null,

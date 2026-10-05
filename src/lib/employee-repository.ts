@@ -57,6 +57,16 @@ async function signedGroupPhotoMap(client: any, paths: Array<string | null | und
 }
 
 async function withSignedConversationPhotos(client: any, rows: any[]) {
+  const incomplete = rows.filter(row => row.chat_conversations?.conversation_type === 'personal' && (row.chat_conversations?.chat_members || []).length < 2);
+  if (incomplete.length) {
+    const members = await client.from('chat_members').select('conversation_id,profile_id').in('conversation_id', incomplete.map(row => row.conversation_id));
+    if (members.error) throw members.error;
+    rows = rows.map(row => incomplete.includes(row) ? { ...row, chat_conversations: { ...row.chat_conversations, chat_members: (members.data || []).filter((member: any) => member.conversation_id === row.conversation_id) } } : row);
+  }
+  const ids = [...new Set(rows.flatMap(row => (row.chat_conversations?.chat_members || []).map((member: any) => member.profile_id)))];
+  if (ids.length) { const display = await client.rpc("chat_display_profiles", { target_profiles: ids });
+    if (!display.error) { const profilesById = new Map((display.data || []).map((p: any) => [p.id, p]));
+      rows = rows.map(row => ({ ...row, chat_conversations: { ...row.chat_conversations, chat_members: (row.chat_conversations?.chat_members || []).map((member: any) => ({ ...member, profiles: profilesById.get(member.profile_id) || member.profiles })) } })); } }
   const profiles = rows.flatMap((row) =>
     (row.chat_conversations?.chat_members || []).map((member: any) => member.profiles).filter(Boolean),
   );
@@ -80,6 +90,10 @@ async function withSignedConversationPhotos(client: any, rows: any[]) {
 }
 
 async function withSignedMessagePhotos(client: any, rows: any[]) {
+  const ids = [...new Set(rows.flatMap(message => [message.sender_id, message.reply_to?.sender_id]).filter(Boolean))];
+  if (ids.length) { const display = await client.rpc("chat_display_profiles", { target_profiles: ids });
+    if (!display.error) { const profilesById = new Map((display.data || []).map((p: any) => [p.id, p]));
+      rows = rows.map(message => ({ ...message, sender: profilesById.get(message.sender_id) || message.sender, reply_to: message.reply_to ? { ...message.reply_to, sender: profilesById.get(message.reply_to.sender_id) || message.reply_to.sender } : null })); } }
   const senders = rows.flatMap((message) => [message.sender, message.reply_to?.sender]).filter(Boolean);
   const signed = await signedProfilePhotoMap(client, senders.map((sender: any) => sender.avatar_url));
   const enrich = (sender: any) => sender
@@ -902,7 +916,9 @@ export const employeeRepository = {
   },
   async conversations(userId: string) {
     const r = required();
-    const ensured = await r.rpc("ensure_my_all_employees_chat");
+    const classification = await r.rpc("is_external_profile");
+    if (classification.error && classification.error.code !== "PGRST202") throw classification.error;
+    const ensured = classification.data ? { error: null } : await r.rpc("ensure_my_all_employees_chat");
     if (
       ensured.error &&
       ensured.error.code !== "PGRST202" &&
@@ -1005,7 +1021,7 @@ export const employeeRepository = {
     if (!parentIds.length) return { data: await withSignedMessagePhotos(required(), rows), hasMore: rows.length === size };
     const { data: parents, error: parentError } = await required()
       .from("chat_messages")
-      .select("id,body,message_type,attachment_name,deleted_at,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name,avatar_url)")
+      .select("id,sender_id,body,message_type,attachment_name,deleted_at,expires_at,expired_at,sender:profiles!chat_messages_sender_id_fkey(full_name,avatar_url)")
       .in("id", parentIds);
     if (parentError) return { data: rows, hasMore: rows.length === size };
     const parentsById = new Map((parents || []).map((parent: any) => [parent.id, parent]));
@@ -1112,9 +1128,9 @@ export const employeeRepository = {
     });
     if (error) throw error;
   },
-  async chatPeople(query = "") {
+  async chatPeople(query = "", groupOnly = false) {
     const r = required();
-    const { data, error } = await r.rpc('chat_recipient_search', { search_text: query.trim() });
+    const { data, error } = await r.rpc(groupOnly ? 'employee_group_recipient_search' : 'chat_recipient_search', { search_text: query.trim() });
     if (error) throw error;
     const people = (data || []).map((person: any) => ({ ...person, department: person.department_name ? { name: person.department_name } : null }));
     const signed = await signedProfilePhotoMap(r, people.map((person: any) => person.avatar_url));

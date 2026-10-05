@@ -5,7 +5,8 @@ import { safeDocumentFilename, validatePatientDocument } from '@/lib/patient-doc
 import { normalizeClientError } from '@/lib/client-error';
 export async function POST(request: Request, { params }: { params: Promise<{ patientId: string }> }) {
   try { const { patientId } = await params; const db = await serverSupabase(); const { data: { user } } = await db.auth.getUser(); if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const [allowed, patient] = await Promise.all([db.rpc('has_permission',{permission_code:'patient_documents.upload'}), db.from('patients').select('id').eq('id',patientId).is('deleted_at',null).maybeSingle()]);
+    const external = await db.rpc('is_external_profile'); if (external.error) throw external.error;
+    const [allowed, patient] = await Promise.all([db.rpc('has_permission',{permission_code:'patient_documents.upload'}), external.data ? db.rpc('external_patient_access',{target_patient:patientId}) : db.from('patients').select('id').eq('id',patientId).is('deleted_at',null).maybeSingle()]);
     if (allowed.error) throw allowed.error; if (!allowed.data) return NextResponse.json({error:'Permission denied'},{status:403});
     if (patient.error || !patient.data) return NextResponse.json({error:'Client not found or access denied.'},{status:404});
     const form = await request.formData(); const file = form.get('file'); if (!(file instanceof File)) throw new Error('Choose a file to upload.'); const extension = validatePatientDocument(file);
