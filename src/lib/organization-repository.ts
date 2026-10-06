@@ -14,7 +14,10 @@ export const organizationRepository = {
     return data || [];
   },
   async directory(): Promise<OrganizationEmployee[]> {
-    const people = await this.employees();
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { data, error } = await supabase.rpc('organization_people_directory');
+    if (error) throw error;
+    const people: OrganizationEmployee[] = data || [];
     return Promise.all(people.map(async person => ({
       ...person,
       photo_url: await signedProfilePhotoUrl(supabase, person.avatar_url).catch(() => null),

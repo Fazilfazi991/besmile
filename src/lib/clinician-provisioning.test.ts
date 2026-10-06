@@ -12,36 +12,52 @@ function clients() {
 }
 describe('external clinician provisioning ownership', () => {
   it('normalizes email, confirms it and links the existing clinician', async () => {
-    const { session, service } = clients(); const password = crypto.randomUUID();
-    expect(await provisionExternalClinician(session, service, input, password)).toEqual({ profileId: 'auth-a', replayed: false });
-    expect(service.auth.admin.createUser).toHaveBeenCalledWith(expect.objectContaining({ email: 'qa@example.test', email_confirm: true, password }));
+    const { session, service } = clients();
+    const result = await provisionExternalClinician(session, service, input);
+    expect(result.profileId).toBe('auth-a'); expect(result.replayed).toBe(false);
+    const created = service.auth.admin.createUser.mock.calls[0][0];
+    expect(created.email).toBe('qa@example.test'); expect(created.email_confirm).toBe(true);
+    expect(created.password === result.temporaryPassword).toBe(true);
+    expect(/^[A-Za-z0-9_-]{32}$/.test(result.temporaryPassword!)).toBe(true);
     expect(service.rpc).toHaveBeenCalledWith('complete_clinician_provision', { request_id: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb', auth_user_id: 'auth-a' });
     expect(service.auth.admin.updateUserById).not.toHaveBeenCalled();
   });
   it('completed requests return without touching Auth or requiring an initial credential', async () => {
     const { session, service } = clients(); session.rpc.mockResolvedValue({ data: { completed_at: 'now', profile_id: 'auth-a' }, error: null });
-    expect(await provisionExternalClinician(session, service, input, undefined)).toEqual({ profileId: 'auth-a', replayed: true });
+    expect(await provisionExternalClinician(session, service, input)).toEqual({ profileId: 'auth-a', replayed: true });
     expect(service.auth.admin.createUser).not.toHaveBeenCalled(); expect(service.rpc).not.toHaveBeenCalled();
   });
   it('recovers a failed link only for the request-owned Auth identity', async () => {
     const { session, service } = clients(); service.auth.admin.createUser.mockResolvedValue({ data: { user: null }, error: { message: 'exists' } } as any);
     service.auth.admin.listUsers.mockResolvedValue({ data: { users: [owned] }, error: null } as any);
-    expect((await provisionExternalClinician(session, service, input, crypto.randomUUID())).replayed).toBe(true);
+    const result = await provisionExternalClinician(session, service, input);
+    expect(result.replayed).toBe(true); expect(result.temporaryPassword === undefined).toBe(true);
     expect(service.auth.admin.updateUserById).not.toHaveBeenCalled();
   });
   it.each([{ ...owned, app_metadata: {} }, { ...owned, app_metadata: { ...owned.app_metadata, existing_clinician_id: 'another-doctor' } }])('cannot claim an unrelated account', async user => {
     const { session, service } = clients(); service.auth.admin.createUser.mockResolvedValue({ data: { user: null }, error: { message: 'exists' } } as any);
     service.auth.admin.listUsers.mockResolvedValue({ data: { users: [user] }, error: null } as any);
-    await expect(provisionExternalClinician(session, service, input, crypto.randomUUID())).rejects.toThrow('another Auth account');
+    await expect(provisionExternalClinician(session, service, input)).rejects.toThrow('another Auth account');
     expect(service.rpc).not.toHaveBeenCalled(); expect(service.auth.admin.updateUserById).not.toHaveBeenCalled();
   });
   it('authorization/reservation denial prevents Auth creation', async () => {
     const { session, service } = clients(); session.rpc.mockResolvedValue({ data: null, error: new Error('Permission denied') } as any);
-    await expect(provisionExternalClinician(session, service, input, crypto.randomUUID())).rejects.toThrow('Permission denied');
+    await expect(provisionExternalClinician(session, service, input)).rejects.toThrow('Permission denied');
     expect(service.auth.admin.createUser).not.toHaveBeenCalled();
   });
-  it('missing email or missing configured credential does not create Auth', async () => {
-    const { session, service } = clients(); await expect(provisionExternalClinician(session, service, { ...input, email: '' }, crypto.randomUUID())).rejects.toThrow('valid login email');
-    await expect(provisionExternalClinician(session, service, input, undefined)).rejects.toThrow('not configured'); expect(service.auth.admin.createUser).not.toHaveBeenCalled();
+  it('missing email does not create Auth', async () => {
+    const { session, service } = clients(); await expect(provisionExternalClinician(session, service, { ...input, email: '' })).rejects.toThrow('valid login email');
+    expect(service.auth.admin.createUser).not.toHaveBeenCalled();
+  });
+  it('independent new accounts get different credentials without persisting either', async () => {
+    const a = clients(), b = clients();
+    const first = await provisionExternalClinician(a.session, a.service, input);
+    const second = await provisionExternalClinician(b.session, b.service, input);
+    expect(first.temporaryPassword !== second.temporaryPassword).toBe(true);
+    for (const [client, result] of [[a, first], [b, second]] as const) {
+      expect(JSON.stringify(client.session.rpc.mock.calls).includes(result.temporaryPassword!)).toBe(false);
+      expect(JSON.stringify(client.service.rpc.mock.calls).includes(result.temporaryPassword!)).toBe(false);
+      expect(JSON.stringify(client.service.auth.admin.createUser.mock.calls[0][0].app_metadata).includes(result.temporaryPassword!)).toBe(false);
+    }
   });
 });

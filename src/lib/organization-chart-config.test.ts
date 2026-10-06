@@ -3,6 +3,13 @@ import { buildOrganizationTree, reportingManagerError, type OrganizationEmployee
 const employee = (id: string, manager_id: string | null = null, extra: Partial<OrganizationEmployee> = {}): OrganizationEmployee => ({ id, full_name: `Person ${id}`, designation: 'Employee', manager_id, department_id: null, department_name: null, avatar_url: null, status: 'active', can_edit: false, ...extra });
 const flatten = (nodes: ReturnType<typeof buildOrganizationTree>): string[] => nodes.flatMap(node => [node.id, ...flatten(node.children)]);
 describe('dynamic organization hierarchy', () => {
+  it('includes probation/intern employees while keeping external entries out of employee hierarchy', () => {
+    const people = [employee('manager'), employee('varna','manager',{status:'probation'}), employee('intern','manager',{status:'intern'}), employee('external','manager',{person_type:'outsourced_clinician',can_edit:true})];
+    expect(flatten(buildOrganizationTree(people)).sort()).toEqual(['intern','manager','varna']);
+    expect(reportingManagerError(people,'varna','external')).toContain('employee');
+    expect(reportingManagerError(people,'external',null)).toContain('External clinicians');
+    expect(reportingManagerError(people,'varna','manager')).toBe('');
+  });
   it('uses IDs and actual titles, including a Chairman with a Director authorization role', () => {
     const people = [employee('gm','director'),employee('director','chair',{designation:'Director'}),employee('chair',null,{designation:'Chairman'}),employee('staff','gm')];
     const tree = buildOrganizationTree(people);

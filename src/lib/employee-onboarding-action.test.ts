@@ -26,14 +26,16 @@ describe('employee private-password onboarding action', () => {
     expect(fixture.update).toHaveBeenCalledExactlyOnceWith({ password: 'PrivateQAOnly!234' });
     expect(fixture.complete).toHaveBeenCalledExactlyOnceWith('complete_employee_onboarding', { target_profile: 'employee' });
   });
-  it('keeps the onboarding form open if service-managed completion fails and safely permits a same-password retry', async () => {
+  it('keeps onboarding required after completion failure and rejects unchanged-password retries', async () => {
     fixture.complete.mockResolvedValue({ error: { code: 'temporary_failure' } });
     const result = await completePasswordOnboarding({}, form());
     expect(result.success).toBeUndefined();
-    expect(result.error).toContain('Submit the same password again');
+    expect(result.error).toContain('Choose another new password');
+    fixture.complete.mockClear();
     fixture.update.mockResolvedValue({ error: { message: 'New password should be different from the old password.' } });
     fixture.complete.mockResolvedValue({ error: null });
-    expect(await completePasswordOnboarding({}, form())).toEqual({ success: true });
+    expect((await completePasswordOnboarding({}, form())).success).toBeUndefined();
+    expect(fixture.complete).not.toHaveBeenCalled();
   });
   it('does not complete onboarding after a password update failure', async () => {
     fixture.update.mockResolvedValue({ error: { message: 'Password update unavailable' } });

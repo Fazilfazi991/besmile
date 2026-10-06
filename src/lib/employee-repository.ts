@@ -450,7 +450,8 @@ export const employeeRepository = {
         .eq("is_employee", true)
         .eq("workforce_visible", true)
         .neq("role", "director")
-        .eq("status", "active")
+        .in("status", operationalEmployeeStatuses)
+        .is("removed_at", null)
         .order("full_name"),
       r
         .from("attendance")
@@ -932,6 +933,7 @@ export const employeeRepository = {
       return withSignedConversationPhotos(r, orderConversationsByActivity(summary.data || []));
     if (
       summary.error.code !== "PGRST202" &&
+      summary.error.code !== "57014" &&
       !/chat_conversation_summaries|schema cache|could not find/i.test(
         summary.error.message || "",
       )
