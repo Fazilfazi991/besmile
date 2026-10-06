@@ -5,6 +5,7 @@ import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { employeeRepository } from '@/lib/employee-repository';
+import { operationalEmployeeStatuses } from '@/lib/employee-status';
 import { notificationAudioIsUnlocked, playNotificationSound, unlockNotificationAudio } from '@/lib/notification-audio';
 import { chatActivitySummary, importantNotifications, isChatNotification } from '@/lib/notification-separation';
 import { presentationForNotification } from '@/lib/notification-presentation';
@@ -207,7 +208,7 @@ export function GlobalCommandCenter({ mode, userId, canInvoices = false, canEmpl
         if (!supabase) throw new Error('Search is unavailable.');
         const pattern = `%${term}%`;
         const batches: any[] = [];
-        if (canEmployees) batches.push(supabase.from('profiles').select('id,full_name,email,designation,employee_code,status,department:departments(name)').eq('is_employee', true).eq('workforce_visible', true).neq('role', 'director').eq('login_enabled', true).eq('status', 'active').or(`full_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern},employee_code.ilike.${pattern}`).limit(5));
+        if (canEmployees) batches.push(supabase.from('profiles').select('id,full_name,email,designation,employee_code,status,department:departments(name)').eq('is_employee', true).eq('workforce_visible', true).neq('role', 'director').eq('login_enabled', true).in('status', operationalEmployeeStatuses).is('removed_at', null).or(`full_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern},employee_code.ilike.${pattern}`).limit(5));
         else batches.push(supabase.from('profiles').select('id,full_name,email,designation,status,department:departments(name)').eq('id', userId).ilike('full_name', pattern).limit(1));
         if (canCrm) batches.push(supabase.from('crm_leads').select('id,full_name,phone,status:crm_lead_statuses(name)').or(`full_name.ilike.${pattern},phone.ilike.${pattern}`).is('archived_at', null).limit(5));
         else batches.push(supabase.from('crm_leads').select('id,full_name,phone,status:crm_lead_statuses(name)').eq('assigned_to', userId).or(`full_name.ilike.${pattern},phone.ilike.${pattern}`).is('archived_at', null).limit(5));

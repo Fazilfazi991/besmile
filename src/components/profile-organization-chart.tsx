@@ -179,8 +179,10 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
     const timer = window.setInterval(refresh, 60_000);
     return () => { invalidate(); window.clearTimeout(initial); window.clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(organizationChangedEvent, refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [load, refreshKey, invalidate]);
-  const roots = useMemo(() => buildOrganizationTree(people), [people]);
-  const structureKey = JSON.stringify(people.map(({ id, full_name, designation, manager_id, status }) => ({ id, full_name, designation, manager_id, status, department_id: null, department_name: null, avatar_url: null, can_edit: false })));
+  const employees = useMemo(() => people.filter(person => person.person_type !== 'outsourced_clinician'), [people]);
+  const externalClinicians = useMemo(() => people.filter(person => person.person_type === 'outsourced_clinician'), [people]);
+  const roots = useMemo(() => buildOrganizationTree(employees), [employees]);
+  const structureKey = JSON.stringify(employees.map(({ id, full_name, designation, manager_id, status }) => ({ id, full_name, designation, manager_id, status, department_id: null, department_name: null, avatar_url: null, can_edit: false })));
   const structuralPeople = useMemo(() => JSON.parse(structureKey) as OrganizationEmployee[], [structureKey]);
   const layout = useMemo(() => layoutOrganization(structuralPeople, collapsed), [structuralPeople, collapsed]);
   const peopleById = useMemo(() => new Map(people.map(person => [person.id, person])), [people]);
@@ -314,7 +316,8 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
         <div className="organization-flow-hint">{touchNavigation ? 'Swipe sideways to explore · Scroll up or down to move the page' : 'Scroll to explore · Use controls to zoom'}</div>
       </ReactFlow>
     </div> : null}
-    {editing && <OrganizationEditor person={editing} people={people} onClose={close} onSaved={() => { close(); setNotice('Organization details saved.'); void load(); onChanged?.(); }} />}
+    {externalClinicians.length > 0 && <section className="organization-external-section" aria-label="Online Psychologists"><h3>Online Psychologists <span>({externalClinicians.length})</span></h3><p>External clinicians · Directory only · Reporting relationships are not assigned here.</p><ul className="organization-external-grid">{externalClinicians.map(person => <li key={person.id} className="organization-list-person" data-clinician-id={person.clinician_id}><div className="organization-person-avatar"><Avatar person={person} onOpen={openPhoto} /></div><div className="organization-list-identity"><strong>{person.can_manage_clinician && person.clinician_id ? <Link href={`${adminView ? '/admin' : '/employee'}/online-clinicians`}>{person.full_name}</Link> : person.full_name}</strong><span className="organization-external-badge">Online Psychologist</span></div></li>)}</ul></section>}
+    {editing && editing.person_type !== 'outsourced_clinician' && <OrganizationEditor person={editing} people={employees} onClose={close} onSaved={() => { close(); setNotice('Organization details saved.'); void load(); onChanged?.(); }} />}
     {photoPerson?.photo_url && <ProfilePhotoViewer name={photoPerson.full_name} src={photoPerson.photo_url} onClose={closePhoto} />}
   </section>;
 }

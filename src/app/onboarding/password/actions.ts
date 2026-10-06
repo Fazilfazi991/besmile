@@ -21,12 +21,11 @@ export async function completePasswordOnboarding(_: OnboardingState, form: FormD
   if (profileError || !profile) return { error: 'Unable to verify your employee profile.' };
   if (!profile.onboarding_required) return { success: true };
   const { error: passwordError } = await db.auth.updateUser({ password });
-  const alreadyChangedOnPriorAttempt = passwordError
-    && /different from the old password/i.test(passwordError.message || '');
-  if (passwordError && !alreadyChangedOnPriorAttempt)
+  // An unchanged temporary password must never count as a private-password change.
+  if (passwordError)
     return { error: passwordError.message || 'Unable to update the password.' };
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
   const { error: completionError } = await admin.rpc('complete_employee_onboarding', { target_profile: user.id });
-  if (completionError) return { error: 'Password changed, but onboarding could not be completed. Submit the same password again.' };
+  if (completionError) return { error: 'Password changed, but onboarding could not be completed. Choose another new password to retry securely.' };
   return { success: true };
 }

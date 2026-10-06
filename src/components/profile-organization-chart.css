@@ -99,3 +99,10 @@ html[data-theme="colorful"] .organization-chart-view-switch button[aria-pressed=
   .organization-editor { padding: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { .organization-chart-section *, .organization-chart-section *::before, .organization-chart-section *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+.organization-external-section { padding: 1rem; }
+.organization-external-section h3 { font-size: 1.1rem; font-weight: 700; }
+.organization-external-section > p { margin: .5rem 0 1rem; color: #64748b; }
+.organization-external-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: .75rem; padding: 0; list-style: none; }
+.organization-external-grid .organization-list-person { margin: 0; min-width: 0; }
+.organization-external-grid .organization-list-identity { min-width: 0; overflow-wrap: anywhere; }
+.organization-external-badge { color: #0369a1; font-size: .8rem; }

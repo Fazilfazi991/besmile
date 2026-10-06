@@ -42,7 +42,8 @@ describe('employee login email and secure initial credential', () => {
     expect(migration).toContain('and not coalesce(subject.onboarding_required, false)');
     expect(onboarding).toContain('user.email_confirmed_at');
     expect(onboarding).toContain("rpc('complete_employee_onboarding', { target_profile: user.id })");
-    expect(onboarding).toContain('/different from the old password/i');
+    expect(onboarding).toContain('if (passwordError)');
+    expect(onboarding).not.toContain('alreadyChangedOnPriorAttempt');
     expect(migration).toContain("auth.role() <> 'service_role'");
     expect(migration).toContain('grant execute on function public.complete_employee_onboarding(uuid) to service_role');
   });

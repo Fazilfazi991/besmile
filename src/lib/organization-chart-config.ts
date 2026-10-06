@@ -1,3 +1,5 @@
+import { isOperationalEmployeeStatus } from './employee-status';
+
 export type OrganizationEmployee = {
   id: string;
   full_name: string;
@@ -9,13 +11,16 @@ export type OrganizationEmployee = {
   status: string;
   can_edit: boolean;
   photo_url?: string | null;
+  person_type?: 'employee' | 'outsourced_clinician';
+  clinician_id?: string | null;
+  can_manage_clinician?: boolean;
 };
 export type OrganizationNode = OrganizationEmployee & { children: OrganizationNode[]; unassigned: boolean };
 export const isChairman = (designation: string | null) => designation?.trim().toLowerCase() === 'chairman';
 
 /** Missing/inactive managers and legacy cycles become explicit roots; never invent reporting links. */
 export function buildOrganizationTree(employees: OrganizationEmployee[]) {
-  const active = employees.filter(person => person.status === 'active');
+  const active = employees.filter(person => person.person_type !== 'outsourced_clinician' && isOperationalEmployeeStatus(person.status));
   const byId = new Map(active.map(person => [person.id, person]));
   const parents = new Map<string, string | null>();
   for (const person of active) {
@@ -48,10 +53,12 @@ export function buildOrganizationTree(employees: OrganizationEmployee[]) {
 }
 
 export function reportingManagerError(employees: OrganizationEmployee[], employeeId: string, managerId: string | null, designation?: string | null) {
+  if (employees.find(person => person.id === employeeId)?.person_type === 'outsourced_clinician') return 'External clinicians cannot use employee hierarchy editing.';
   if (!managerId) return '';
   if (isChairman(designation ?? employees.find(person => person.id === employeeId)?.designation ?? null)) return 'The Chairman must remain at the top with no reporting manager.';
   const byId = new Map(employees.map(person => [person.id, person]));
-  if (byId.get(managerId)?.status !== 'active') return 'Choose an active employee as reporting manager.';
+  const manager = byId.get(managerId);
+  if (!manager || manager.person_type === 'outsourced_clinician' || !isOperationalEmployeeStatus(manager.status)) return 'Choose an active employee as reporting manager.';
   const seen = new Set([employeeId]);
   let cursor: string | null = managerId;
   while (cursor) {
