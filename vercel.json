@@ -1,7 +1,8 @@
 {
   "git": {
     "deploymentEnabled": {
-      "codex/online-psychologist-accounts": false
+      "codex/online-psychologist-accounts": false,
+      "codex/online-clinician-overnight-photo-hotfix": false
     }
   },
   "crons": [
