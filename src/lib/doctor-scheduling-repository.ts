@@ -172,8 +172,7 @@ export const doctorSchedulingRepository = {
   async replaceAvailability(doctorId: string, actorId: string, ranges: { day_of_week: number; start_time: string; end_time: string }[], consultationDurationMinutes = 5) {
     const message = validateAvailabilityRanges(ranges, consultationDurationMinutes);
     if (message) throw new Error(message);
-    const valid = ranges.filter(range => range.start_time && range.end_time && range.start_time < range.end_time);
-    const { data, error } = await db().rpc('replace_clinician_availability', { target_doctor: doctorId, ranges: valid });
+    const { data, error } = await db().rpc('replace_clinician_availability', { target_doctor: doctorId, ranges });
     if (error) throw error;
     return data || [];
   },
@@ -239,9 +238,14 @@ export const doctorSchedulingRepository = {
   },
 
   async slots(doctorId: string, date: string, ignoreAppointmentId?: string) {
+    const dayStart = new Date(`${date}T00:00:00+05:30`);
+    // Fetch by interval overlap, including appointments starting on the previous
+    // business date and those after midnight that overlap a late selected slot.
     const [doctors, appointments] = await Promise.all([
       this.doctors(),
-      this.appointments({ from: date, to: date, doctorId }),
+      db().from('doctor_appointments').select('id,start_at,end_at,status').eq('doctor_id', doctorId).is('deleted_at', null)
+        .gt('end_at', dayStart.toISOString()).lt('start_at', new Date(+dayStart + 2 * 86400000).toISOString())
+        .then(({ data, error }: any) => { if (error) throw error; return data || []; }),
     ]);
     const doctor = doctors.find((item: any) => item.id === doctorId);
     if (!doctor) return [];

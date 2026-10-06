@@ -10,16 +10,20 @@ export type BlockedPeriod = { blocked_date: string; start_time?: string | null; 
 export type AppointmentWindow = { id?: string; start_at: string; end_at: string; status: AppointmentStatus };
 
 export function validateAvailabilityRanges(ranges: AvailabilityRange[], consultationDurationMinutes: number) {
-  const byDay = new Map<number, AvailabilityRange[]>();
-  for (const range of ranges) byDay.set(range.day_of_week, [...(byDay.get(range.day_of_week) || []), range]);
-  for (const [day, dayRanges] of byDay) {
-    const sorted = [...dayRanges].sort((left, right) => left.start_time.localeCompare(right.start_time));
-    for (let index = 0; index < sorted.length; index += 1) {
-      const current = sorted[index];
-      if (!current.start_time || !current.end_time) return `Choose a valid time range for ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]}.`;
-      if (minutesOfDay(current.end_time) <= minutesOfDay(current.start_time)) return 'End time must be later than start time.';
-      if (minutesOfDay(current.end_time) - minutesOfDay(current.start_time) < consultationDurationMinutes) return 'Each availability range must fit at least one consultation.';
-      if (index > 0 && minutesOfDay(current.start_time) < minutesOfDay(sorted[index - 1].end_time)) return `Availability ranges overlap on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]}.`;
+  const intervals: { start: number; end: number }[] = [];
+  const validTime = (value: string, isEnd = false) => /^([01]\d|2[0-3]):[0-5]\d(?::00)?$/.test(value) || (isEnd && /^24:00(?::00)?$/.test(value));
+  for (const range of ranges) {
+    if (!Number.isInteger(range.day_of_week) || range.day_of_week < 0 || range.day_of_week > 6 || !validTime(range.start_time) || !validTime(range.end_time, true)) return 'Choose a valid time range and weekday.';
+    const start = minutesOfDay(range.start_time), end = minutesOfDay(range.end_time);
+    if (start === end) return 'Start and end times must be different.';
+    const duration = end - start + (end < start ? 1440 : 0);
+    if (duration < consultationDurationMinutes) return 'Each availability range must fit at least one consultation.';
+    intervals.push({ start: range.day_of_week * 1440 + start, end: range.day_of_week * 1440 + start + duration });
+  }
+  for (let i = 0; i < intervals.length; i += 1) {
+    for (let j = i + 1; j < intervals.length; j += 1) {
+      // Compare repeating weeks too, including Saturday spilling into Sunday.
+      if ([-10080, 0, 10080].some(shift => intervals[i].start < intervals[j].end + shift && intervals[i].end > intervals[j].start + shift)) return 'Availability ranges cannot overlap, including on the next day.';
     }
   }
   return null;
@@ -83,23 +87,32 @@ export function generateAvailableSlots(input: {
   const day = new Date(`${input.date}T00:00:00Z`).getUTCDay();
   const now = input.now || new Date();
   const cadenceMinutes = input.cadenceMinutes ?? 60;
-  const blocked = input.blockedPeriods.filter(period => period.blocked_date === input.date);
-  if (blocked.some(period => !period.start_time || !period.end_time)) return [];
+  if (!(input.durationMinutes > 0) || !(cadenceMinutes > 0)) return [];
+  const blocked = input.blockedPeriods;
   const booked = input.appointments.filter(item => item.id !== input.ignoreAppointmentId && item.status !== 'cancelled');
   const slots: { startAt: string; endAt: string; label: string }[] = [];
 
-  for (const range of input.availability.filter(item => item.day_of_week === day)) {
-    for (let minute = minutesOfDay(range.start_time); minute + input.durationMinutes <= minutesOfDay(range.end_time); minute += cadenceMinutes) {
+  for (const range of input.availability) {
+    const startMinute = minutesOfDay(range.start_time), endMinute = minutesOfDay(range.end_time);
+    if (startMinute === endMinute) continue;
+    const overnight = endMinute < startMinute;
+    const originOffset = range.day_of_week === day ? 0 : range.day_of_week === (day + 6) % 7 && overnight ? -1440 : null;
+    if (originOffset === null) continue;
+    const rangeEnd = originOffset + endMinute + (overnight ? 1440 : 0);
+    // Retain the origin range's cadence when its tail falls on the selected date.
+    const first = originOffset + startMinute;
+    const visibleFirst = first < 0 ? first + Math.ceil(-first / cadenceMinutes) * cadenceMinutes : first;
+    for (let minute = visibleFirst; minute < 1440 && minute + input.durationMinutes <= rangeEnd; minute += cadenceMinutes) {
       const start = businessLocalDateTime(input.date, minute);
       const end = businessLocalDateTime(input.date, minute + input.durationMinutes);
       if (start <= now) continue;
-      if (blocked.some(period => overlaps(start, end, businessLocalDateTime(input.date, minutesOfDay(period.start_time || '00:00')), businessLocalDateTime(input.date, minutesOfDay(period.end_time || '23:59'))))) continue;
+      if (blocked.some(period => overlaps(start, end, businessLocalDateTime(period.blocked_date, period.start_time && period.end_time ? minutesOfDay(period.start_time) : 0), businessLocalDateTime(period.blocked_date, period.start_time && period.end_time ? minutesOfDay(period.end_time) : 1440)))) continue;
       if (booked.some(appointment => overlaps(start, end, new Date(appointment.start_at), new Date(appointment.end_at)))) continue;
       slots.push({ startAt: start.toISOString(), endAt: end.toISOString(), label: start.toLocaleTimeString('en-IN', { timeZone: BUSINESS_TIME_ZONE, hour: 'numeric', minute: '2-digit' }) });
     }
   }
 
-  return slots;
+  return [...new Map(slots.map(slot => [slot.startAt, slot])).values()].sort((a, b) => a.startAt.localeCompare(b.startAt));
 }
 
 export function validateAppointmentFee(value: unknown) {

@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { PHOTO_UNLINKED, validateClinicianPhoto } from './clinician-photo-rules';
 export async function clinicianRpc<T = any>(name: string, args?: Record<string, unknown>): Promise<T> {
   if (!supabase) throw new Error('Supabase is not configured.');
   const result = await (supabase as any).rpc(name, args);
@@ -12,14 +13,15 @@ export const clinicianRepository = {
   profile: (doctor?: string) => clinicianRpc('clinician_profile', { target_doctor: doctor || null }),
   saveProfile: (doctor: string, patch: Record<string, unknown>) => clinicianRpc('save_clinician_profile', { target_doctor: doctor, patch }),
   followups: (patient?: string) => clinicianRpc<any[]>('operational_clinical_followups', { target_patient: patient || null }),
-  async photo(profileId: string, file: File) {
+  async photo(profileId: string | null, file: File) {
     if (!supabase) throw new Error('Supabase is not configured.');
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 5 * 1024 * 1024)
-      throw new Error('Choose a JPG, PNG or WebP photo up to 5 MB.');
-    const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+    if (!profileId) throw new Error(PHOTO_UNLINKED);
+    const { contentType, extension } = await validateClinicianPhoto(file);
     const path = `${profileId}/${crypto.randomUUID()}.${extension}`;
-    const { error } = await supabase.storage.from('profile-photos').upload(path, file, { contentType: file.type });
-    if (error) throw error;
+    try {
+      const { error } = await supabase.storage.from('profile-photos').upload(path, file, { contentType });
+      if (error) throw error;
+    } catch { throw new Error('Profile photo could not be uploaded. Please try again.'); }
     return path;
   },
   async photoUrl(path?: string | null) {
