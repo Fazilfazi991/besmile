@@ -10,6 +10,8 @@ Date: 6 October 2026 (Asia/Dubai).
 - Worktree: `C:/Users/User/Desktop/Projects/Besmile/worktrees/psychologist-bulk-availability-entry`.
 - Initial tracked/untracked state was clean. Only task-owned source, tests, QA harness and evidence are included in this change.
 - The original checkout and `codex/temporary-credentials-staff-chart` worktree were left untouched.
+- Feature commit: `acacd4d98b8a7f3ec1215c69efc24b7e7bbde2fd`, pushed only to the requested branch. Final worktree is clean.
+- Draft PR creation was blocked by the GitHub integration with HTTP 403 (`Resource not accessible by integration`). The pushed branch and this report are available for review; no merge or deployment occurred.
 
 ## B. Existing UX
 
@@ -115,7 +117,7 @@ The existing `outsourced_clinicians.manage` manager gate and server-side `can_ma
 
 No real manager grants changed. No automatic director entitlement was added. The parser and preview never write. Only the final reviewed canonical payload reaches the existing transactional RPC.
 
-QA cleanup verified fixture ownership, then revoked fixture grants, disabled six QA logins, banned only those QA Auth users, and disabled the QA clinician's self-service. No patient or appointment fixtures were created. No production connection, mutation, workbook import, provisioning endpoint, password generation or deployment was used.
+QA cleanup verified fixture ownership, then revoked fixture grants, disabled six QA logins, banned only those QA Auth users, and disabled the QA clinician's self-service. No patient or appointment fixtures were created. No production connection, mutation, workbook import, provisioning endpoint, temporary credential generation or deployment was used.
 
 ## F. All 47 requirements
 
