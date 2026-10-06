@@ -132,8 +132,12 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   const canManageAllAvailability = permissions['clinician.availability.manage_all'];
   const canManageOwnAvailability = permissions['clinician.availability.manage_own'];
   const ownClinician = doctors.find(item => item.profile_id === profile?.id);
-  const manageableDoctors = canManageDoctors || canManageAllAvailability ? doctors : ownClinician ? [ownClinician] : [];
-  const canManageAvailability = canManageDoctors || canManageAllAvailability || Boolean(ownClinician && canManageOwnAvailability);
+  const canManageTarget = (doctor: any) => doctor?.clinician_type === 'outsourced'
+    ? permissions['outsourced_clinicians.manage']
+    : canManageDoctors || canManageAllAvailability || (canManageOwnAvailability && doctor?.profile_id === profile?.id);
+  const manageableDoctors = doctors.filter(canManageTarget);
+  const canManageAvailability = manageableDoctors.length > 0;
+  const canManageFormAvailability = canManageTarget(doctorForm);
   const canManagePayoutSettings = permissions['psychologist_payout_settings.manage'];
   const canCreate = can(permissions, 'doctor_scheduling.create_appointments', 'appointments.create');
   const canUpdate = can(permissions, 'doctor_scheduling.update_appointments', 'appointments.update', 'appointments.update_status', 'appointments.reschedule');
@@ -166,7 +170,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
     setDoctorFormOpen(true);
   };
 
-  const startDoctor = () => { setDoctorForm({ ...emptyDoctor, psychologist_session_payout: 800 }); setAvailability({}); setDoctorFormErrors({}); setError(''); setNotice(''); setDoctorFormOpen(true); };
+  const startDoctor = () => { setDoctorForm({ ...emptyDoctor, clinician_type: permissions['outsourced_clinicians.manage'] ? 'outsourced' : 'staff_psychologist', psychologist_session_payout: 800 }); setAvailability({}); setDoctorFormErrors({}); setError(''); setNotice(''); setDoctorFormOpen(true); };
 
   const clearDoctorFormError = (field: string) => setDoctorFormErrors(current => {
     if (!current[field] && !current._form) return current;
@@ -200,14 +204,14 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
       return;
     }
     const ranges = Object.entries(availability).flatMap(([day, rows]) => rows.map(row => ({ day_of_week: Number(day), start_time: row.start_time, end_time: row.end_time })));
-    const availabilityError = canManageAvailability ? validateAvailabilityRanges(ranges, Number(doctorForm.consultation_duration_minutes)) : null;
+    const availabilityError = canManageFormAvailability ? validateAvailabilityRanges(ranges, Number(doctorForm.consultation_duration_minutes)) : null;
     if (availabilityError) {
       setDoctorFormErrors({ availability: availabilityError });
       return;
     }
     setSaving('doctor');
     try {
-      const doctor = canManageDoctors
+      const doctor = canManageDoctors && (doctorForm.clinician_type !== 'outsourced' || permissions['outsourced_clinicians.manage'])
         ? await doctorSchedulingRepository.saveDoctor({ ...doctorForm, consultation_duration_minutes: Number(doctorForm.consultation_duration_minutes), actorId: profile.id })
         : doctors.find(item => item.id === doctorForm.id) || (ownClinician && doctorForm.id === ownClinician.id ? ownClinician : null);
       if (!doctor || (!canManageAvailability && !canManagePayoutSettings)) throw new Error('You can only update your own availability.');
@@ -216,7 +220,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         if (!Number.isFinite(payout) || payout <= 0) throw new Error('Psychologist session payout must be greater than zero.');
         await doctorSchedulingRepository.setPsychologistPayoutSetting(doctor.id, payout);
       }
-      if (canManageAvailability) await doctorSchedulingRepository.replaceAvailability(doctor.id, profile.id, ranges, Number(doctorForm.consultation_duration_minutes));
+      if (canManageFormAvailability) await doctorSchedulingRepository.replaceAvailability(doctor.id, profile.id, ranges, Number(doctorForm.consultation_duration_minutes));
       setDoctorForm(emptyDoctor);
       setAvailability({});
       setDoctorFormOpen(false);
@@ -336,7 +340,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
 
     {tab === 'Doctors' && <div className="doctor-two-column">
       <EmployeeSection title={workspace === 'clinician' ? 'My Availability' : 'Clinicians'} description="Staff, interns, and outsourced psychologists share the same scheduling calendar." action={canManageDoctors ? <button className="btn btn-primary" type="button" onClick={startDoctor}>Add Clinician</button> : undefined}>
-        {doctors.length ? <div className="doctor-list">{doctors.map(doctor => { const canEdit = canManageDoctors || canManageAllAvailability || canManagePayoutSettings || (canManageOwnAvailability && doctor.profile_id === profile?.id); return <article key={doctor.id}><div><b>{doctor.doctor_name}</b><small>{doctor.specialization} - {doctor.qualification}</small><small>{label(doctor.clinician_type || 'outsourced')} - {doctor.consultation_duration_minutes} min</small><small>{availabilitySummary(doctor.availability || [])}</small></div><EmployeeStatusBadge tone={doctor.status === 'active' ? 'success' : 'danger'}>{label(doctor.status)}</EmployeeStatusBadge>{canEdit && <div className="doctor-actions"><button className="btn border" type="button" onClick={() => editDoctor(doctor)}>{canManageDoctors ? 'Edit' : canManagePayoutSettings ? 'Edit payout setting' : 'Edit availability'}</button>{canManageDoctors && <button className="btn border" type="button" disabled={saving === doctor.id} onClick={() => void archiveDoctor(doctor)}>Archive</button>}</div>}</article>; })}</div> : <div className="doctor-empty"><EmployeeEmptyState title="No clinicians available" detail="A scheduling manager can add an external clinician record; an account is only needed for internal clinician self-service." />{canManageDoctors && <button className="btn btn-primary" type="button" onClick={startDoctor}>Add First Clinician</button>}</div>}
+        {doctors.length ? <div className="doctor-list">{doctors.map(doctor => { const canEdit = canManageTarget(doctor) || canManagePayoutSettings; return <article key={doctor.id}><div><b>{doctor.doctor_name}</b><small>{doctor.specialization} - {doctor.qualification}</small><small>{label(doctor.clinician_type || 'outsourced')} - {doctor.consultation_duration_minutes} min</small><small>{availabilitySummary(doctor.availability || [])}</small></div><EmployeeStatusBadge tone={doctor.status === 'active' ? 'success' : 'danger'}>{label(doctor.status)}</EmployeeStatusBadge>{canEdit && <div className="doctor-actions"><button className="btn border" type="button" onClick={() => editDoctor(doctor)}>{canManageDoctors ? 'Edit' : canManagePayoutSettings ? 'Edit payout setting' : 'Edit availability'}</button>{canManageDoctors && canManageTarget(doctor) && <button className="btn border" type="button" disabled={saving === doctor.id} onClick={() => void archiveDoctor(doctor)}>Archive</button>}</div>}</article>; })}</div> : <div className="doctor-empty"><EmployeeEmptyState title="No clinicians available" detail="A scheduling manager can add an external clinician record; an account is only needed for internal clinician self-service." />{canManageDoctors && <button className="btn btn-primary" type="button" onClick={startDoctor}>Add First Clinician</button>}</div>}
       </EmployeeSection>
       {canManageAvailability && <EmployeeSection title="Blocked Dates" description="Block a future full date or a specific unavailable time range.">
         <form className="block-form" onSubmit={addBlock}>
@@ -349,7 +353,7 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
         <div className="blocked-list">{manageableDoctors.flatMap(doctor => (doctor.blocked || []).map((block: any) => ({ ...block, doctor }))).map(block => <article key={block.id}><div><b>{block.doctor.doctor_name}</b><small>{fmtDate(block.blocked_date)} · {block.start_time ? `${block.start_time.slice(0, 5)} to ${block.end_time.slice(0, 5)}` : 'Full day'}</small>{block.reason && <small>{block.reason}</small>}</div>{(canManageDoctors || canManageAllAvailability || block.doctor.profile_id === profile?.id) && <button type="button" onClick={async () => { await doctorSchedulingRepository.removeBlockedPeriod(block.id); await load(); }}>Remove</button>}</article>)}{!manageableDoctors.some(doctor => doctor.blocked?.length) && <p className="blocked-empty">No blocked dates yet.</p>}</div>
       </EmployeeSection>}
     </div>}
-    {tab === 'Doctors' && (canManageAvailability || canManagePayoutSettings) && doctorFormOpen && <DoctorEditor form={doctorForm} availability={availability} errors={doctorFormErrors} saving={saving === 'doctor'} readOnlyIdentity={!canManageDoctors} canManagePayoutSettings={canManagePayoutSettings} canManageAvailability={canManageAvailability} onChange={setDoctorForm} onClearError={clearDoctorFormError} onAvailabilityChange={setAvailability} onClose={() => { setDoctorFormErrors({}); setDoctorFormOpen(false); }} onSubmit={saveDoctor} />}
+    {tab === 'Doctors' && (canManageAvailability || canManagePayoutSettings) && doctorFormOpen && <DoctorEditor form={doctorForm} availability={availability} errors={doctorFormErrors} saving={saving === 'doctor'} readOnlyIdentity={!canManageDoctors || (Boolean(doctorForm.id) && !canManageTarget(doctorForm))} canManagePayoutSettings={canManagePayoutSettings} canManageAvailability={canManageFormAvailability} onChange={setDoctorForm} onClearError={clearDoctorFormError} onAvailabilityChange={setAvailability} onClose={() => { setDoctorFormErrors({}); setDoctorFormOpen(false); }} onSubmit={saveDoctor} />}
 
     {tab === 'Appointments' && <div className="doctor-two-column">
       <EmployeeSection title={reschedule ? 'Reschedule Appointment' : 'Create Appointment'} description="Select client, psychologist, date, then an available slot.">

@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { EmployeeIdentityEditor } from '@/components/employee-identity-editor';
+import { employeeRepository } from '@/lib/employee-repository';
 import { KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminRepository } from '@/lib/admin-repository';
@@ -30,6 +32,7 @@ const normalizedEmployeeSearch = (value: string) => value.trim().replace(/[%_,]/
 
 export default function EmployeesPage() {
   const router = useRouter();
+  const [identityOnly, setIdentityOnly] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<EmployeeSuggestion[]>([]);
@@ -47,6 +50,7 @@ export default function EmployeesPage() {
   const load = async (value = query) => {
     setLoading(true);
     try {
+      if (!await employeeRepository.hasPermission('employees.view')) { setIdentityOnly(true); return; }
       const result = await adminRepository.employees(normalizedEmployeeSearch(value), 0, 150, 'all');
       setEmployees(result.data);
       setError('');
@@ -138,6 +142,7 @@ export default function EmployeesPage() {
   const operational = employees.filter((employee) => isOperationalEmployeeStatus(employee.status) && employee.workforce_visible !== false).length;
   const former = employees.filter((employee) => isFormerEmployeeStatus(employee.status)).length;
 
+  if (identityOnly) return <EmployeeIdentityEditor />;
   return (
     <section className="mx-auto max-w-[1320px] space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">

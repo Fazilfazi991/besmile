@@ -118,6 +118,8 @@ export function filterNavigation(
 export function sectionNavigation(
   groups: readonly NavigationGroup[],
 ): NavigationSection[] {
+  const links = groups.flatMap(group => group.links);
+  if (links.length && links.every(link => link.href.startsWith('/clinician/'))) return [{ title: 'Clinician workspace', links }];
   const sections: NavigationSection[] = [
     { title: "Overview", links: [] },
     { title: "Operations", links: [] },
@@ -231,6 +233,8 @@ export function adminRouteRequirement(path: string): PermissionRequirement | und
     return anyOf("ideas.view", "ideas.view_reports", "ideas.manage_status");
   if (path.startsWith("/admin/customer-feedback"))
     return anyOf("customer_feedback.view");
+  if (path.startsWith("/admin/online-clinicians")) return anyOf("outsourced_clinicians.manage");
+  if (path.startsWith("/admin/clinical-followups")) return anyOf("clinical_followups.view_operational");
   if (path.startsWith("/admin/doctor-scheduling"))
     return anyOf("doctor_scheduling.view");
   if (path === "/admin/documents/generate")
@@ -267,7 +271,7 @@ export function adminRouteRequirement(path: string): PermissionRequirement | und
   if (path.startsWith("/admin/crm/import")) return anyOf("crm.import");
   if (path.startsWith("/admin/crm"))
     return anyOf("crm.manage_all", "crm.view_team", "leads.view", "sales.view");
-  if (path.startsWith("/admin/employees")) return anyOf("employees.view");
+  if (path.startsWith("/admin/employees")) return anyOf("employees.view", "employees.identity.view", "employees.identity.edit");
   return anyOf("admin.access");
 }
 
@@ -308,6 +312,8 @@ export function employeeRouteRequirement(
   if (path.startsWith("/employee/tasks"))
     return anyOf("tasks.view_self", "tasks.assign");
   if (path.startsWith("/employee/ideas")) return anyOf("ideas.view");
+  if (path.startsWith("/employee/online-clinicians")) return anyOf("outsourced_clinicians.manage");
+  if (path.startsWith("/employee/clinical-followups")) return anyOf("clinical_followups.view_operational");
   if (path.startsWith("/employee/doctor-scheduling"))
     return anyOf("doctor_scheduling.view");
   if (path === "/employee/documents/generate")
@@ -363,10 +369,12 @@ export const adminNavigation: readonly NavigationGroup[] = [
   {
     title: "OPERATIONS",
     links: [
+      { label: "Online Psychologists", href: "/admin/online-clinicians", requirement: anyOf("outsourced_clinicians.manage") },
+      { label: "Clinical Follow-ups", href: "/admin/clinical-followups", requirement: anyOf("clinical_followups.view_operational") },
       {
         label: "Employees",
         href: "/admin/employees",
-        requirement: anyOf("employees.view"),
+        requirement: anyOf("employees.view", "employees.identity.view", "employees.identity.edit"),
       },
       {
         label: "Clients",
@@ -659,6 +667,8 @@ export const employeeNavigation: readonly NavigationGroup[] = [
         href: "/employee/tasks/manage",
         requirement: anyOf("tasks.assign"),
       },
+      { label: "Online Psychologists", href: "/employee/online-clinicians", requirement: anyOf("outsourced_clinicians.manage") },
+      { label: "Clinical Follow-ups", href: "/employee/clinical-followups", requirement: anyOf("clinical_followups.view_operational") },
       {
         label: "Appointment & Scheduling",
         href: "/employee/doctor-scheduling",
@@ -714,7 +724,7 @@ export const employeeNavigation: readonly NavigationGroup[] = [
       {
         label: "Employees",
         href: "/admin/employees",
-        requirement: requireAllAndAny(["admin.shell"], ["employees.view"]),
+        requirement: anyOf("employees.view", "employees.identity.view", "employees.identity.edit"),
       },
       {
         label: "Clients",

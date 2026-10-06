@@ -14,6 +14,7 @@ export const SEMANTIC_ICON_NAMES = {
   'My Calendar': 'CalendarDays', 'Holiday Calendar': 'CalendarRange', 'Meetings': 'Video',
   'Meeting': 'Video', 'Appointment & Scheduling': 'CalendarClock', 'Scheduling': 'CalendarClock',
   'Innovation Hub': 'Lightbulb', 'Innovation Categories': 'Tags', 'Chat': 'MessagesSquare', 'Teams': 'MessagesSquare',
+  'Online Psychologists': 'Brain', 'Clinical Follow-ups': 'CalendarPlus', 'My Schedule': 'CalendarClock', 'My Clients': 'ContactRound', 'Clinician workspace': 'Brain',
   'Genie': 'Sparkles',
   'Announcements': 'Megaphone', 'Announcement': 'Megaphone', 'Notifications': 'Bell',
   'Customer Feedback': 'MessageSquareHeart', 'CRM Overview': 'ChartNoAxesCombined', 'CRM Dashboard': 'ChartNoAxesCombined',

@@ -77,7 +77,8 @@ async function authorizeRequest(request: NextRequest, response: NextResponse) {
     if (path.startsWith('/admin')) {
       const isDepartmentDailyWorkReviewer = path.startsWith('/admin/daily-work')
         && await hasAnyPermission(['daily_work.review_department']);
-      if (!isSuperAdmin && !isManagement && !isDepartmentDailyWorkReviewer && !await hasAnyPermission(['admin.shell'])) return redirectWithCookies(request, response, '/unauthorized');
+      const isScopedEditor = (path.startsWith('/admin/employees') && !path.startsWith('/admin/employees/new') && await hasAnyPermission(['employees.identity.view','employees.identity.edit'])) || (path.startsWith('/admin/online-clinicians') && await hasAnyPermission(['outsourced_clinicians.manage'])) || (path.startsWith('/admin/clinical-followups') && await hasAnyPermission(['clinical_followups.view_operational']));
+      if (!isSuperAdmin && !isManagement && !isScopedEditor && !isDepartmentDailyWorkReviewer && !await hasAnyPermission(['admin.shell'])) return redirectWithCookies(request, response, '/unauthorized');
       if (path.startsWith('/admin/access') && !isSecurityAdministratorRole(profile.role)) return redirectWithCookies(request, response, '/unauthorized');
       const requirement = adminRouteRequirement(path);
       if (requirement && !await hasAnyPermission(requirement.anyOf || [])) return redirectWithCookies(request, response, '/unauthorized');

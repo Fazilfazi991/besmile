@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "codex/online-psychologist-accounts": false
+    }
+  },
   "crons": [
     {
       "path": "/api/internal/chat-expiry",

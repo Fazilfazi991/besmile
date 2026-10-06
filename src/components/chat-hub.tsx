@@ -59,7 +59,7 @@ const dateLabel = (value?: string) => {
 };
 type VoicePreview = { file: File; url: string; duration: number };
 
-export function ChatHub() {
+export function ChatHub({ externalWorkspace = false }: { externalWorkspace?: boolean }) {
   const [profile, setProfile] = useState<any>();
   const [conversations, setConversations] = useState<any[]>([]);
   const [active, setActive] = useState<any>();
@@ -132,11 +132,11 @@ export function ChatHub() {
     setGroupMemberProfiles([]);
   }, []);
   const openNewConversation = useCallback((nextMode: "chooser" | "direct" | "group" = "chooser") => {
-    setMode(nextMode);
+    setMode(externalWorkspace ? "direct" : nextMode);
     setSelectedPerson(undefined);
     setNewChatError("");
     setNewChat(true);
-  }, []);
+  }, [externalWorkspace]);
 
   const load = useCallback(async (selectedId?: string) => {
     try {
@@ -305,14 +305,14 @@ export function ChatHub() {
     if (!newChat || !profileId) return;
     const timer = setTimeout(() => {
       void employeeRepository
-        .chatPeople(peopleQuery)
+        .chatPeople(peopleQuery, mode === 'group')
         .then((rows) =>
           setPeople(rows.filter((person: any) => person.id !== profileId)),
         )
         .catch(() => setNewChatError("The Teams directory could not be loaded. Please try again."));
     }, 180);
     return () => clearTimeout(timer);
-  }, [newChat, peopleQuery, profile?.id]);
+  }, [newChat, peopleQuery, profile?.id, mode]);
   useEffect(() => {
     if (!newChat) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -940,7 +940,7 @@ export function ChatHub() {
                   <small>{conversationMeta(active, profile.id)}</small>
                 </div>
                 <div className="chat-header-actions">
-                  <button
+                  {!externalWorkspace && <button
                     className="chat-header-action chat-create-group-action"
                     aria-label="Create group"
                     title="Create group"
@@ -948,7 +948,7 @@ export function ChatHub() {
                   >
                     <SectionIcon group />
                     <span>Create group</span>
-                  </button>
+                  </button>}
                   <button
                     className="chat-header-action chat-header-search-action"
                     aria-label="Search messages"
@@ -1326,7 +1326,7 @@ export function ChatHub() {
                   <button type="button" onClick={() => { setMode("direct"); setNewChatError(""); }}>
                     <span>DM</span>
                     <b>Direct message</b>
-                    <small>Message one employee privately in Teams</small>
+                    <small>Message one eligible participant privately</small>
                   </button>
                   <button type="button" onClick={() => { setMode("group"); setNewChatError(""); }}>
                     <span>GR</span>
@@ -1411,7 +1411,7 @@ export function ChatHub() {
                   </div>
                 )}
                 <label className="chat-people-search">
-                  <span>{mode === "group" ? `Members (${group.members.length} selected)` : "Employee"}</span>
+                  <span>{mode === "group" ? `Members (${group.members.length} selected)` : "Participant"}</span>
                   <span className="chat-people-search-control">
                     <SearchIcon />
                     <input
@@ -1423,7 +1423,7 @@ export function ChatHub() {
                     />
                   </span>
                 </label>
-                <div className="chat-people-list" role="listbox" aria-label="Active employees" aria-multiselectable={mode === "group"}>
+                <div className="chat-people-list" role="listbox" aria-label="Eligible participants" aria-multiselectable={mode === "group"}>
                   {people.map((person) => {
                     const existing = conversations.some(
                       (item) =>
