@@ -1,0 +1,32 @@
+.weekly-entry{min-width:0;padding:20px;display:grid;gap:16px}
+.weekly-entry h2{font-size:18px;font-weight:700}
+.weekly-entry h3{font-size:16px;font-weight:700}
+.weekly-entry p{font-size:13px;line-height:1.6}
+.weekly-entry .weekly-controls{display:flex;flex-wrap:wrap;gap:8px}
+.weekly-entry .btn{min-height:44px;white-space:normal}
+.weekly-group{min-width:0;border:1px solid #cbd9d6;border-radius:10px;padding:14px;display:grid;gap:12px}
+.weekly-group legend{padding:0 6px;font-size:14px;font-weight:700}
+.weekly-days{display:flex;flex-wrap:wrap;gap:8px}
+.weekly-days label{display:flex;align-items:center;gap:6px;min-height:44px;border:1px solid #cbd9d6;border-radius:8px;padding:6px 10px;cursor:pointer}
+.weekly-days label:has(input:checked){border-color:#087b78;background:#e9f7f5;color:#006b64}
+.weekly-days input,.weekly-midnight input{width:16px;height:16px;accent-color:#087b78}
+.weekly-days abbr{text-decoration:none}
+.weekly-slot{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end}
+.weekly-slot label{min-width:0;font-size:13px}
+.weekly-entry .input{display:block;min-height:44px;width:100%;min-width:0;max-width:100%;font-size:14px}
+.weekly-entry textarea.input{resize:vertical;min-height:150px}
+.weekly-slot-note{grid-column:1/-1;font-size:12px}
+.weekly-midnight{display:flex;align-items:center;gap:8px}
+.weekly-review{min-width:0;border-top:1px solid #cbd9d6;padding-top:16px;display:grid;gap:12px}
+.weekly-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.weekly-summary>div{min-width:0;padding:10px 0;border-bottom:1px solid #cbd9d6}
+.weekly-summary h4{font-size:13px;font-weight:700;margin-bottom:4px}
+.weekly-summary li,.weekly-summary p{font-size:13px;overflow-wrap:anywhere}
+.weekly-summary small{display:block;font-size:12px;font-weight:600}
+.weekly-error{border:1px solid #e59a9a;border-radius:8px;padding:10px;color:#9f3131}
+.weekly-entry button:focus-visible,.weekly-entry input:focus-visible,.weekly-entry textarea:focus-visible{outline:2px solid #0f988e;outline-offset:2px}
+.weekly-entry fieldset:disabled{opacity:.7}
+html[data-theme="colorful"] .weekly-group,html[data-theme="colorful"] .weekly-days label,html[data-theme="colorful"] .weekly-review,html[data-theme="colorful"] .weekly-summary>div{border-color:#56628a}
+html[data-theme="colorful"] .weekly-days label:has(input:checked){background:#174b51;color:#c5fff2;border-color:#63e1d3}
+html[data-theme="colorful"] .weekly-error{color:#ffb9b9;border-color:#c16e81}
+@media(max-width:560px){.weekly-entry{padding:14px}.weekly-group{padding:10px}.weekly-slot{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.weekly-slot>button{grid-column:1/-1;justify-self:start}.weekly-summary{grid-template-columns:1fr}.weekly-days{gap:6px}.weekly-days label{padding:6px 8px}}

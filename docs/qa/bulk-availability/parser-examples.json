@@ -1,0 +1,236 @@
+[
+  {
+    "input": "Mon-Sat: 9-10 AM, 2-3 PM, 6-7 PM\nSun: 10 AM-1 PM",
+    "groups": [
+      {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "slots": [
+          {
+            "start_time": "09:00",
+            "end_time": "10:00"
+          },
+          {
+            "start_time": "14:00",
+            "end_time": "15:00"
+          },
+          {
+            "start_time": "18:00",
+            "end_time": "19:00"
+          }
+        ]
+      },
+      {
+        "days": [
+          0
+        ],
+        "slots": [
+          {
+            "start_time": "10:00",
+            "end_time": "13:00"
+          }
+        ]
+      }
+    ],
+    "ranges": [
+      {
+        "day_of_week": 0,
+        "start_time": "10:00",
+        "end_time": "13:00"
+      },
+      {
+        "day_of_week": 1,
+        "start_time": "09:00",
+        "end_time": "10:00"
+      },
+      {
+        "day_of_week": 1,
+        "start_time": "14:00",
+        "end_time": "15:00"
+      },
+      {
+        "day_of_week": 1,
+        "start_time": "18:00",
+        "end_time": "19:00"
+      },
+      {
+        "day_of_week": 2,
+        "start_time": "09:00",
+        "end_time": "10:00"
+      },
+      {
+        "day_of_week": 2,
+        "start_time": "14:00",
+        "end_time": "15:00"
+      },
+      {
+        "day_of_week": 2,
+        "start_time": "18:00",
+        "end_time": "19:00"
+      },
+      {
+        "day_of_week": 3,
+        "start_time": "09:00",
+        "end_time": "10:00"
+      },
+      {
+        "day_of_week": 3,
+        "start_time": "14:00",
+        "end_time": "15:00"
+      },
+      {
+        "day_of_week": 3,
+        "start_time": "18:00",
+        "end_time": "19:00"
+      },
+      {
+        "day_of_week": 4,
+        "start_time": "09:00",
+        "end_time": "10:00"
+      },
+      {
+        "day_of_week": 4,
+        "start_time": "14:00",
+        "end_time": "15:00"
+      },
+      {
+        "day_of_week": 4,
+        "start_time": "18:00",
+        "end_time": "19:00"
+      },
+      {
+        "day_of_week": 5,
+        "start_time": "09:00",
+        "end_time": "10:00"
+      },
+      {
+        "day_of_week": 5,
+        "start_time": "14:00",
+        "end_time": "15:00"
+      },
+      {
+        "day_of_week": 5,
+        "start_time": "18:00",
+        "end_time": "19:00"
+      },
+      {
+        "day_of_week": 6,
+        "start_time": "09:00",
+        "end_time": "10:00"
+      },
+      {
+        "day_of_week": 6,
+        "start_time": "14:00",
+        "end_time": "15:00"
+      },
+      {
+        "day_of_week": 6,
+        "start_time": "18:00",
+        "end_time": "19:00"
+      }
+    ],
+    "error": null
+  },
+  {
+    "input": "Monday-Saturday: 1:30 PM-1 AM",
+    "groups": [
+      {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "slots": [
+          {
+            "start_time": "13:30",
+            "end_time": "01:00"
+          }
+        ]
+      }
+    ],
+    "ranges": [
+      {
+        "day_of_week": 1,
+        "start_time": "13:30",
+        "end_time": "01:00"
+      },
+      {
+        "day_of_week": 2,
+        "start_time": "13:30",
+        "end_time": "01:00"
+      },
+      {
+        "day_of_week": 3,
+        "start_time": "13:30",
+        "end_time": "01:00"
+      },
+      {
+        "day_of_week": 4,
+        "start_time": "13:30",
+        "end_time": "01:00"
+      },
+      {
+        "day_of_week": 5,
+        "start_time": "13:30",
+        "end_time": "01:00"
+      },
+      {
+        "day_of_week": 6,
+        "start_time": "13:30",
+        "end_time": "01:00"
+      }
+    ],
+    "error": null
+  },
+  {
+    "input": "Mon, Wed, Fri: 6 PM-9 PM",
+    "groups": [
+      {
+        "days": [
+          1,
+          3,
+          5
+        ],
+        "slots": [
+          {
+            "start_time": "18:00",
+            "end_time": "21:00"
+          }
+        ]
+      }
+    ],
+    "ranges": [
+      {
+        "day_of_week": 1,
+        "start_time": "18:00",
+        "end_time": "21:00"
+      },
+      {
+        "day_of_week": 3,
+        "start_time": "18:00",
+        "end_time": "21:00"
+      },
+      {
+        "day_of_week": 5,
+        "start_time": "18:00",
+        "end_time": "21:00"
+      }
+    ],
+    "error": null
+  },
+  {
+    "input": "Sunday: Anytime",
+    "groups": [],
+    "ranges": [],
+    "error": "Line 1: 'Anytime' needs a specific start and end time."
+  }
+]
