@@ -10,14 +10,22 @@ import { buildOrganizationTree, isChairman, reportingManagerError, type Organiza
 import { ancestorIds, initialCollapsedBranches, layoutOrganization, organizationCardHeight, organizationCardWidth } from '@/lib/organization-chart-layout';
 import { organizationChangedEvent, organizationRepository } from '@/lib/organization-repository';
 import { employeeAvatarInitials } from '@/lib/employee-avatar';
+import { profilePhotoThumbnailUrl } from '@/lib/profile-photo-thumbnail';
 import { DepartmentSelect } from './department-select';
 import { ProfilePhotoViewer } from './profile-photo-viewer';
 import './profile-organization-chart.css';
 
 function Avatar({ person, onOpen }: { person: OrganizationEmployee; onOpen: (person: OrganizationEmployee, trigger: HTMLButtonElement) => void }) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [retried, setRetried] = useState(false);
+  useEffect(() => {
+    if (!failed || retried) return;
+    const retry = window.setTimeout(() => { setRetried(true); setFailed(false); }, 300);
+    return () => window.clearTimeout(retry);
+  }, [failed, retried]);
   return person.photo_url && !failed
-    ? <button type="button" className="organization-photo-trigger nodrag nopan" aria-label={`View photo of ${person.full_name}`} onClick={event => onOpen(person, event.currentTarget)}><Image src={person.photo_url} alt="" width={48} height={48} unoptimized onError={() => setFailed(true)} /></button>
+    ? <button type="button" className="organization-photo-trigger nodrag nopan" aria-label={`View photo of ${person.full_name}`} onClick={event => onOpen(person, event.currentTarget)}><span aria-hidden="true">{employeeAvatarInitials(person.full_name)}</span><Image src={profilePhotoThumbnailUrl(person.photo_url, retried)} alt="" width={48} height={48} unoptimized style={{ opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} onError={() => setFailed(true)} /></button>
     : <span>{employeeAvatarInitials(person.full_name)}</span>;
 }
 type PersonData = {
@@ -316,7 +324,7 @@ export function ProfileOrganizationChart({ profileId, refreshKey, isSelf = false
         <div className="organization-flow-hint">{touchNavigation ? 'Swipe sideways to explore · Scroll up or down to move the page' : 'Scroll to explore · Use controls to zoom'}</div>
       </ReactFlow>
     </div> : null}
-    {externalClinicians.length > 0 && <section className="organization-external-section" aria-label="Online Psychologists"><h3>Online Psychologists <span>({externalClinicians.length})</span></h3><p>External clinicians · Directory only · Reporting relationships are not assigned here.</p><ul className="organization-external-grid">{externalClinicians.map(person => <li key={person.id} className="organization-list-person" data-clinician-id={person.clinician_id}><div className="organization-person-avatar"><Avatar person={person} onOpen={openPhoto} /></div><div className="organization-list-identity"><strong>{person.can_manage_clinician && person.clinician_id ? <Link href={`${adminView ? '/admin' : '/employee'}/online-clinicians`}>{person.full_name}</Link> : person.full_name}</strong><span className="organization-external-badge">Online Psychologist</span></div></li>)}</ul></section>}
+    {externalClinicians.length > 0 && <section className="organization-external-section" aria-label="Online Psychologists"><h3>Online Psychologists <span>({externalClinicians.length})</span></h3><p>External clinicians · Directory only · Reporting relationships are not assigned here.</p><ul className="organization-external-grid">{externalClinicians.map(person => <li key={person.id} className="organization-list-person" data-clinician-id={person.clinician_id}><div className="organization-person-avatar"><Avatar key={person.photo_url || 'initials'} person={person} onOpen={openPhoto} /></div><div className="organization-list-identity"><strong>{person.can_manage_clinician && person.clinician_id ? <Link href={`${adminView ? '/admin' : '/employee'}/online-clinicians`}>{person.full_name}</Link> : person.full_name}</strong><span className="organization-external-badge">Online Psychologist</span></div></li>)}</ul></section>}
     {editing && editing.person_type !== 'outsourced_clinician' && <OrganizationEditor person={editing} people={employees} onClose={close} onSaved={() => { close(); setNotice('Organization details saved.'); void load(); onChanged?.(); }} />}
     {photoPerson?.photo_url && <ProfilePhotoViewer name={photoPerson.full_name} src={photoPerson.photo_url} onClose={closePhoto} />}
   </section>;
