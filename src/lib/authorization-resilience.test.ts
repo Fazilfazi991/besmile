@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { authorizationRead, AuthorizationUnavailable, isTransientAuthorizationError, withAuthorizationTransportRetry } from './authorization-transport';
 
-const mock = vi.hoisted(() => ({auth:vi.fn(),profile:vi.fn(),permission:vi.fn()}));
-vi.mock('@supabase/ssr', () => ({createServerClient: () => ({
+const mock = vi.hoisted(() => ({auth:vi.fn(),profile:vi.fn(),permission:vi.fn(),batch:vi.fn(),options:null as any}));
+vi.mock('@supabase/ssr', () => ({createServerClient: (_url: string, _key: string, options: any) => {mock.options=options;return ({
   auth:{getUser:mock.auth},
   from:() => ({select:() => ({eq:() => ({abortSignal:() => ({maybeSingle:mock.profile})})})}),
-  rpc:(_name: string,args: {permission_code:string}) => ({abortSignal:() => mock.permission(args.permission_code)}),
-})}));
+  rpc:(name: string,args: {permission_code:string;permission_codes:string[]}) => ({abortSignal:() => name==='granted_permissions' ? mock.batch(args.permission_codes) : mock.permission(args.permission_code)}),
+})}}));
 import { middleware } from '../middleware';
 const reset = {message:'fetch failed',code:'ECONNRESET'};
 beforeEach(() => {
@@ -15,6 +15,12 @@ beforeEach(() => {
   mock.auth.mockReset().mockResolvedValue({data:{user:{id:'qa-employee'}},error:null});
   mock.profile.mockReset().mockResolvedValue({data:{role:'staff',status:'active',is_employee:true},error:null});
   mock.permission.mockReset().mockResolvedValue({data:false,error:null});
+  mock.batch.mockReset().mockImplementation(async (codes: string[]) => {
+    const results=await Promise.all(codes.map(code=>mock.permission(code)));
+    const failed=results.find(result=>result.error);if(failed)return failed;
+    if(results.some(result=>typeof result.data!=='boolean'))return {data:null,error:null};
+    return {data:codes.filter((_,index)=>results[index].data),error:null};
+  });
   vi.spyOn(console,'warn').mockImplementation(() => {});
 });
 afterEach(() => {vi.useRealTimers();vi.restoreAllMocks();});
@@ -24,6 +30,46 @@ async function request() {
   return result;
 }
 describe('authorization resilience remains fail closed', () => {
+  it('checks directory shell and route permissions in one live batch', async () => {
+    mock.permission.mockImplementation(async (code: string)=>({data:code==='employees.identity.view',error:null}));
+    const result=middleware(new NextRequest('http://localhost/admin/employees'));
+    await vi.runAllTimersAsync();
+    expect((await result).headers.get('x-middleware-next')).toBe('1');
+    expect(mock.batch).toHaveBeenCalledTimes(1);
+    expect(mock.batch.mock.calls[0][0]).toEqual(expect.arrayContaining(['employees.view','employees.identity.view','employees.identity.edit','admin.shell']));
+  });
+  it('does not reuse a previous request grant after revocation', async () => {
+    mock.batch.mockResolvedValueOnce({data:['employees.view'],error:null}).mockResolvedValue({data:[],error:null});
+    mock.profile.mockResolvedValue({data:{role:'director',status:'active',is_employee:true},error:null});
+    const first=await middleware(new NextRequest('http://localhost/admin/employees'));
+    const second=await middleware(new NextRequest('http://localhost/admin/employees'));
+    expect(first.headers.get('x-middleware-next')).toBe('1');
+    expect(second.headers.get('location')).toBe('http://localhost/unauthorized');
+    expect(mock.batch).toHaveBeenCalledTimes(2);
+  });
+  it('rejects an unexpected grant returned by a malformed batch', async () => {
+    mock.batch.mockResolvedValue({data:['unrequested.permission'],error:null});
+    expect((await request()).status).toBe(503);
+  });
+  it('keeps mandatory onboarding ahead of directory permission checks', async () => {
+    mock.profile.mockResolvedValue({data:{role:'staff',status:'active',is_employee:false,onboarding_required:true},error:null});
+    const result=await middleware(new NextRequest('http://localhost/admin/employees'));
+    expect(result.headers.get('location')).toBe('http://localhost/onboarding/password');
+    expect(mock.batch).not.toHaveBeenCalled();
+  });
+  it('aborts the actual session fetch on timeout before retrying', async () => {
+    const signals: AbortSignal[]=[];
+    vi.stubGlobal('fetch',vi.fn((_input: unknown,init: RequestInit)=>new Promise((_resolve,reject)=>{
+      const signal=init.signal!;signals.push(signal);
+      signal.addEventListener('abort',()=>reject(Object.assign(new Error('fetch failed'),{code:'ETIMEDOUT'})),{once:true});
+    })));
+    mock.auth.mockImplementation(()=>mock.options.global.fetch('https://example.test/auth/v1/user'));
+    try {
+      expect((await request()).status).toBe(503);
+      expect(signals).toHaveLength(2);
+      expect(signals.every(signal=>signal.aborted)).toBe(true);
+    } finally {vi.unstubAllGlobals();}
+  });
   it('answers protected-route preflight without reading authorization or content', async () => {
     const response = await middleware(new NextRequest('http://localhost/admin', { method: 'OPTIONS' }));
     expect(response.status).toBe(204);

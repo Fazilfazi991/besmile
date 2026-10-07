@@ -151,7 +151,7 @@ export default function EmployeesPage() {
           <h1 className="text-2xl font-bold">Employees</h1>
           <p className="mt-1 text-sm text-slate-600">Manage employee profiles, status, access, and work activity.</p>
         </div>
-        <Link className="btn btn-primary" href="/admin/employees/new">Add employee</Link>
+        <Link prefetch={false} className="btn btn-primary" href="/admin/employees/new">Add employee</Link>
       </div>
       {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -256,7 +256,7 @@ export default function EmployeesPage() {
                     <StatusBadge status={employee.status} />
                     {employee.removed_at && <small className="mt-1 block text-slate-500">Removed {new Date(employee.removed_at).toLocaleDateString()}{employee.remover?.full_name ? ` by ${employee.remover.full_name}` : ''}</small>}
                   </td>
-                  <td className="px-4 py-3"><Link className="font-semibold text-teal-700 hover:underline" href={`/admin/employees/${employee.id}`}>Open profile</Link></td>
+                  <td className="px-4 py-3"><Link prefetch={false} className="font-semibold text-teal-700 hover:underline" href={`/admin/employees/${employee.id}`}>Open profile</Link></td>
                 </tr>
               ))}
           </tbody>

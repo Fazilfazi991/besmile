@@ -21,7 +21,7 @@ function TopbarAvatar({ name, photoUrl }: Pick<TopbarProfileLinkProps, 'name' | 
 
 export function TopbarProfileLink({ href, name, subtitle, photoUrl }: TopbarProfileLinkProps) {
   return (
-    <Link className="topbar-user" href={href} aria-label={`Open profile for ${name}`}>
+    <Link prefetch={false} className="topbar-user" href={href} aria-label={`Open profile for ${name}`}>
       <TopbarAvatar key={photoUrl || 'initial'} name={name} photoUrl={photoUrl} />
       <div>
         <b>{name}</b>

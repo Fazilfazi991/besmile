@@ -28,8 +28,14 @@ vi.mock("@supabase/ssr", () => ({
         eq: () => ({ abortSignal: () => ({ maybeSingle: mock.profile }) }),
       }),
     }),
-    rpc: (_name: string, args: { permission_code: string }) => ({
-      abortSignal: () => mock.permission(args.permission_code),
+    rpc: (name: string, args: { permission_code: string; permission_codes: string[] }) => ({
+      abortSignal: async () => {
+        if (name !== "granted_permissions") return mock.permission(args.permission_code);
+        const results = await Promise.all(args.permission_codes.map(code => mock.permission(code)));
+        const failed = results.find(result => result.error);
+        if (failed) return failed;
+        return { data: args.permission_codes.filter((_, index) => results[index].data === true), error: null };
+      },
     }),
   }),
 }));

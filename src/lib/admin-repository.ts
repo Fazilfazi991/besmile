@@ -1,3 +1,4 @@
+import { reviewedQaProfileFilter } from './reviewed-qa-profiles';
 import {supabase} from './supabase';
 import type {Employee} from './employees';
 import {employeeSalarySettingsSelect} from './payroll-query';
@@ -57,7 +58,7 @@ export const adminRepository={
   ]);const results=[employees,present,late,onLeave,pendingLeave,openTasks,overdueTasks,pendingDocuments,leads,followups,hotLeads,sales];const failed=results.find((item:any)=>item.error);if(failed)throw failed.error;return {timezone:settings.timezone,employees:employees.count||0,presentToday:present.count||0,lateToday:late.count||0,onLeave:onLeave.count||0,pendingLeave:pendingLeave.count||0,openTasks:openTasks.count||0,overdueTasks:overdueTasks.count||0,pendingDocuments:pendingDocuments.count||0,leads:leads.count||0,todayLeads:Number(todayLeadSummary?.periodLeads||0),followupsDue:followups.count||0,hotLeads:hotLeads.count||0,sales:sales.count||0}},
  async employees(query='',page=0,size=10,workforce:'current'|'all'='current'){
   const r=requireDb();const from=page*size;
-  const fetch=async(select:string)=>{let q=r.from('profiles').select(select,{count:'exact'}).eq('is_employee',true).neq('role','director').order('full_name').range(from,from+size-1);if(workforce==='current')q=q.in('status',operationalEmployeeStatuses).eq('workforce_visible',true);if(query)q=q.or(`full_name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%,employee_code.ilike.%${query}%`);return q};
+  const fetch=async(select:string)=>{let q=r.from('profiles').select(select,{count:'exact'}).eq('is_employee',true).not('id','in',reviewedQaProfileFilter).neq('role','director').order('full_name').range(from,from+size-1);if(workforce==='current')q=q.in('status',operationalEmployeeStatuses).eq('workforce_visible',true);if(query)q=q.or(`full_name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%,employee_code.ilike.%${query}%`);return q};
   let result=await fetch('id,full_name,email,work_email,phone,employee_code,role,designation,department_id,manager_id,status,workforce_visible,joining_date,removed_at,removal_reason,removed_by,department:departments(name)');
   if(result.error&&/work_email/i.test(result.error.message||''))result=await fetch('id,full_name,email,phone,employee_code,role,designation,department_id,manager_id,status,workforce_visible,joining_date,removed_at,removal_reason,removed_by,department:departments(name)');
   if(result.error&&employeeRemovalSchemaUnavailable(result.error))result=await fetch('id,full_name,email,phone,employee_code,role,designation,department_id,manager_id,status,workforce_visible,joining_date,department:departments(name)');
