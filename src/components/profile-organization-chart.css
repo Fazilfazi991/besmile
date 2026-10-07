@@ -47,7 +47,8 @@
 .organization-person-main { display: grid; grid-template-columns: 44px minmax(0,1fr); align-items: center; gap: 10px; min-width: 0; }
 .organization-person-avatar { display: grid; width: 44px; height: 44px; place-items: center; overflow: hidden; border-radius: 50%; background: #dff3ef; color: #006b64; font-size: 14px; font-weight: 800; flex: none; }
 .organization-person-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.organization-photo-trigger { display: block; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 50%; overflow: hidden; cursor: zoom-in; }
+.organization-photo-trigger { position: relative; display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 50%; overflow: hidden; cursor: zoom-in; background: transparent; color: inherit; font: inherit; }
+.organization-photo-trigger img { position: absolute; inset: 0; }
 .organization-photo-trigger:focus-visible { outline: 3px solid var(--org-line); outline-offset: 2px; }
 .organization-person-identity { min-width: 0; }
 .organization-person-identity > span, .organization-person-identity > small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

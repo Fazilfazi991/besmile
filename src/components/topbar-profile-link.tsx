@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { profilePhotoThumbnailUrl } from '@/lib/profile-photo-thumbnail';
 
 type TopbarProfileLinkProps = {
   href: string;
@@ -15,7 +16,7 @@ type TopbarProfileLinkProps = {
 function TopbarAvatar({ name, photoUrl }: Pick<TopbarProfileLinkProps, 'name' | 'photoUrl'>) {
   const [failed, setFailed] = useState(false);
   return photoUrl && !failed
-    ? <Image src={photoUrl} alt="" width={30} height={30} unoptimized onError={() => setFailed(true)} />
+    ? <Image src={profilePhotoThumbnailUrl(photoUrl)} alt="" width={30} height={30} unoptimized onError={() => setFailed(true)} />
     : <span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>;
 }
 

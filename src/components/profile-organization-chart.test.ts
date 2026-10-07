@@ -10,7 +10,7 @@ describe('organization integration boundaries', () => {
   });
   it('uses current private profile photos and initials, never copied chart portraits', () => {
     const repository=source('src/lib/organization-repository.ts');
-    expect(repository).toContain('signedProfilePhotoUrl(supabase, person.avatar_url)');
+    expect(repository).toContain('resolveDirectoryPhotos(supabase, people.map');
     const component=source('src/components/profile-organization-chart.tsx');
     expect(component).toContain('onError={() => setFailed(true)}');
     expect(component).toContain('employeeAvatarInitials(person.full_name)');

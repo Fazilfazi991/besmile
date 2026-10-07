@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
-import { signedProfilePhotoUrl } from './profile-photo';
+import { createDirectoryPhotoResolver } from './directory-photos';
 import { type OrganizationEmployee } from './organization-chart-config';
+
+const resolveDirectoryPhotos = createDirectoryPhotoResolver();
 
 export const organizationChangedEvent = 'bsmile:organization-changed';
 export function notifyOrganizationChanged() {
@@ -18,10 +20,11 @@ export const organizationRepository = {
     const { data, error } = await supabase.rpc('organization_people_directory');
     if (error) throw error;
     const people: OrganizationEmployee[] = data || [];
-    return Promise.all(people.map(async person => ({
+    const photos = await resolveDirectoryPhotos(supabase, people.map(person => person.avatar_url || ''));
+    return people.map(person => ({
       ...person,
-      photo_url: await signedProfilePhotoUrl(supabase, person.avatar_url).catch(() => null),
-    })));
+      photo_url: person.avatar_url ? photos.get(person.avatar_url) || null : null,
+    }));
   },
   async departments(): Promise<Array<{ id: string; name: string }>> {
     const { data, error } = await supabase.from('departments').select('id,name').eq('is_active', true).order('name');
