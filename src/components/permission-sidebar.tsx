@@ -382,7 +382,7 @@ export function PermissionSidebar({
                     <span className="nav-section-chevron" aria-hidden="true" />
                   </button>
                 ) : (
-                  <Link
+                  <Link prefetch={false}
                     className={`nav-section-trigger nav-section-direct${containsActive ? " active" : ""}`}
                     aria-current={containsActive ? "page" : undefined}
                     href={section.links[0].href}
@@ -406,7 +406,7 @@ export function PermissionSidebar({
                         {section.links.map((link) => {
                           const active = activeHref === link.href;
                           return (
-                            <Link
+                            <Link prefetch={false}
                               className={`nav-card${active ? " active" : ""}`}
                               aria-current={active ? "page" : undefined}
                               href={link.href}
@@ -426,7 +426,7 @@ export function PermissionSidebar({
           })}
         </nav>
         <div className="sidebar-footer">
-          <Link
+          <Link prefetch={false}
             className="sidebar-user"
             href={profileHref}
             aria-label="My Profile"
@@ -477,7 +477,7 @@ export function PermissionSidebar({
                 {flyoutSection.links.map((link) => {
                   const active = activeHref === link.href;
                   return (
-                    <Link
+                    <Link prefetch={false}
                       className={`module-flyout-link${active ? " active" : ""}`}
                       aria-current={active ? "page" : undefined}
                       href={link.href}
@@ -560,7 +560,7 @@ export function PermissionSidebar({
                       <h3>Recently used</h3>
                       <div>
                         {recentLinks.map((link) => (
-                          <Link
+                          <Link prefetch={false}
                             href={link.href}
                             key={link.href}
                             onClick={() => {
@@ -588,7 +588,7 @@ export function PermissionSidebar({
                           </>
                         );
                         return direct ? (
-                          <Link
+                          <Link prefetch={false}
                             className="mobile-module-tile"
                             href={section.links[0].href}
                             key={section.title}
@@ -629,7 +629,7 @@ export function PermissionSidebar({
                       {launcherSection.links.map((link) => {
                         const active = activeHref === link.href;
                         return (
-                          <Link
+                          <Link prefetch={false}
                             className={active ? "active" : undefined}
                             aria-current={active ? "page" : undefined}
                             href={link.href}
@@ -652,7 +652,7 @@ export function PermissionSidebar({
               {launcherView.kind === "create" && (
                 <nav className="mobile-launcher-links" aria-label="Create actions">
                   {createActions.map(({ label, link }) => (
-                    <Link
+                    <Link prefetch={false}
                       href={link.href}
                       key={label}
                       onClick={() => {
@@ -672,7 +672,7 @@ export function PermissionSidebar({
         </div>
       )}
       <nav className="mobile-bottom-nav" aria-label="Mobile primary navigation">
-        <Link
+        <Link prefetch={false}
           className={activeHref === todayHref ? "active" : undefined}
           aria-current={activeHref === todayHref ? "page" : undefined}
           href={todayHref}
@@ -680,7 +680,7 @@ export function PermissionSidebar({
         >
           {clinicianWorkspace ? <><ModuleIcon label="My Schedule" /><span>Schedule</span></> : <><ModuleIcon label="Dashboard" /><span>Today</span></>}
         </Link>
-        <Link
+        <Link prefetch={false}
           className={activeHref === tasksHref ? "active" : undefined}
           aria-current={activeHref === tasksHref ? "page" : undefined}
           href={tasksHref}
@@ -689,7 +689,7 @@ export function PermissionSidebar({
           {clinicianWorkspace ? <><ModuleIcon label="My Clients" /><span>Clients</span></> : <><ModuleIcon label="Tasks" /><span>Tasks</span></>}
         </Link>
         {teamsHref ? (
-          <Link
+          <Link prefetch={false}
             className={`mobile-bottom-teams${pathname.startsWith(teamsHref) ? " active" : ""}`}
             aria-current={pathname.startsWith(teamsHref) ? "page" : undefined}
             href={teamsHref}
@@ -704,7 +704,7 @@ export function PermissionSidebar({
             <span>Teams</span>
           </button>
         )}
-        <Link
+        <Link prefetch={false}
           className={pathname.startsWith(profileHref) ? "active" : undefined}
           aria-current={pathname.startsWith(profileHref) ? "page" : undefined}
           href={profileHref}

@@ -2,6 +2,9 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminRouteRequirement, employeeRouteRequirement, isManagementRole, isSecurityAdministratorRole, workspaceLandingPath } from '@/lib/permission-access';
 import { authorizationRead, AuthorizationUnavailable, ACCESS_UNAVAILABLE_MESSAGE } from '@/lib/authorization-transport';
+import { grantedPermissions } from '@/lib/granted-permissions';
+
+const employeeLandingCandidates = ['/employee/dashboard', '/employee/patients', '/employee/crm', '/employee/announcements', '/employee/attendance', '/employee/leaves', '/employee/tasks', '/employee/documents', '/employee/chat'];
 
 function redirectWithCookies(request: NextRequest, response: NextResponse, path: string) {
   const redirectResponse = NextResponse.redirect(new URL(path, request.url));
@@ -28,17 +31,25 @@ export async function middleware(request: NextRequest) {
 }
 
 async function authorizeRequest(request: NextRequest, response: NextResponse) {
+  let sessionSignal: AbortSignal | undefined;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // getUser has no AbortSignal parameter. Cancel its actual fetch when the
+      // bounded authorization read expires, before starting another attempt.
+      global: { fetch: (input, init) => fetch(input, { ...init, signal: init?.signal || sessionSignal, cache: 'no-store' }) },
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (items) => items.forEach((item) => response.cookies.set(item.name, item.value, item.options)),
       },
     },
   );
-  const { data: { user } } = await authorizationRead(() => supabase.auth.getUser(), 'middleware.session', true);
+  const { data: { user } } = await authorizationRead(async signal => {
+    sessionSignal = signal;
+    try { return await supabase.auth.getUser(); }
+    finally { if (sessionSignal === signal) sessionSignal = undefined; }
+  }, 'middleware.session', true);
   const path = request.nextUrl.pathname;
   const protectedPath = path.startsWith('/employee') || path.startsWith('/admin') || path.startsWith('/clinician');
 
@@ -55,13 +66,29 @@ async function authorizeRequest(request: NextRequest, response: NextResponse) {
     const isSuperAdmin = profile.role === 'super_admin';
     const isManagement = isManagementRole(profile.role);
     const isOutsourcedClinician = profile.is_employee === false;
+    const requiredCodes = new Set((path.startsWith('/admin') ? adminRouteRequirement(path) : employeeRouteRequirement(path))?.anyOf || []);
+    if (path.startsWith('/admin')) {
+      requiredCodes.add('admin.shell');
+      if (path.startsWith('/admin/daily-work')) requiredCodes.add('daily_work.review_department');
+      if (path.startsWith('/admin/employees') && !path.startsWith('/admin/employees/new')) {
+        requiredCodes.add('employees.identity.view'); requiredCodes.add('employees.identity.edit');
+      }
+      if (path.startsWith('/admin/online-clinicians')) requiredCodes.add('outsourced_clinicians.manage');
+      if (path.startsWith('/admin/clinical-followups')) requiredCodes.add('clinical_followups.view_operational');
+    }
+    if (path === '/' || path === '/employee' || path === '/onboarding/password' || path.startsWith('/clinician')) {
+      employeeLandingCandidates.forEach(candidate => employeeRouteRequirement(candidate)?.anyOf?.forEach(code => requiredCodes.add(code)));
+    }
+    // One request-scoped batch; decisions still use live has_permission through
+    // the existing RLS-bound granted_permissions function.
+    let allowedPromise: Promise<Set<string>> | undefined;
     const hasAnyPermission = async (permissions: readonly string[]) => {
-      const checks = await Promise.all(permissions.map((permission) => authorizationRead(signal => supabase.rpc('has_permission', { permission_code: permission }).abortSignal(signal), 'middleware.permission')));
-      if (checks.some(check => typeof check.data !== 'boolean')) throw new AuthorizationUnavailable();
-      return checks.some((check) => check.data === true);
+      allowedPromise ||= grantedPermissions(supabase, [...requiredCodes]);
+      const allowed = await allowedPromise;
+      return permissions.some(permission => allowed.has(permission));
     };
     const employeeLandingPath = async () => {
-      for (const candidate of ['/employee/dashboard', '/employee/patients', '/employee/crm', '/employee/announcements', '/employee/attendance', '/employee/leaves', '/employee/tasks', '/employee/documents', '/employee/chat']) {
+      for (const candidate of employeeLandingCandidates) {
         const requirement = employeeRouteRequirement(candidate);
         if (!requirement || await hasAnyPermission(requirement.anyOf || [])) return candidate;
       }
@@ -93,4 +120,6 @@ async function authorizeRequest(request: NextRequest, response: NextResponse) {
   return response;
 }
 
-export const config = { matcher: ['/', '/employee/:path*', '/admin/:path*', '/clinician/:path*', '/onboarding/:path*'] };
+// Production Supabase is in ap-northeast-1 (Tokyo). Avoid intercontinental
+// authorization round trips while keeping all existing checks fail closed.
+export const config = { regions: ['hnd1'], matcher: ['/', '/employee/:path*', '/admin/:path*', '/clinician/:path*', '/onboarding/:path*'] };
