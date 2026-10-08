@@ -61,6 +61,8 @@ describe('organization fields in employee creation', () => {
     expect(fixture.update).not.toHaveBeenCalled();
   });
   it('confirms only the newly provisioned login account while requiring password onboarding', async () => {
+    // The starter may be shorter than the private password chosen at onboarding.
+    process.env.EMPLOYEE_INITIAL_PASSWORD = 'Starter!2345';
     const data = form();
     data.set('login_email', '  QA@EXAMPLE.TEST  ');
     const result = await createEmployee({}, data);

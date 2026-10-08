@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { provisionExternalClinician } from './clinician-provisioning';
 const input = { doctorId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', email: ' QA@Example.test ', requestId: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb', fields: { full_name: 'QA External' } };
 const owned = { id: 'auth-a', email: 'qa@example.test', app_metadata: { clinician_provision_request_id: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb', existing_clinician_id: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa' } };
+beforeEach(() => vi.stubEnv('EMPLOYEE_INITIAL_PASSWORD', 'Starter!2345'));
 function clients() {
   const session = { rpc: vi.fn().mockResolvedValue({ data: {}, error: null }) };
   const service = { rpc: vi.fn().mockResolvedValue({ data: owned.id, error: null }), auth: { admin: {
@@ -18,7 +19,7 @@ describe('external clinician provisioning ownership', () => {
     const created = service.auth.admin.createUser.mock.calls[0][0];
     expect(created.email).toBe('qa@example.test'); expect(created.email_confirm).toBe(true);
     expect(created.password === result.temporaryPassword).toBe(true);
-    expect(/^[A-Za-z0-9_-]{32}$/.test(result.temporaryPassword!)).toBe(true);
+    expect(result.temporaryPassword).toBe(process.env.EMPLOYEE_INITIAL_PASSWORD);
     expect(service.rpc).toHaveBeenCalledWith('complete_clinician_provision', { request_id: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb', auth_user_id: 'auth-a' });
     expect(service.auth.admin.updateUserById).not.toHaveBeenCalled();
   });
@@ -49,15 +50,23 @@ describe('external clinician provisioning ownership', () => {
     const { session, service } = clients(); await expect(provisionExternalClinician(session, service, { ...input, email: '' })).rejects.toThrow('valid login email');
     expect(service.auth.admin.createUser).not.toHaveBeenCalled();
   });
-  it('independent new accounts get different credentials without persisting either', async () => {
+  it('new accounts use the configured starter without persisting it in CRM or metadata', async () => {
     const a = clients(), b = clients();
     const first = await provisionExternalClinician(a.session, a.service, input);
     const second = await provisionExternalClinician(b.session, b.service, input);
-    expect(first.temporaryPassword !== second.temporaryPassword).toBe(true);
+    expect(first.temporaryPassword).toBe(process.env.EMPLOYEE_INITIAL_PASSWORD);
+    expect(second.temporaryPassword).toBe(first.temporaryPassword);
     for (const [client, result] of [[a, first], [b, second]] as const) {
       expect(JSON.stringify(client.session.rpc.mock.calls).includes(result.temporaryPassword!)).toBe(false);
       expect(JSON.stringify(client.service.rpc.mock.calls).includes(result.temporaryPassword!)).toBe(false);
       expect(JSON.stringify(client.service.auth.admin.createUser.mock.calls[0][0].app_metadata).includes(result.temporaryPassword!)).toBe(false);
     }
+  });
+  it('does not create Auth when the starter is unconfigured', async () => {
+    vi.stubEnv('EMPLOYEE_INITIAL_PASSWORD', '');
+    const { session, service } = clients();
+    await expect(provisionExternalClinician(session, service, input)).rejects.toThrow('not configured');
+    expect(service.auth.admin.createUser).not.toHaveBeenCalled();
+    expect(service.rpc).not.toHaveBeenCalled();
   });
 });

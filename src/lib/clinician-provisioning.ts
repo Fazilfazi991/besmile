@@ -1,11 +1,9 @@
-import { newTemporaryCredential } from './temporary-credential';
-
 /** The reservation RPC owns authorization and immutable request binding.
  * Auth recovery only accepts server app_metadata for the same reservation.
  * No retry path updates a password or claims an unrelated email identity. */
 export async function provisionExternalClinician(session: any, service: any, input: {
   doctorId: string; email: string; requestId: string; fields: Record<string, string>;
-}) {
+}, initialCredential = process.env.EMPLOYEE_INITIAL_PASSWORD) {
   const email = input.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid login email.');
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,7 +17,10 @@ export async function provisionExternalClinician(session: any, service: any, inp
   });
   if (reserved.error) throw reserved.error;
   if (reserved.data?.completed_at && reserved.data.profile_id) return { profileId: reserved.data.profile_id, replayed: true };
-  const temporaryPassword = newTemporaryCredential();
+  if (!initialCredential) throw new Error('The server initial credential is not configured.');
+  // Match employee onboarding. Supabase validates the initial credential against
+  // its configured password policy; private passwords still require 12 characters.
+  const temporaryPassword = initialCredential;
   const belongs = (user: any) => user?.email?.toLowerCase() === email
     && user?.app_metadata?.clinician_provision_request_id === input.requestId
     && user?.app_metadata?.existing_clinician_id === input.doctorId;
@@ -46,7 +47,7 @@ export async function provisionExternalClinician(session: any, service: any, inp
   const linked = await service.rpc('complete_clinician_provision', { request_id: input.requestId, auth_user_id: identity.id });
   if (linked.error) throw new Error('Account is reserved. Retry the same request to complete its clinician link.');
   // A recovered identity still owns its original password. Never reset it on retry,
-  // and never return a newly generated password that does not belong to that user.
+  // and never return a configured password that does not belong to that user.
   return { profileId: linked.data, replayed: Boolean(created.error),
     ...(!created.error ? { temporaryPassword } : {}) };
 }
