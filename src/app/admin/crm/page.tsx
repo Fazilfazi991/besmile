@@ -23,6 +23,10 @@ import {
   validateCustomCrmRange,
 } from "@/lib/crm-dashboard-e1";
 
+import { DailyMarketingSpendEntry } from '@/components/daily-marketing-spend';
+import { DailyMarketingPerformance } from '@/components/daily-marketing-performance';
+import { type MarketingTransaction } from '@/lib/daily-marketing-spend';
+
 const palette = ["#0f766e", "#14b8a6", "#0ea5e9", "#8b5cf6", "#f59e0b", "#f43f5e", "#64748b"];
 const periodNames: Record<CrmDashboardPeriod, string> = {
   today: "Today",
@@ -40,6 +44,7 @@ export default function CrmDashboard() {
   const [summaryError, setSummaryError] = useState("");
   const [summaryRetry, setSummaryRetry] = useState(0);
   const [marketingExpenses, setMarketingExpenses] = useState<number | null>(null);
+  const [marketingRows, setMarketingRows] = useState<{ key: string; rows: MarketingTransaction[] } | null>(null);
   const [marketingError, setMarketingError] = useState("");
   const [leadSummary, setLeadSummary] = useState<CrmDashboardSummary | null>(null);
   const [leadLoading, setLeadLoading] = useState(true);
@@ -68,8 +73,8 @@ export default function CrmDashboard() {
     let active = true;
     const requestRange = { start: range.start, end: range.end };
     void adminRepository.crmMarketingExpenseTransactions(requestRange.start, requestRange.end)
-      .then(rows => { if (active) { setMarketingExpenses(marketingExpenseTotal(rows, requestRange)); setMarketingError(""); } })
-      .catch(error => { if (active) { setMarketingExpenses(null); setMarketingError(clientSafeError(error, "Marketing expenses could not be loaded. Refresh and try again.", { route: "/admin/crm", action: "load-marketing-expenses" })); } });
+      .then(rows => { if (active) { setMarketingRows({ key: `${requestRange.start}:${requestRange.end}`, rows }); setMarketingExpenses(marketingExpenseTotal(rows, requestRange)); setMarketingError(""); } })
+      .catch(error => { if (active) { setMarketingRows(null); setMarketingExpenses(null); setMarketingError(clientSafeError(error, "Marketing expenses could not be loaded. Refresh and try again.", { route: "/admin/crm", action: "load-marketing-expenses" })); } });
     return () => { active = false; };
   }, [financeAllowed, range.start, range.end, summaryRetry]);
 
@@ -261,6 +266,9 @@ export default function CrmDashboard() {
         {metricRows.map(metric => <MetricCard key={metric.label} {...metric} />)}
         {financeAllowed && ([{ label: "Sales / Revenue", value: inr(financeDisplay.revenue) }, { label: "Marketing Expenses", value: financeDisplay.marketingExpenses === null ? undefined : inr(financeDisplay.marketingExpenses) }]).map(({ label, value }) => <MetricCard key={label} label={label} value={value} context={rangeLabel} />)}
       </div>
+
+      <DailyMarketingSpendEntry onSaved={() => setSummaryRetry(value => value + 1)} />
+      {financeAllowed && !summaryLoading && summary && marketingRows?.key === `${range.start}:${range.end}` && <DailyMarketingPerformance transactions={marketingRows.rows} leads={summary.daily} range={range} />}
 
       <section className="card min-w-0 overflow-hidden" data-testid="lead-performance-card">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
