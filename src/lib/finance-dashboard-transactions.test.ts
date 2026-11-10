@@ -20,7 +20,7 @@ function ledgerDb(records: any[], failureAfter?: number) {
 
 describe('finance dashboard ledger pagination', () => {
   it('includes more than the API default cap exactly once and excludes archived rows', async () => {
-    const rows = Array.from({ length: 1201 }, (_, n) => ({ id: String(n).padStart(5, '0'), transaction_date: n < 500 ? '2026-10-19' : '2026-10-20', amount: 10, archived_at: null }));
+    const rows: Array<{ id: string; transaction_date: string; amount: number; archived_at: string | null }> = Array.from({ length: 1201 }, (_, n) => ({ id: String(n).padStart(5, '0'), transaction_date: n < 500 ? '2026-10-19' : '2026-10-20', amount: 10, archived_at: null }));
     rows.push({ id: '20000', transaction_date: '2026-10-20', amount: 999, archived_at: '2026-10-21' });
     const result = await financeDashboardTransactions(ledgerDb(rows));
     expect(result).toHaveLength(1201);
