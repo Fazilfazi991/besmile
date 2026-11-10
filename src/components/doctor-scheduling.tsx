@@ -117,15 +117,18 @@ export function DoctorSchedulingPage({ initialPatientId, initialAppointmentId, w
   }, [patientQuery, appointmentForm.patient_id, initialPatientId, patientRefresh]);
 
   useEffect(() => {
+    let active = true;
     const timer = setTimeout(async () => {
       if (!appointmentForm.doctor_id || !appointmentForm.date) { setSlots([]); return; }
+      setSlots([]);
       try {
-        setSlots(await doctorSchedulingRepository.slots(appointmentForm.doctor_id, appointmentForm.date, reschedule?.id));
+        const nextSlots = await doctorSchedulingRepository.slots(appointmentForm.doctor_id, appointmentForm.date, reschedule?.id);
+        if (active) setSlots(nextSlots);
       } catch {
-        setSlots([]);
+        if (active) { setSlots([]); setError('Unable to verify appointment availability. Please retry.'); }
       }
     }, 0);
-    return () => clearTimeout(timer);
+    return () => { active = false; clearTimeout(timer); };
   }, [appointmentForm.doctor_id, appointmentForm.date, reschedule?.id]);
 
   const canManageDoctors = permissions['doctor_scheduling.manage_doctors'];
@@ -426,15 +429,18 @@ export function PatientAppointmentsSection({ patientId, scheduleBasePath = '/adm
   }, [loadPatientAppointments]);
 
   useEffect(() => {
+    let active = true;
     const timer = setTimeout(async () => {
       if (!form.doctor_id || !form.date) { setSlots([]); return; }
+      setSlots([]);
       try {
-        setSlots(await doctorSchedulingRepository.slots(form.doctor_id, form.date, editing?.id));
+        const nextSlots = await doctorSchedulingRepository.slots(form.doctor_id, form.date, editing?.id);
+        if (active) setSlots(nextSlots);
       } catch {
-        setSlots([]);
+        if (active) { setSlots([]); setError('Unable to verify appointment availability. Please retry.'); }
       }
     }, 0);
-    return () => clearTimeout(timer);
+    return () => { active = false; clearTimeout(timer); };
   }, [form.doctor_id, form.date, editing?.id]);
 
   const openForm = (nextMode: 'create' | 'edit' | 'reschedule', appointment?: any) => {

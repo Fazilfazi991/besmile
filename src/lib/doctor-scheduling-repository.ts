@@ -27,6 +27,21 @@ export type AppointmentClientPage = {
   nextOffset: number;
 };
 
+// RLS can hide other clients' bookings from a scheduler. The database's
+// authoritative availability check sees those conflicts without exposing them.
+export async function verifyAvailableSlots(database: any, doctorId: string,
+  slots: { startAt: string; endAt: string; label: string }[], ignoredAppointment?: string) {
+  const checks = await Promise.all(slots.map(async slot => {
+    const { data, error } = await database.rpc('doctor_slot_is_available', {
+      target_doctor: doctorId, proposed_start: slot.startAt, proposed_end: slot.endAt,
+      ignored_appointment: ignoredAppointment || null,
+    });
+    if (error) throw error;
+    return data === true ? slot : null;
+  }));
+  return checks.filter((slot): slot is typeof slots[number] => slot !== null);
+}
+
 export async function fetchAppointmentClientPage(database: any, options: {
   query?: string;
   selectedPatient?: string;
@@ -249,7 +264,7 @@ export const doctorSchedulingRepository = {
     ]);
     const doctor = doctors.find((item: any) => item.id === doctorId);
     if (!doctor) return [];
-    return generateAvailableSlots({
+    const candidates = generateAvailableSlots({
       date,
       durationMinutes: doctor.consultation_duration_minutes,
       availability: doctor.availability || [],
@@ -257,6 +272,7 @@ export const doctorSchedulingRepository = {
       appointments,
       ignoreAppointmentId,
     });
+    return verifyAvailableSlots(db(), doctorId, candidates, ignoreAppointmentId);
   },
 
   async createAppointment(payload: { patientId: string; doctorId: string; startAt: string; endAt: string; consultationType: ConsultationType; appointmentFee: number; remarks?: string; requestKey?: string }) {
