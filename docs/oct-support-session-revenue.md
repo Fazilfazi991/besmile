@@ -1,0 +1,18 @@
+# Session payments and revenue: October support audit
+
+This is a limited draft, not a complete repair of the reported payment and revenue issues. Production was not modified; current Production database data and affected user identities were not available to this audit.
+
+## Confirmed code behavior
+
+- Session II/III and follow-up sessions are represented by session number/type, and the patient workspace permits an authorized Finance/invoice manager to add later payments against a session invoice. The API verifies that invoice belongs to the patient and calls the existing atomic receipt RPC. Historical receipts and ledger transactions must not be overwritten.
+- Payment at session creation uses the **appointment date** as the receipt date in `20260929184700_session_payment_ux_correction.sql`, even when payment occurs on another day. A future appointment paid today or a historical session entered later can therefore show revenue in a different period. This is not repaired here. A forward-only RPC and UI/API change must accept and validate the actual receipt business date while preserving request-key idempotency, locking, audit trails, permissions and backward compatibility. Existing financial entries require a separately approved, evidence-backed reconciliation; no automatic rewrite is appropriate.
+- Diya's requested narrow payment authorization is not implemented here. Existing UI/API and database functions require `invoices.manage` or `finance.manage`; broad grants would violate the requested scope. A dedicated bounded permission must be reviewed across receiving-account lookup, conversion, later receipts, RLS, audit and Jeenie before any release.
+- Employee My Sales sums sale value for the user's assigned leads across all dates. Management CRM revenue and director revenue count Finance ledger income and invoice payments by transaction date. These are different measures and scopes, so the sales page now labels the contract value and points to payment-date reporting. Whether any reported real-world discrepancy remains for the same date range and actor requires read-only Production reconciliation.
+- Finance dashboard transactions were loaded in one PostgREST query and could be truncated by the API row limit, unlike the CRM SQL aggregate. The dashboard now reads all visible, unarchived ledger transactions using an immutable ID cursor and sorts the result for display. This is a reproduced synthetic row-limit scenario, not proof that the reported October discrepancy was caused by truncation. Separate requests do not guarantee a transactionally consistent snapshot if the ledger changes during pagination.
+- Later session invoice payments defaulted their date to UTC today; after midnight in India but before UTC midnight that is the preceding business date. The payment-date input now uses the existing Asia/Kolkata business-date helper and remains editable.
+
+## Verification and release prerequisites
+
+Automated tests cover cursor pagination beyond 1,000 rows, exclusion of archived rows, page errors, and the India/UTC date boundary; see the PR for current command results. The user-requested authorized/unauthorized Production account checks, receipt-date correction, reversal/correction workflow, historical reconciliation and mobile/desktop live acceptance remain pending. Current Production project ref and identity, installed functions/policies and ledger snapshots must be checked read-only before preparing any grants or migration. No Production grant, migration, merge or deployment is authorized by this draft alone.
+
+Rollback: revert this commit using the repository's normal revert process and deploy only after explicit approval. This draft contains no schema changes or financial data modifications.

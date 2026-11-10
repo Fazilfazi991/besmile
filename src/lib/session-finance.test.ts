@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { sessionFinanceSummary } from './session-finance';
+import { defaultSessionPaymentDate, sessionFinanceSummary } from './session-finance';
 
 describe('repeat-session finance summary', () => {
+  it('defaults payment date to the India business date around UTC midnight', () => {
+    expect(defaultSessionPaymentDate(new Date('2026-10-19T20:00:00Z'))).toBe('2026-10-20');
+    expect(defaultSessionPaymentDate(new Date('2026-10-19T18:00:00Z'))).toBe('2026-10-19');
+  });
   it('keeps an unpaid session fee entirely outstanding', () => {
     expect(sessionFinanceSummary(1500, [])).toEqual({ fee: 1500, received: 0, outstanding: 1500, receiptIds: [], ledgerIds: [] });
   });

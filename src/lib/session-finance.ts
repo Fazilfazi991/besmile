@@ -1,4 +1,11 @@
+import { currentCrmBusinessDate } from './crm-dashboard-e1';
+
 export type SessionPayment = { id?: string | null; finance_transaction_id?: string | null; amount?: number | string | null };
+
+/** Payment dates use the same Indian business date as CRM and Finance reporting. */
+export function defaultSessionPaymentDate(now = new Date()) {
+  return currentCrmBusinessDate(now);
+}
 
 export function sessionFinanceSummary(feeValue: number | string | null | undefined, payments: SessionPayment[] = []) {
   const fee = Math.max(0, Number(feeValue || 0));
